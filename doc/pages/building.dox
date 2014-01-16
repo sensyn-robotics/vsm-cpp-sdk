@@ -1,0 +1,224 @@
+/**
+
+@page building_page Building VSM C++ SDK
+
+@tableofcontents
+
+@section building_general_information General information
+
+C++ VSM SDK is implemented using @b C++11 language which is also a requirement 
+for SDK users code.  
+
+VSM SDK uses CMake as its build system to keep it platform independent.
+
+Essentially what CMake does is it wraps the platform specific build 
+commands/files under common interface.
+
+@subsection system_requirements System requirements
+
+Currently supported build toolchains/compilers and their respective versions are:
+
+Windows: 
+- Python @b 2.7
+- CMake @b 2.8+
+- MinGW-w64 with GCC @b 4.8.2+
+
+Linux:
+- Python @b 2.7
+- CMake @b 2.8+
+- GCC @b 4.8.1+
+
+_____
+@section building_setup_env Setting up the build environment
+
+Below are instructions on how to prepare build environment on Windows and Ubuntu Linux.
+After the required components are installed the workflow is identical on both Windows and Linux.  
+
+@subsection building_windows Windows
+@subsubsection building_mingw MinGW
+
+Download and install the latest MinGW-w64 from 
+http://sourceforge.net/projects/mingw-w64.
+
+Do not use the original MinGW from site mingw.org as its C++11 implementation is
+less complete then in MinGW-w64 and in general has more bugs which all together
+does not allow to compile SDK code, at least for now.
+
+Make sure to select:
+- Architecture: @b x32 (even when installing on 64bit Windows)
+- Threads: @b posix
+- Exceptions: @b dwarf
+
+Please note that x64 architecture is also supported, however due to MinGW-w64
+bug, you might experience linking problem for debug builds due to some weird
+number of sections overflow in object file. x64 release builds, however, should
+work just fine.
+
+Make sure mingw bin directory is added to PATH (E.g. C:\\mingw\\bin)
+
+@subsubsection building_cmake CMake
+
+Get the latest cmake from http://www.cmake.org.
+
+Make sure cmake is added to PATH (E.g. C:\\Program Files (x86)\\CMake 2.8\\bin)
+
+@subsubsection building_python Python
+
+Get the latest Python 2.7 from http://www.python.org/download/
+
+Make sure python is added to PATH (E.g. C:\\Python27)
+
+@subsection building_linux Linux (Ubuntu 12.04)
+
+@subsubsection building_gcc gcc 4.8.1 compiler suite
+
+Ubuntu does not have gcc4.8 in default repositories. Add the test toolchain repo 
+and install the compilers.
+    
+    $ sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+    $ sudo apt-get install gcc-4.8
+    $ sudo apt-get install g++-4.8
+    $ sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 10
+    $ sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 10
+
+@subsubsection building_linux_cmake CMake
+
+    $ sudo apt-get cmake
+
+@subsubsection building_linux_python Python
+
+VSM SDK requires python 2.7 to build.
+
+    $ sudo apt-get install python2.7
+
+
+@section eclipse_setup Eclipse setup (optional)
+
+Eclipse is recommended IDE for all platforms.
+
+You should have the latest Java for eclipse to run.
+
+Some plugins are recommended for the development of VSM SDK itself. They are not 
+required for standalone VSM development.
+
+TFS plugin: http://marketplace.eclipse.org/content/tfs-plug-eclipse
+
+CMake editor plugin: http://sourceforge.net/projects/cmakeed/
+
+UML diagram plugin: http://plantuml.sourceforge.net/eclipse.html
+
+The vsm-cpp-sdk directory includes eclipse project file which is tuned 
+for underlying build system.
+To use it go to "File/Import/Existing Projects into Workspace"
+Eclipse project features:
+ -# Same project file can be used on both Linux and Windows.
+ -# Custom Targets to create makefiles and build with one click.
+ -# Source indexer tuned to support C++11 syntax and correct includes.
+ -# Predefined build configurations for win and linux.
+ -# .tpignore file which prevents build directories from being added to tfs.
+
+Lastly under Project/Properties/C++General/Preprocessor Includes/Providers:
+Check the "CDT GCC build output parser" and "CDT GCC built in compiler settings" 
+checkboxes.
+
+
+@section building_compilation_sdk Compiling SDK
+
+OEM manufacturers and enthusiasts are supposed to compile the SDK by themselves
+so source code is provided for them (https://github.com/UgCS/vsm-cpp-sdk),
+however they are not supposed to modify the SDK sources. If some functionality
+is missing, it is always worth to contact UgCS and suggest a proposal. Good
+proposals have a chance to be officially added to the SDK, so everybody can
+benefit from it. SDK is also accessible as pre-compiled libraries and C++11 header
+files for popular platforms (Linux, Windows, MacOS soon) and popular compilers
+(GCC, MinGW). There is no support for Microsoft MSVC compiler due to poor support
+of C++11 language standard by Microsoft.
+
+CMAKE (http://www.cmake.org/) cross-platform build system is used by VSM C++ 
+SDK. Currently, there are following configurable options for make file 
+generation:
+
+ - CMAKE_BUILD_TYPE - CMAKE variable, possible values are "DEBUG" for debug 
+builds and "RELEASE" for release build.
+ - VSM_SDK_DIR - environment variable which defines a location for VSM C++ SDK 
+installation.
+
+Python 2.6 (or later from branch 2.x) is needed for make file generation.
+
+@subsection building_cmd_line Building from command line
+
+For example (assuming current directory is location of your vsm-cpp-sdk source),
+typical compilation and installation steps of VSM SDK
+on both Linux and Windows are the following:
+
+  -# Create build directories and makefiles:
+
+         cmake -DVSM_BUILD_DOC=NO -P make/create_builds.cmake
+    This CMake script creates 2 build directories depending on current OS:
+
+    Windows: 
+    - build-debug-win
+    - build-release-win
+
+    Linux: 
+    - build-debug-linux
+    - build-release-linux
+    
+    To generate Doxygen SDK documentation <i>-DVSM_BUILD_DOC=YES</i> should be
+    passed to cmake and additional prerequisites met:
+         - Doxygen installed (http://www.stack.nl/~dimitri/doxygen/download.html).
+         - Graphviz installed (http://www.graphviz.org/Download.php). On Windows
+         make sure to create an environment variable <i>GRAPHVIZ_DOT</i> which
+         points to the dot.exe binary from the Graphviz installation folder.
+         - Java. On Windows make sure Java is installed in a folder
+         <i>without spaces</i>!
+        
+  -# Create build directories and makefiles for unittests:
+
+         cd test/unit
+         cmake -DUTPP_DIR=/path/to/UnitTest++ -P ../../make/create_builds.cmake
+     
+     You should get a copy of UnitTest++ framework
+     from http://unittest-cpp.sourceforge.net/, copy sources to any
+     location and pass it to CMake via <i>UTPP_DIR</i> variable as show in the
+     example above.
+
+  -# Perform the build:
+   - Windows debug build using 4 CPU cores:
+
+         cmake --build build-debug-windows -- -j4
+
+   - Linux debug build using 4 CPU cores:
+
+         cmake --build build-debug-linux -- -j4
+
+  -# Install the debug version of SDK on Linux:
+
+         cmake --build build-debug-linux --target install
+         
+     Make sure there is a _write_ permission for an installation folder, which 
+     is <i>C:\\Program files\\vsm_sdk</i> for Windows and <i>/opt/vsm_sdk</i> 
+     for Linux by default. Default installation path can be overridden by
+     passing a CMake variable <i>VSM_SDK_DIR</i> to the configuration
+     phase, for example:
+     
+         cmake -DVSM_BUILD_DOC=NO -DVSM_SDK_DIR=C:\My Location\VSM C++ SDK\ -P make/create_builds.cmake
+
+(These steps can be automated via build targets in eclipse workspace)
+
+---
+@section building_compilation_vsm Compiling VSM
+
+After SDK is installed, cmake can be used to build VSMs, too
+(see @ref hello_world_vsm_page).
+
+Any other build system of user choice can be used to
+compile VSM with the following settings:
+
+ - SDK include folder: "include" under your VSM_SDK_DIR
+ - SDK library folder: "lib" under your VSM_SDK_DIR
+ - Additional Linux platform libraries: "rt"
+ - Additional Windows platform libraries: "ws2_32"
+ - SDK library name: "vsm_sdk"
+
+*/

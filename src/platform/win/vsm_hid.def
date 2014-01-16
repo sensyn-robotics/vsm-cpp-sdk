@@ -1,0 +1,22 @@
+LIBRARY hid.dll
+EXPORTS
+HidD_GetManufacturerString@12
+HidD_GetManufacturerString = HidD_GetManufacturerString@12
+
+HidD_GetProductString@12
+HidD_GetProductString = HidD_GetProductString@12
+
+HidD_GetFeature@12
+HidD_GetFeature = HidD_GetFeature@12
+
+HidD_GetInputReport@12
+HidD_GetInputReport = HidD_GetInputReport@12
+
+HidD_SetOutputReport@12
+HidD_SetOutputReport = HidD_SetOutputReport@12
+
+HidD_GetPreparsedData@8
+HidD_GetPreparsedData = HidD_GetPreparsedData@8
+
+HidD_FreePreparsedData@4
+HidD_FreePreparsedData = HidD_FreePreparsedData@4

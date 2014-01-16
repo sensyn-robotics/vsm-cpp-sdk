@@ -1,0 +1,66 @@
+# Helgrind suppressions for standard library synchronization entities.
+
+{
+    shared_ptr
+    Helgrind:Race
+    ...
+    fun:*shared_ptr*
+}
+
+{
+    enable_shared_from_this
+    Helgrind:Race
+    fun:*enable_shared_from_this*
+}
+
+{
+    Mutex lock
+    Helgrind:Race
+    ...
+    fun:_ZNSt5mutex4lockEv
+}
+
+{
+    Mutex unlock
+    Helgrind:Race
+    ...
+    fun:_ZNSt5mutex6unlockEv
+}
+
+{
+    Unique lock
+    Helgrind:Race
+    fun:*unique_lock*
+}
+
+{
+    unittest++
+    Helgrind:Race
+    fun:*UnitTest*
+}
+
+{
+    atomic fields
+    Helgrind:Race
+    ...
+    fun:*__atomic_base*
+}
+
+{
+    atomic_bool
+    Helgrind:Race
+    fun:*atomic_bool*
+}
+
+{
+    sleep_for
+    Helgrind:Race
+    ...
+    fun:*11this_thread9sleep_for*
+}
+
+{
+    Request_container::Is_enabled()
+    Helgrind:Race
+    fun:_ZNK3vsm14Request_container10Is_enabledEv
+}

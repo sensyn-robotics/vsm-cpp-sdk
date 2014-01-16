@@ -1,0 +1,87 @@
+@startuml
+
+title C++ VSM threads
+
+participant "Main thread" as Main_thr
+participant "Dispatcher thread 1\n(file descriptors)" as Disp_thr_1
+participant "Dispatcher thread 2\n(SSL sockets)" as Disp_thr_2
+participant "Dispatcher thread 3\n(libusb vehicles)" as Disp_thr_3
+participant "Dispatcher thread 4\n(Timer thread)" as Timer_thr
+
+participant "Vehicle thread 1\nArdupilot" as Vehicle_thr_1
+participant "Vehicle thread 2\nMicrodrone" as Vehicle_thr_2
+participant "Vehicle thread 3\nArdupilot" as Vehicle_thr_3
+
+==Initialization==
+
+activate Main_thr
+
+Main_thr -> Main_thr: Vsm_init() called
+
+Main_thr -> Disp_thr_1: Dispatcher thread created
+activate Disp_thr_1
+Main_thr -> Disp_thr_2: Dispatcher thread created
+activate Disp_thr_2
+Main_thr -> Disp_thr_3: Dispatcher thread created
+activate Disp_thr_3
+Main_thr -> Timer_thr: Timer thread created
+activate Timer_thr
+
+Main_thr -> Main_thr: vms::Register_vehicle("Ardupilot", ardupilot_vehicle_inst_1, create_thread)
+Main_thr -> Vehicle_thr_1: Create vehicle thread if requested
+activate Vehicle_thr_1
+
+Main_thr -> Main_thr: vms::Register_vehicle("Microdrone", microdrone_vehicle_inst_1, create_thread)
+Main_thr -> Vehicle_thr_2: Create vehicle thread if requested
+activate Vehicle_thr_2
+
+== Operation (separate thread per vehicle) ==
+
+group Write transaction
+    Vehicle_thr_1 -> Disp_thr_1: Io_buffer is prepared and queued\nfor sending to CUCS with\nthe notification about the vehicle\nconnection.
+    Disp_thr_1 -> Disp_thr_1: Once CUCS socket becomes writable\nqueued data are sent
+end
+
+group Read transaction
+    Disp_thr_1 -> Disp_thr_1: Data received (e.g. from CUCS)
+    Disp_thr_1 -> Vehicle_thr_1: Io_event with received Io_buffer\nsubmitted to the receiver vehicle
+    Vehicle_thr_1 -> Vehicle_thr_1: vsm::Process_events() blocking call by SDK,\nqueued events processed
+end
+
+group Timer usage
+    Vehicle_thr_1 -> Vehicle_thr_1: Register timer
+    Timer_thr -> Vehicle_thr_1: Timer event when timer fired
+end
+
+== Operation (no separate thread per vehicle) ==
+
+group Write transaction
+    Main_thr -> Disp_thr_1: Io_buffer is prepared and queued\nfor sending to CUCS with\nthe notification about the vehicle\nconnection.
+    Disp_thr_1 -> Disp_thr_1: Once CUCS socket becomes writable\nqueued data are sent
+end
+
+group Read transaction
+    Disp_thr_1 -> Disp_thr_1: Data received (e.g. from CUCS)
+    Disp_thr_1 -> Main_thr: Io_event with received Io_buffer\nsubmitted to the receiver vehicle
+    Main_thr -> Main_thr: vsm::Process_events() called,\nqueued events processed
+end
+
+group Timer usage
+    Main_thr -> Main_thr: Register timer
+    Timer_thr -> Main_thr: Timer event when timer fired
+    Main_thr -> Main_thr: vsm::Process_events() called,\nqueued events processed
+end
+
+==Termination==
+Main_thr -> Main_thr: Vsm_terminate()
+deactivate Vehicle_thr_1
+deactivate Vehicle_thr_2
+deactivate Vehicle_thr_3
+deactivate Vehicle_thr_3
+deactivate Disp_thr_1
+deactivate Disp_thr_2
+deactivate Disp_thr_3
+deactivate Timer_thr
+deactivate Main_thr
+
+@enduml

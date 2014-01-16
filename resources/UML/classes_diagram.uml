@@ -1,0 +1,265 @@
+@startuml
+
+title Classes diagram
+
+class Io_buffer {
+    Generic I/O buffer. Used for all I/O operations
+    with network, filesystem, peripheral devices.
+    Reference to such buffer should be passed only by
+    std::shared_ptr.
+    ..
+    
+    + typedef std::shared_ptr<Io_buffer> Ptr
+    - vector<u8> data
+    - status
+    
+    ..
+    // Convenience methods - concatenation, splitting,
+    // duplication, copying etc.
+}
+
+class Request {
+    Generic request which is sent from one context to
+    another one.
+    ..
+    - Status status
+    --
+    + Set_processing_handler(Handler handler)
+    + Set_completion_handler(Request_container::Ptr context, Handler handler)
+    + Process(bool process_request)
+    + Complete(Status status = S_OK)
+    + Abort()
+}
+
+class Request_waiter {
+    - std::mutex request_queue_mutex
+    - std::condition_variable request_queue_cond_var
+    
+    ..
+    + Notify()
+    // Return automatic "lock" object
+    + Lock()
+    // Return automatic "lock and notify" object
+    + Lock_notify()
+    + Wait_and_process(containers, timeout, limit)
+}
+
+class Protocol_message {
+    Base class for various protocols messages. 
+    The message data are taken from Io_buffer 
+    object (directly mapped without copying).
+    
+    ..
+    
+    - Io_buffer::Ptr data
+    
+}
+
+class Mavlink_payload {
+}
+
+Io_buffer "1" o-- "1..*" Protocol_message: data
+
+class Mavlink_message {
+    Mavlink protocol message.
+}
+
+Protocol_message <|-- Mavlink_message
+
+class Microdrone_message {
+    Microdrone protocol message.
+}
+
+Protocol_message <|-- Microdrone_message
+
+class Io_request {
+    Request which represent I/O operation.
+    It has I/O buffer attached with the data received or sent.
+    ..
+    
+    # Io_buffer::Ptr data_buffer
+    # Io_stream::Ptr stream
+}
+
+Io_request "1" --o "1" Io_buffer: data_buffer
+Io_request "*" --o "1" Io_stream: stream
+
+Request <|-- Io_request
+
+Request <|-- Cucs_request
+
+class Request_completion_context {
+    Context for requests completion receiving.
+}
+
+Request_waiter .. Request_completion_context: < Lock/notify when submitting 
+
+Request_completion_context "1" -- "0..*" Request: request_queue
+Request_processor "1" -- "0..*" Request: request_queue
+
+class Request_processor {
+    Context for requests processing.
+}
+
+Request_processor .. Request_waiter: Lock/notify when submitting >
+
+class Request_container {
+    # Request_waiter::Ptr waiter
+    # std::list<Request::Ptr> request_queue
+    - std::mutex waiter_mutex
+    + Process_requests(requests_limit)
+    + Submit_request(Request::Ptr request)
+    + Set_waiter(Request_waiter::Ptr waiter)
+    + Start()
+    + Terminate()
+}
+
+Request_container <|-- Request_processor
+Request_container <|-- Request_completion_context
+Request_container <|-- Request_worker
+
+Request_container "1..*" --o "1" Request_waiter
+
+class Timer_processor {
+    std::map<Tick_type, Timer::Ptr> tree
+}
+
+Request_processor <|-- Timer_processor
+
+Timer_processor "1" --o "0..*" Timer: tree
+
+class System_processor {
+    System requests processor
+}
+
+Request_processor <|-- System_processor
+
+class Request_worker {
+    - std::thread thread
+    - std::list<Request_container> containers
+    + Request_worker(std::initializer_list<Request_container>)
+    + Request_worker(std::list<Request_container>)
+}
+
+class Io_stream {
+}
+
+class Io_processor {
+Handles Io_requests for already created Io_streams
+..
+    + Handle_write_request(Io_request)
+    + Handle_read_request(Io_request)
+    + Handle_disconnect_request(Io_request)
+}
+
+Request_processor <|-- Io_processor
+
+class Socket_processor {
+Adds ability to create new streams either as server or as client
+..
+    + Handle_connect_request(Io_request)
+    + Handle_accept_request(Io_request)
+}
+
+Io_processor <|-- Socket_processor
+
+class Vehicle {
+    Represents connected vehicle. It is interface class
+    which must be implemented by user derived classes.
+    ..
+    // Type for global ID of the vehicle.
+    + typedef u32 Id
+    
+    // This vehicle global ID
+    + Id id
+    
+    # Request_waiter request_waiter
+    - Request_completion_context completion_context(request_waiter)
+    - Cucs_vehicle_processor cucs_processor(request_waiter)
+    # Request_worker worker
+    
+    ..Vehicle interface..
+    Interface methods which should be implemented in derived 
+    vehicle-specific classes.
+    
+    + Some_status Initialize()
+    + Some_status Poll_connection()
+    + Some_status Event_loop()
+    + Id Get_id()
+    + Some_status Add_waypoint(Waypoint &)
+    
+    <rest and above ones to be discussed>
+    
+    ..API calls..
+    API calls are implemented in this base class so that
+    they always have information about related vehicle
+    instance.
+    
+    + Vehicle(bool thread_per_vehicle, Request_worker)
+    // Process requests in completion_context and cucs_processor
+    + Process_requests()
+    // Add processor link to vehicle manager
+    + Register_to_cucs()
+    // Remove processor link from vehicle manager
+    + Unregister_from_cucs()
+    + Destroy()
+    <API calls here>
+}
+
+class Cucs_processor {
+    + Process_requests(timeout = 0)
+}
+
+Request_processor <|-- Cucs_processor: <Cucs_request>
+
+class Cucs_vehicle_processor {
+}
+
+Request_processor <|-- Cucs_vehicle_processor
+
+Vehicle "1" --* "1" Request_waiter: request_waiter
+Vehicle "1" --* "1" Cucs_vehicle_processor: cucs_processor
+Vehicle "1" --* "1" Request_completion_context: completion_context
+
+class Ardupilot_vehicle {
+    Example of possible user vehicle class.
+    
+    ..Vehicle interface implementation..
+    + Some_status Initialize()
+    <etc>
+
+}
+
+Vehicle <|-- Ardupilot_vehicle
+
+class Microdrone_vehicle {
+    Example of possible user vehicle class.
+    
+    ..Vehicle interface implementation..
+    + Some_status Initialize()
+    <etc>
+
+}
+
+Vehicle <|-- Microdrone_vehicle
+
+class Session {
+    Represents session with CUCS.
+    ..
+    // List of acquired vehicles
+    - std::list<Vehicle::Id> vehicles
+}
+
+Session "1" --o "0..*" Vehicle: vehicles
+
+class Timer {
+    Represents timer registered by user for 
+    specific vehicle.
+    
+    + typedef std:shared_ptr<Timer> Ptr
+
+    + void Cancel()
+    + bool Is_running()
+}
+
+@enduml

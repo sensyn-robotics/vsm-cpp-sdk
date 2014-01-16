@@ -1,0 +1,176 @@
+/**
+
+@page vehicle_interface_page Vehicle interface
+
+@tableofcontents
+
+@details
+
+@section brief Brief
+
+Vehicle interface is the main concept to be used by VSM developer to 
+add custom vehicles to UgCS. The interface itself is represented by a 
+base class vsm::Vehicle which should be inherited to implement specific 
+vehicle types. For example:
+
+@snippet hello_world_vsm.cpp custom vehicle
+
+As a result, new class denotes a specific vehicle type which can interact with 
+UgCS. Separate instance of this class should be created for each physical 
+vehicle connected to the VSM application. That is, if there are two vehicles of 
+the same type which should be simultaneously managed by UgCS, two class 
+instances should be created (see @ref instance_creation).
+
+UgCS is a distributed system with multiple VSM applications and each vehicle is 
+globally identified by a unique  combination of case sensitive _model_name_ and 
+_serial_number_ string values. They are passed to the @ref vsm::Vehicle::Vehicle 
+"Vehicle&nbsp;constructor" and can not be changed during vehicle class instance 
+lifetime. Same model name and serial number values in different VSM applications 
+denotes the same physical vehicle. It is up to VSM application developer to 
+identify physical vehicles and their model names and serial numbers. The exact 
+content of model name and serial number is not enforced, however it is 
+recommended to provide some human readable values, for example:
+
+    Model name: Arducopter
+    Serial number: 1
+    
+    Model name: MD4-200
+    Serial number: 12345
+
+If there is absolutely no technical way to identify a vehicle using vehicle 
+specific protocol, a mapping from physical communication port/interface to 
+vehicle may be used, for example:
+
+    Serial COM1: Vehicle 1
+    Serial COM2: Vehicle 2
+    WiFi network: Vehicle 3
+    USB device: Vehicle 4
+
+In this case, end-user of the UgCS should be informed about such mapping.
+
+Vehicle and autopilot types should be also passed to @ref vsm::Vehicle::Vehicle 
+"Vehicle&nbsp;constructor". This is to inform UgCS about the features supported
+by a particular vehicle.
+
+By default, all vehicle instances are created with a dedicated thread to 
+facilitate parallelization of multi-vehicle VSM applications and safeguard from 
+one vehicle affecting another. See @ref vsm::Vehicle::Vehicle 
+"Vehicle&nbsp;constructor" and @ref async_programming_page.
+
+@section instance_creation Creation
+
+As a general rule, the instance of specific vehicle class is created when 
+physical vehicle is connected to VSM and identified (model name and serial 
+number) or some specific vehicle is predefined and VSM is awaiting its 
+connection. Creation is done as follows:
+
+@snippet hello_world_vsm.cpp instance creation
+
+Right after the instance is created, it should be enabled by calling 
+vsm::Vehicle::Enable method. It is necessary to complete additional low level
+initialization actions which are not possible to implement in class 
+constructor, for example, to use shared pointer to the class instance which is 
+being created. Derived vehicle class may override vsm::Vehicle::On_enable() 
+method to implement vehicle class specific initializations. This initialization 
+is not expected to fail. Vehicle instance should be ready to accept vehicle
+requests (see @ref vehicle_requests_section) right after vsm::Vehicle::On_enable()
+method is completed. See also @ref instance_deletion.
+
+@section instance_deletion Deletion
+    
+Class instance deletion (i.e. memory releasing) happens automatically thanks to 
+shared pointer usage, but before releasing the last reference to instance 
+pointer, vsm::Vehicle::Disable() method should be called to perform 
+finalization and cleanup actions like breaking of shared pointer circular
+dependencies:
+
+@snippet hello_world_vsm.cpp disable vehicle
+
+Derived vehicle class may override vsm::Vehicle::On_disable() method to 
+implement vehicle class specific finalization.
+
+@section telemetry Telemetry
+
+Telemetry is sent to UgCS by opening a telemetry @ref 
+vsm::Telemetry_manager::Report "report" using 
+vsm::Vehicle::Open_telemetry_report method, filling it with current telemetry 
+values and committing it with vsm::Telemetry_manager::Report::Commit method 
+which causes values in the report to be sent to the UCS server. Values are also 
+automatically committed when report is destroyed. It is up to VSM application 
+developer to decide about the frequency of telemetry reports generation. 
+Example:
+
+@snippet hello_world_vsm.cpp telemetry
+
+See @ref vsm::telemetry for the description of all currently supported 
+telemetry parameters. Reported subset of telemetry parameters depends on 
+capabilities of a specific vehicle and is controlled by VSM application 
+developer.
+
+@section vehicle_requests_section Vehicle requests
+
+UgCS controls vehicles by sending vehicle requests to them, which in turn should 
+be processed by the vehicle and result is reported back to UgCS. All vehicle 
+requests are derived from vsm::Vehicle_request::Handle class which provides basic 
+interface for request handling, like completion and reference management (copy 
+of the handle denotes the same request). Specific requests with informational 
+payloads are defined in vehicle_requests.h.
+When a specific request needs to be processed by a vehicle, appropriate 
+overload of vsm::Vehicle::Handle_vehicle_request method is called. Custom vehicle 
+class should override methods supported by a particular vehicle. Currently, 
+following vehicle requests exist:
+ - vsm::Vehicle_task_request with vsm::Task payload.
+ - vsm::Vehicle_clear_all_missions_request with vsm::Clear_all_missions payload.
+ - vsm::Vehicle_command_request with vsm::Vehicle_command payload.
+
+The processing of a request can be done asynchronously by storing the handle and
+returning from vsm::Vehicle::Handle_vehicle_request method. Only one request at a 
+time could be submitted for a vehicle. Next request is submitted not earlier 
+than previous request is completed, either successfully or not.
+
+The payload of vehicle request can be accessed using pointer or dereference 
+semantics while the request is not yet completed. Vehicle request is completed 
+by assigning a vsm::Vehicle_request::Result value to a handle
+(see vsm::Vehicle_request::Handle::operator=(vsm::Vehicle_request::Result) ). 
+The request is allowed to be completed only once, even if there are multiple 
+copied handles of the same request. All handles of the same request are invalid 
+after request is completed using any handle. Also note that if request is not 
+explicitly completed by assignment, it will be completed with unsuccessful
+vsm::Vehicle_request::Result (NOK) when last handle is destroyed.
+
+Vehicle request handle also provides a boolean operator for checking the handle 
+validness.
+
+Some basic examples:
+
+@code
+    virtual void
+    Handle_vehicle_request(vsm::Vehicle_task_request::Handle request) override
+    {
+        /* Do nothing. request is automatically completed with NOK result. */
+    }
+    
+    virtual void
+    Handle_vehicle_request(vsm::Vehicle_task_request::Handle request) override
+    {
+        /* if (request) - yields to true */
+        request = vsm::Vehicle_request::Result::OK;
+        /* if (request) - yields to false */
+    }
+    
+    virtual void
+    Handle_vehicle_request(vsm::Vehicle_task_request::Handle request) override
+    {
+        vsm::Vehicle_tequest::Handle base_handle = request;
+        /* if (request) - yields to true */
+        /* if (base_handle) - yields to true */
+        base_handle = vsm::Vehicle_request::Result::OK;
+        /* if (request) - yields to false */
+        /* if (base_handle) - yields to false */
+    }
+@endcode
+
+See @ref hello_world_vsm_page tutorial for more examples of vehicle requests 
+usage.
+
+*/

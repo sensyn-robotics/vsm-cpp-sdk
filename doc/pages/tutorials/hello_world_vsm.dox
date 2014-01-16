@@ -1,0 +1,201 @@
+/**
+@page hello_world_vsm_page "Hello world" VSM application
+
+@tableofcontents
+
+@details
+
+Here is an example of a simple VSM application which demonstrates basic usage 
+of the SDK. The source code of this example consists of two files:
+- CMake makefile @ref Hello_world_VSM/CMakeLists.txt.
+- C++ source code file @ref hello_world_vsm.cpp.
+
+@section c_plus_plus_hello_world C++ code
+
+Single header file should be included to get an access to the whole SDK 
+functionality:
+
+@snippet hello_world_vsm.cpp main include
+
+All the SDK functionality resides under @ref ::vsm namespace.
+
+Custom vehicle class should be defined by deriving from a @ref vsm::Vehicle 
+class:
+
+@snippet hello_world_vsm.cpp custom vehicle
+
+To pass the instance of custom class to SDK, shared pointer of the form 
+[std::shared_ptr<Custom_vehicle>](http://en.cppreference.com/w/cpp/memory/
+shared_ptr) should be used. Macro @ref DEFINE_COMMON_CLASS defines methods and 
+member types needed for shared pointers usage:
+<ul>
+<li> _Class::Ptr_ member type which effectively is _std::shared_ptr<Class>_.
+
+<li> _Class::Weak_ptr_ member type which effectively is _std::weak_ptr<Class>_.
+
+<li> _static Class::Create()_ template method for convenient creation of shared 
+classes dynamically:
+
+@snippet hello_world_vsm.cpp instance creation
+
+<li> _Class::Shared_from_this()_ method which returns appropriate 
+_Class::Ptr_ shared pointer:
+
+@snippet hello_world_vsm.cpp shared this for timer
+
+</ul>
+
+vsm::Vehicle class does not have a default constructor, so derived vehicle 
+class needs to provide argument values for base class constructor:
+
+@snippet hello_world_vsm.cpp vehicle constructor
+
+Currently, vehicle and autopilot types are defined by using types from vsm::mavlink
+namespace, but it will be changed in next releases. It is fully up to VSM
+application developer to decide about custom vehicle constructor arguments, but
+usually at least vehicle serial number is configurable while vehicle/autopilot
+types and model name are fixed.
+
+Next step is to decide whether override of vsm::Vehicle::On_enable method is 
+needed or not. As a general rule, override is needed if some class-level 
+initialization actions require _this_ shared pointer usage, for example, 
+telemetry simulation timer creation and setting of system status:
+
+@snippet hello_world_vsm.cpp on enable
+
+As a rule, vsm::Vehicle::On_disable method override is also necessary if 
+vsm::Vehicle::On_enable is overridden. In the example, the counterpart action 
+is performed in _On_disable_ method, namely timer cancellation to avoid memory 
+leaks:
+
+@snippet hello_world_vsm.cpp on disable
+
+Timer created in the _On_enable_ method is used to simulate the telemetry 
+generation by the vehicle and to make the "Hello world" example to be more 
+interesting and 'alive'.
+
+All custom vehicles should override vsm::Vehicle::Handle_vehicle_request processing 
+methods (see @ref vehicle_requests_section) to provide vehicle specific 
+implementation of processing logic. The simplest vehicle request is a 
+vsm::Vehicle_clear_all_missions_request which in the example just outputs a message:
+
+@snippet hello_world_vsm.cpp clear all missions
+
+In a real application, all saved missions should be erased from the vehicle. In 
+this example vehicle requests are processed synchronously, i.e. in the scope of the 
+vsm::Vehicle::Handle_vehicle_request method itself. This is not mandatory. VSM 
+application developer may save a copy of the request handle for deferred 
+processing and return from the overridden method without completing the request. 
+This way, multiple vehicle related activities can be processed in parallel, for 
+example sending telemetry to UgCS and in the same time processing the VSM 
+request as a complex sequence of actions executed with, probably, notable 
+delays. The payload of vsm::Vehicle_clear_all_missions_request request is empty, so 
+there is nothing to read from it.
+
+vsm::Vehicle_command_request is a request denoting a command to be executed 
+by a vehicle. The command is defined by vsm::Vehicle_command::Type enumeration 
+and is retrieved by vsm::Vehicle_command::Get_type method:
+
+@snippet hello_world_vsm.cpp command request
+
+Here some interesting behavior is simulated. Namely, vehicle yaw spinning and 
+altitude climbing is started/stopped based on respective type of the 
+vsm::Vehicle_command::Type command.
+
+The most complex and important vehicle request is vsm::Vehicle_task_request which 
+denotes a mission to be loaded into the vehicle for latter execution. The 
+payload of the request is vsm::Task which provides a sequence of @ref 
+vsm::Action "Actions" in vsm::Task::actions public member. The type of an 
+action is determined by vsm::Action::Get_type method. The specific action 
+class is retrieved using vsm::Action::Get_action template method:
+
+@snippet hello_world_vsm.cpp task request
+
+Telemetry simulation is done in a single method which is regularly called by 
+timer:
+
+@snippet hello_world_vsm.cpp telemetry
+
+Telemetry is sent to UgCS by opening a report using 
+vsm::Vehicle::Open_telemetry_report, then filling it with telemetry parameters 
+(see vsm::telemetry for all available parameter types) supported by the 
+vehicle. In the example yaw, absolute altitude and battery voltage parameters 
+are sent every second. _yaw_speed_ and _climb_speed_ control the current delta 
+of related parameters to simulate some activity on a vehicle. This activity 
+will be visible in HCI telemetry window when mission is launched.
+
+Now, custom vehicle class is ready to be instantiated and used, but VSM should 
+be initialized before any other VSM services can be used. It is usually done 
+somewhere in the beginning of _main_ function:
+
+@snippet hello_world_vsm.cpp init
+
+In a real world VSM application there should be some vehicle 
+specific mechanism which monitors the presence of a vehicle(-s) connection(-s), 
+does initial identifications of a connected vehicle, like serial number and 
+model name reading and then instantiation of a custom vehicle class instance. 
+In the example, however, it is assumed that vehicle is always connected, so 
+instantiation is done immediately after VSM initialization:
+
+@snippet hello_world_vsm.cpp instance creation and enable
+
+vsm::Vehicle::Enable method should be always called to complete the vehicle 
+instance initialization. As a rule, it should be called right after instance 
+creation with _Class::Create_ method.
+
+After vehicle is enabled, VSM application should control the connection with 
+a vehicle and disable it when connection is totally lost. This logic is VSM 
+specific, but as a general rule, short-term telemetry breaks shouldn't be 
+considered as connection lost situation. In the example, there is just an 
+infinite wait, assuming that vehicle is always connected and stays alive
+
+@snippet hello_world_vsm.cpp main loop
+
+To gracefully shutdown VSM application, all vehicles should be disabled and VSM
+terminated:
+
+@snippet hello_world_vsm.cpp exit sequence
+
+@section cmake_hello_world CMake makefile
+
+@ref Hello_world_VSM/CMakeLists.txt is a minimal makefile
+for VSM application which provides static linkage with SDK library defined by 
+_VSM_SDK_DIR_ variable (either CMake or environment) and a default VSM 
+configuration file via Build_vsm_config() function, which can be given custom
+source and destination config file locations. It can be considered as a template
+makefile for VSM applications. Makefile should be self-explanatory. For
+additional details refer to [CMake official site](http://www.cmake.org).
+
+@section hello_world_vsm_compilation Compilation
+
+Prior to compiling the VSM application, SDK should be compiled and installed 
+according to @ref building_page. In the example, it is assumed that source and 
+make file reside in the same directory and _VSM_SDK_DIR_ <i>environment variable</i> 
+points to the SDK installation folder.
+
+@subsection hello_world_vsm_compilation_makefiles Generation of native makefiles
+
+Native makefiles should be generated using CMake framework. It is recommended 
+to use _lib/make/create_builds.cmake_ script which is located under the 
+_VSM_SDK_DIR_ folder:
+- On Linux:
+
+      cmake -P $VSM_SDK_DIR/lib/make/create_builds.cmake
+  
+
+- On Windows:
+
+      cmake -P %VSM_SDK_DIR%\lib\make\create_builds.cmake
+
+
+The same script is used to generate native makefiles for the SDK itself (see 
+@ref building_cmd_line).
+
+@subsection hello_world_vsm_compilation_build Building
+Now VSM application can be compiled and built in the same way as SDK using a 
+single command with a build folder argument, for example:
+
+    cmake --build build-debug-win -- -j4
+
+
+*/

@@ -1,0 +1,4 @@
+# List of tests which should be ALSO executed without Valgrind tool.
+# Leading ut_ and trailing .cpp are omitted.
+timer
+operation_waiter

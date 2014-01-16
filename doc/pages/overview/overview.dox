@@ -1,0 +1,81 @@
+/**
+
+@page overview_page Overview
+
+@tableofcontents
+
+@details
+
+@section purpose_section Purpose
+
+The purpose of VSM C++ SDK (further referred as SDK) is to create _Vehicle 
+Specific Modules_ (VSM) for Universal Ground Control Software(UgCS). Most
+importantly, SDK can be considered as a "glue" layer between VSM application
+user code which is able to interact with physical vehicles and UgCS infrastructure:
+@image html diagrams/sdk_high_level.png
+@image latex diagrams/sdk_high_level.png "SDK infrastructure" width=10cm
+
+However, SDK is not limited to that. It facilitates (but not forces) developers 
+to create cross-platform VSM applications using only features provided by SDK 
+itself without using 3rd party libraries like [Boost](http://www.boost.org), 
+[Qt](http://qt-project.org/) and similar.
+
+
+@section goals_section Design goals
+
+<ul>
+<li><b>Efficiency</b>
+
+To achieve that, C++11 programming language is used for SDK implementation and
+also is a requirement for VSM application development.
+
+
+<li><b>Universality</b>
+
+SDK provides additional cross-platform features which are considered to be
+demanded in a typical VSM application, for example:
+- File I/O using vsm::File_processor.
+- Networking I/O using vsm::Socket_processor.
+- Serial I/O using vsm::Serial_processor.
+- Logging using vsm::Log.
+- Asynchronous programming (see @ref async_programming_page).
+- Coordinates manipulation using vsm::Position.
+- Configuration file management using vsm::Properties.
+
+The usage of additional features, however, is not mandated. VSM application 
+developer is free to use platform-specific methods or any other libraries to
+communicate with vehicles and for other purposes. To facilitate cross-platform
+compilation, [CMake](http://www.cmake.org) build system is utilized by SDK.
+
+<li><b>Developer friendliness</b>
+
+SDK is mainly targeted for experienced developers and complex VSM applications
+and scenarios, but in the same time SDK can be used in a simple way by beginners
+or when one wants to play around with the simplest possible VSM application and
+gradually extend it:
+
+@ref hello_world_vsm_page
+</ul>
+
+@section usage_section Usage
+
+The usage of SDK consists of the following:
+ - <b>General guidelines</b>@n
+   Start here.
+   + @ref building_page
+   + @ref hello_world_vsm_page
+   @n @n
+ - <b>Vehicle interface</b>@n
+   Should be used by VSM application developer to communicate with UgCS.
+   + @ref vehicle_interface_page
+   @n @n
+ - <b>Additional functionality</b>@n @n Functionality not specific to UgCS, but 
+provided for convenient
+cross-platform VSM application development. It is technically possible to
+develop a VSM application without using of additional functionality provided by
+SDK. Please note, that some additional features are dependent, for example, in
+order to use vsm::Mavlink_decoder, the vsm::Io_buffer should also be used.
+Following tutorials explains the usage of additional functionality:
+    + @ref async_programming_page
+
+*/

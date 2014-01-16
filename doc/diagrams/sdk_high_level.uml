@@ -1,0 +1,25 @@
+@startuml
+
+title Logical interactions
+
+cloud "UgCS infrastructure" as ugcs {
+[UCS Server] as s1
+[UCS Server] as s2
+[UCS Server] as sn
+}
+
+node "VSM application" {
+[SDK] <--> s1
+[SDK] <--> s2
+[SDK] <--> sn
+[User code] <--> [SDK]
+}
+
+cloud "Physical vehicles" {
+[Vehicle] as v1
+[Vehicle] as v2
+v1 <--> [User code]
+v2 <--> [User code]
+}
+
+@enduml

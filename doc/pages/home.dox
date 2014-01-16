@@ -1,0 +1,17 @@
+/**
+
+@mainpage Developer manual
+
+@details
+
+This is a VSM C++ SDK Developer's manual.
+
+ - @subpage overview_page Begin here. Gives a general description about an SDK
+ and its functionality.
+
+ - @subpage tutorials_page Detailed guides about different topics and SDK usage
+ concepts.
+
+ - @subpage license_page
+
+*/

@@ -1,0 +1,19 @@
+Describe examples in this file. Do not forget to place link to corresponding
+tutorial here in each example description.
+
+/**
+
+@example async_workflow.cpp
+Example for asynchronous operations workflow. See [corresponding tutorial]
+(@ref async_programming_page).
+
+@example hello_world_vsm.cpp
+C++ source code example for "Hello world" VSM application. See
+[corresponding tutorial](@ref hello_world_vsm_page).
+
+@example Hello_world_VSM/CMakeLists.txt
+CMake makefile example for "Hello world" VSM application. See
+[corresponding tutorial](@ref hello_world_vsm_page). Can be used as a template
+for more complex VSM applications.
+
+*/

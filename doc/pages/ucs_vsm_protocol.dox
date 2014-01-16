@@ -1,0 +1,63 @@
+/**
+
+@page ucs_vsm_protocol_page UCS-VSM protocol
+
+<h2>Protocol between UCS and VSM</h2>
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer fringilla quam 
+vulputate dignissim lobortis. Vestibulum nibh tellus, iaculis sed sem id, auctor 
+posuere turpis. Maecenas at tincidunt ligula. Etiam eu purus aliquam, auctor 
+purus sed, commodo augue. Sed felis eros, rutrum vel est in, faucibus sodales 
+nulla. Curabitur nec luctus justo. Praesent eleifend rhoncus diam non tempor. 
+Sed enim tortor, tincidunt id magna vitae, facilisis suscipit tellus. Donec ac 
+sodales arcu. Nullam eget dolor et nibh bibendum tincidunt. Nulla nulla sapien, 
+viverra ac auctor vitae, posuere eget dolor. Aliquam a risus dapibus, ornare dui 
+sit amet, mattis velit. Etiam sagittis nisl nunc, non consequat libero viverra 
+accumsan. Curabitur magna arcu, pretium vitae consequat sit amet, sagittis sed 
+elit. 
+
+Etiam magna enim, varius ut adipiscing a, consectetur sit amet odio. Duis 
+fermentum ligula sit amet tristique lacinia. Nunc ante arcu, elementum dapibus 
+ante quis, interdum faucibus mi. Integer ut egestas dolor, volutpat vestibulum 
+sapien. Nullam id lorem lobortis dolor dictum cursus id ac nulla. Nunc eu 
+dignissim nisi, eu eleifend nulla. Integer odio leo, pellentesque id eleifend 
+in, blandit cursus justo. Vivamus laoreet ornare lacus in volutpat. Ut ipsum 
+nulla, dignissim nec iaculis a, gravida et mi. Pellentesque ut ornare dolor, 
+eget mattis libero. Sed nibh nibh, pulvinar quis leo sollicitudin, iaculis 
+luctus eros. Pellentesque dictum eros non massa facilisis, non condimentum augue 
+vulputate. Sed tempor nisi eu arcu fermentum, ut consectetur elit egestas. In 
+interdum odio fermentum, lacinia neque sed, sollicitudin lectus. Fusce sapien 
+lorem, condimentum vel accumsan sed, suscipit ut mauris. Proin ullamcorper 
+venenatis nulla quis pellentesque. 
+
+Sed varius vitae erat ut congue. Donec lacus ante, eleifend eu nunc quis, 
+blandit ullamcorper nunc. Proin dui orci, malesuada ut consequat non, iaculis 
+quis lacus. Praesent vitae dolor gravida, dapibus sapien ut, blandit tortor. 
+Curabitur nunc ligula, pellentesque hendrerit egestas non, convallis eget urna. 
+Etiam accumsan massa sed enim porta pretium. Phasellus a odio vel elit eleifend 
+placerat at at ipsum. Donec dignissim lacus ac magna sagittis, at ornare purus 
+condimentum. Vestibulum non sollicitudin nibh. Mauris egestas scelerisque quam, 
+sed aliquam erat. Donec rutrum iaculis quam malesuada venenatis. 
+
+Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere 
+cubilia Curae; Sed augue nunc, dapibus eget porttitor vel, sagittis at arcu. 
+Suspendisse nec accumsan augue, sed faucibus dolor. Sed eu nisl ut quam interdum 
+ullamcorper ut vel nibh. In ullamcorper turpis sed metus sollicitudin, malesuada 
+convallis odio pulvinar. Integer consequat nibh eu commodo eleifend. Interdum et 
+malesuada fames ac ante ipsum primis in faucibus. Sed dolor nisi, eleifend quis 
+ante at, feugiat pharetra dolor. Vestibulum ante ipsum primis in faucibus orci 
+luctus et ultrices posuere cubilia Curae; Suspendisse dignissim, augue a 
+volutpat imperdiet, arcu nisl sollicitudin nisi, vehicula volutpat nisl nulla 
+non erat. Nullam semper odio sed hendrerit tempor. Vivamus vitae faucibus quam. 
+
+Nam ac mi at odio ornare volutpat a non dui. Cras sodales sollicitudin libero 
+eu lobortis. Morbi ac varius augue, id scelerisque mauris. Etiam faucibus sapien 
+et purus accumsan, sit amet laoreet lacus molestie. Maecenas adipiscing, turpis 
+vel gravida convallis, nisl eros placerat massa, vel molestie turpis tortor 
+placerat orci. Morbi vitae euismod erat. Morbi ut nibh id ipsum facilisis 
+consectetur. Nulla eget euismod augue. Cras posuere ac velit vel vehicula. Nam 
+scelerisque massa non arcu mattis auctor. Quisque rhoncus est eu justo cursus, 
+eu vestibulum nisl venenatis. Quisque ut enim suscipit, feugiat ipsum et, semper 
+lacus.
+
+*/

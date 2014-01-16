@@ -1,0 +1,25 @@
+@startuml
+
+title Asynchronous operations 
+
+participant "User context" as user
+participant "Completion context" as comp_ctx
+participant "Processor" as processor
+participant "Request" as request
+
+create request
+user -> request: Create request
+activate request
+user -> processor: Submit request
+processor -> processor: Process request
+processor->comp_ctx: Submit completion notification
+comp_ctx -> comp_ctx: Process completion notification
+
+user -> request: Release
+note right
+    Request is automatically destroyed when
+    last user reference is released
+end note
+destroy request
+
+@enduml
