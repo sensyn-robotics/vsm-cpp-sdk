@@ -6,13 +6,13 @@
  * Exception class implementation.
  */
 
-#include <vsm/exception.h>
-#include <vsm/log.h>
+#include <ugcs/vsm/exception.h>
+#include <ugcs/vsm/log.h>
 
 #include <memory>
 #include <vector>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Exception::Exception(Va_args_overload, const char *msg, ...)
 {

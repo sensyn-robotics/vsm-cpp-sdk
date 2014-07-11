@@ -6,10 +6,10 @@
  * File_processor implementation.
  */
 
-#include <vsm/file_processor.h>
-#include <vsm/debug.h>
+#include <ugcs/vsm/file_processor.h>
+#include <ugcs/vsm/debug.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 /** define this to enable file locking specific logging.
  */
@@ -48,7 +48,7 @@ File_processor::Stream::Mode::Mode(const std::string &mode_str)
         should_not_exist = true;
         idx++;
     } else {
-        VSM_EXCEPTION(Invalid_param_exception, "Unexpected character at offset %lu, "
+        VSM_EXCEPTION(Invalid_param_exception, "Unexpected character at offset %zu, "
                       "expected either '+' or 'x'", idx);
     }
     if (mode_str.size() != idx) {
@@ -58,21 +58,11 @@ File_processor::Stream::Mode::Mode(const std::string &mode_str)
 }
 
 File_processor::Stream::Stream(
-    File_processor::Ptr processor, const std::string &path, Mode mode, bool maintain_pos):
+    File_processor::Ptr processor, const std::string &path, Mode mode,
+    bool maintain_pos, Native_handle::Unique_ptr&& native_handle):
 
     processor(processor), mode(mode), maintain_pos(maintain_pos),
-    native_handle(Native_handle::Create(path, mode))
-{
-    Set_name(path);
-    state = State::OPENED;
-}
-
-File_processor::Stream::Stream(Native_handle::Envelope *handle,
-                               Native_handle::Envelope *write_handle,
-                               File_processor::Ptr processor, const std::string &path,
-                               Mode mode, bool maintain_pos):
-    processor(processor), mode(mode), maintain_pos(maintain_pos),
-    native_handle(Native_handle::Create(path, mode, handle, write_handle))
+    native_handle(std::move(native_handle))
 {
     Set_name(path);
     state = State::OPENED;
@@ -642,12 +632,13 @@ File_processor::Stream::Handle_write_cancel(Write_request::Ptr request)
         return;
     }
     auto request_lock = request->Lock();
-    native_handle->cur_write_request->Set_result_arg(
+    /* Must not try to cancel already completed or aborted request */
+    if (!request->Is_completed() && !request->Is_aborted()) {
+        request->Set_result_arg(
         state == State::CLOSED ? Io_result::CLOSED : Io_result::CANCELED,
-        request_lock);
-    //XXX set size argument zero
-    native_handle->cur_write_request->Complete(Request::Status::CANCELED,
-                                               std::move(request_lock));
+                request_lock);
+        request->Complete(Request::Status::CANCELED, std::move(request_lock));
+    }
 }
 
 void
@@ -663,12 +654,14 @@ File_processor::Stream::Handle_read_cancel(Read_request::Ptr request)
         return;
     }
     auto request_lock = request->Lock();
-    native_handle->cur_read_request->Set_result_arg(
+    /* Must not try to cancel already completed or aborted request */
+    if (!request->Is_completed() && !request->Is_aborted()) {
+        request->Set_result_arg(
         state == State::CLOSED ? Io_result::CLOSED : Io_result::CANCELED,
-        request_lock);
-    native_handle->cur_read_request->Set_buffer_arg(Io_buffer::Create(), request_lock);
-    native_handle->cur_read_request->Complete(Request::Status::CANCELED,
-                                              std::move(request_lock));
+                request_lock);
+        request->Set_buffer_arg(Io_buffer::Create(), request_lock);
+        request->Complete(Request::Status::CANCELED, std::move(request_lock));
+    }
 }
 
 void
@@ -817,7 +810,8 @@ File_processor::On_disable()
 File_processor::Stream::Ref
 File_processor::Open(const std::string &name, const std::string &mode, bool maintain_pos)
 {
-    auto stream = Stream::Create(Shared_from_this(), name, mode, maintain_pos);
+    auto stream = Stream::Create(Shared_from_this(), name, mode, maintain_pos,
+            Open_native_handle(name, mode));
     Register_stream(stream);
     return stream;
 }

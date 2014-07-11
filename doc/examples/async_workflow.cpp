@@ -2,7 +2,7 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/vsm.h>
+#include <ugcs/vsm/vsm.h>
 
 /** [Callback function] */
 /* Target function for callback. */
@@ -49,7 +49,7 @@ void
 Simple_callbacks()
 {
     /** [Create function callback] */
-    auto func_cbk = vsm::Make_callback(Sample_callback_function, 10);
+    auto func_cbk = ugcs::vsm::Make_callback(Sample_callback_function, 10);
     /** [Create function callback] */
 
     /** [Call function callback] */
@@ -59,19 +59,19 @@ Simple_callbacks()
 
     /** [Create method callback] */
     Sample_class class_instance;
-    auto method_cbk = vsm::Make_callback(&Sample_class::Sample_callback_method,
+    auto method_cbk = ugcs::vsm::Make_callback(&Sample_class::Sample_callback_method,
                                          &class_instance, 10);
     LOG("Callback call result: %d", method_cbk());
     /** [Create method callback] */
 
     /** [Create callable class callback] */
     Callable_class callable_instance(10);
-    auto callable_cbk = vsm::Make_callback(callable_instance, 10);
+    auto callable_cbk = ugcs::vsm::Make_callback(callable_instance, 10);
     LOG("Callback call result: %d", callable_cbk());
     /** [Create callable class callback] */
 
     /** [Create lambda callback] */
-    auto lambda_cbk = vsm::Make_callback(
+    auto lambda_cbk = ugcs::vsm::Make_callback(
         [](int arg)
         {
             LOG("Sample lambda callback, arg: %d", arg);
@@ -83,7 +83,7 @@ Simple_callbacks()
 }
 
 /** [Declare handler type] */
-typedef vsm::Callback_proxy<int, double> Sample_handler_type;
+typedef ugcs::vsm::Callback_proxy<int, double> Sample_handler_type;
 /** [Declare handler type] */
 
 /** [Sample api method] */
@@ -98,7 +98,7 @@ Some_api_method(Sample_handler_type handler)
 DEFINE_CALLBACK_BUILDER(Sample_handler_builder, (double), (3.14))
 /** [Sample callback builder] */
 
-/* Illustration for using vsm::Callback_proxy class */
+/* Illustration for using ugcs::vsm::Callback_proxy class */
 void
 Callback_proxies()
 {
@@ -118,12 +118,12 @@ Requests_and_contexts()
 {
     /** [Create sample contexts] */
     /* Create waiter object for our contexts. */
-    vsm::Request_waiter::Ptr waiter = vsm::Request_waiter::Create();
+    ugcs::vsm::Request_waiter::Ptr waiter = ugcs::vsm::Request_waiter::Create();
     /* Create processor for requests. */
-    vsm::Request_processor::Ptr processor = vsm::Request_processor::Create("Processor", waiter);
+    ugcs::vsm::Request_processor::Ptr processor = ugcs::vsm::Request_processor::Create("Processor", waiter);
     /* Create completion context for notifications processing. */
-    vsm::Request_completion_context::Ptr comp_ctx =
-            vsm::Request_completion_context::Create("Completion context", waiter);
+    ugcs::vsm::Request_completion_context::Ptr comp_ctx =
+            ugcs::vsm::Request_completion_context::Create("Completion context", waiter);
     /** [Create sample contexts] */
 
     /** [Enable sample contexts] */
@@ -132,16 +132,16 @@ Requests_and_contexts()
     /** [Enable sample contexts] */
 
     /** [Create sample request] */
-    vsm::Request::Ptr req = vsm::Request::Create();
+    ugcs::vsm::Request::Ptr req = ugcs::vsm::Request::Create();
     req->Set_processing_handler(
-        vsm::Make_callback(
-            [](int arg, vsm::Request::Ptr req)
+        ugcs::vsm::Make_callback(
+            [](int arg, ugcs::vsm::Request::Ptr req)
             {
                 LOG("Processing handler called, arg %d", arg);
                 req->Complete();
             }, 10, req));
     req->Set_completion_handler(comp_ctx,
-        vsm::Make_callback(
+        ugcs::vsm::Make_callback(
             [](int arg)
             {
                 LOG("Completion notification handler called, arg %d", arg);
@@ -172,8 +172,8 @@ Requests_and_contexts()
 
     /** [Create sample worker] */
     /* Demonstrate contexts serving in a separated thread. */
-    vsm::Request_worker::Ptr worker = vsm::Request_worker::Create("Another thread",
-        std::initializer_list<vsm::Request_container::Ptr>{processor, comp_ctx});
+    ugcs::vsm::Request_worker::Ptr worker = ugcs::vsm::Request_worker::Create("Another thread",
+        std::initializer_list<ugcs::vsm::Request_container::Ptr>{processor, comp_ctx});
     /* Enable all attached containers. */
     worker->Enable_containers();
     /* Enable the worker. This will launch its thread. */
@@ -181,16 +181,16 @@ Requests_and_contexts()
     /** [Create sample worker] */
 
     /** [Create and submit sample request for worker] */
-    req = vsm::Request::Create();
+    req = ugcs::vsm::Request::Create();
     req->Set_processing_handler(
-        vsm::Make_callback(
-            [](int arg, vsm::Request::Ptr req)
+        ugcs::vsm::Make_callback(
+            [](int arg, ugcs::vsm::Request::Ptr req)
             {
                 LOG("Processing handler called, arg %d", arg);
                 req->Complete();
             }, 10, req));
     req->Set_completion_handler(comp_ctx,
-        vsm::Make_callback(
+        ugcs::vsm::Make_callback(
             [](int arg)
             {
                 LOG("Completion notification handler called, arg %d", arg);
@@ -208,38 +208,38 @@ Requests_and_contexts()
 }
 
 /** [Declare custom processor] */
-class Sample_processor: public vsm::Request_processor {
-    DEFINE_COMMON_CLASS(Sample_processor, vsm::Request_processor)
+class Sample_processor: public ugcs::vsm::Request_processor {
+    DEFINE_COMMON_CLASS(Sample_processor, ugcs::vsm::Request_processor)
 public:
     /* Type for result handler. */
-    typedef vsm::Callback_proxy<void, double> Handler;
+    typedef ugcs::vsm::Callback_proxy<void, double> Handler;
     /* Builder for handler. */
     DEFINE_CALLBACK_BUILDER(Make_handler, (double), (3.14));
 
-    Sample_processor() : vsm::Request_processor("Sample processor") {}
+    Sample_processor() : ugcs::vsm::Request_processor("Sample processor") {}
 
     /* The method for accessing processor provided services. */
-    vsm::Operation_waiter
+    ugcs::vsm::Operation_waiter
     Sample_api_method(/* Some request parameter. */
                       int param,
                       /* Result handler. Default one does nothing thus discarding
                        * the result.
                        */
-                      Handler handler = vsm::Make_dummy_callback<void, double>(),
+                      Handler handler = ugcs::vsm::Make_dummy_callback<void, double>(),
                       /* Completion context for result handler invocation. Default
                        * value will use processor context.
                        */
-                      vsm::Request_completion_context::Ptr comp_ctx = nullptr);
+                      ugcs::vsm::Request_completion_context::Ptr comp_ctx = nullptr);
 
 private:
     /* Default completion context if the caller does not provide own one. */
-    vsm::Request_completion_context::Ptr def_comp_ctx;
+    ugcs::vsm::Request_completion_context::Ptr def_comp_ctx;
     /* Worker with dedicated thread for this processor. */
-    vsm::Request_worker::Ptr worker;
+    ugcs::vsm::Request_worker::Ptr worker;
 
     /* Request processing handler. It is always invoked in the processor dedicated thread. */
     void
-    Process_api_call(int param, vsm::Request::Ptr request, Handler handler);
+    Process_api_call(int param, ugcs::vsm::Request::Ptr request, Handler handler);
 
     /* Called when the processor is enabled. */
     virtual void
@@ -255,11 +255,11 @@ private:
 void
 Sample_processor::On_enable()
 {
-    vsm::Request_processor::On_enable();
-    def_comp_ctx = vsm::Request_completion_context::Create("Completion context");
+    ugcs::vsm::Request_processor::On_enable();
+    def_comp_ctx = ugcs::vsm::Request_completion_context::Create("Completion context");
     def_comp_ctx->Enable();
-    worker = vsm::Request_worker::Create("Worker",
-        std::initializer_list<vsm::Request_container::Ptr>{Shared_from_this(), def_comp_ctx});
+    worker = ugcs::vsm::Request_worker::Create("Worker",
+        std::initializer_list<ugcs::vsm::Request_container::Ptr>{Shared_from_this(), def_comp_ctx});
     worker->Enable();
 }
 
@@ -275,14 +275,14 @@ Sample_processor::On_disable()
 /** [Define processor enable disable] */
 
 /** [Define sample api call] */
-vsm::Operation_waiter
+ugcs::vsm::Operation_waiter
 Sample_processor::Sample_api_method(int param,
                                     Handler handler,
-                                    vsm::Request_completion_context::Ptr comp_ctx)
+                                    ugcs::vsm::Request_completion_context::Ptr comp_ctx)
 {
-    vsm::Request::Ptr req = vsm::Request::Create();
+    ugcs::vsm::Request::Ptr req = ugcs::vsm::Request::Create();
     req->Set_processing_handler(
-        vsm::Make_callback(&Sample_processor::Process_api_call, Shared_from_this(),
+        ugcs::vsm::Make_callback(&Sample_processor::Process_api_call, Shared_from_this(),
                            param, req, handler));
     req->Set_completion_handler(comp_ctx ? comp_ctx : def_comp_ctx,
                                 handler);
@@ -293,7 +293,7 @@ Sample_processor::Sample_api_method(int param,
 
 /** [Define sample request processing implementation] */
 void
-Sample_processor::Process_api_call(int param, vsm::Request::Ptr request,
+Sample_processor::Process_api_call(int param, ugcs::vsm::Request::Ptr request,
                                    Handler handler)
 {
     auto lock = request->Lock();
@@ -302,7 +302,7 @@ Sample_processor::Process_api_call(int param, vsm::Request::Ptr request,
         return;
     }
     handler.Set_args(param * 2);
-    request->Complete(vsm::Request::Status::OK, std::move(lock));
+    request->Complete(ugcs::vsm::Request::Status::OK, std::move(lock));
 }
 /** [Define sample request processing implementation] */
 
@@ -330,7 +330,7 @@ int
 main (int argc, char *argv[])
 {
     /** [Initialize] */
-    vsm::Initialize(argc, argv);
+    ugcs::vsm::Initialize(argc, argv);
     /** [Initialize] */
 
     Simple_callbacks();
@@ -342,7 +342,7 @@ main (int argc, char *argv[])
     Custom_processor();
 
     /** [Terminate] */
-    vsm::Terminate();
+    ugcs::vsm::Terminate();
     /** [Terminate] */
 
     return 0;

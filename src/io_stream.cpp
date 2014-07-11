@@ -6,12 +6,12 @@
  * Io_stream class implementation
  */
 
-#include <vsm/io_stream.h>
-#include <vsm/debug.h>
+#include <ugcs/vsm/io_stream.h>
+#include <ugcs/vsm/debug.h>
 
 #include <climits>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 const Io_stream::Offset Io_stream::OFFSET_NONE = -1;
 const Io_stream::Offset Io_stream::OFFSET_END = LLONG_MAX;

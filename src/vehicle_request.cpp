@@ -3,11 +3,11 @@
 // See LICENSE file for license details.
 
 /**
- * Implementation of vsm::Vehicle_request.
+ * Implementation of ugcs::vsm::Vehicle_request.
  */
-#include <vsm/vehicle_request.h>
+#include <ugcs/vsm/vehicle_request.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Vehicle_request::Handle::Handle()
 {

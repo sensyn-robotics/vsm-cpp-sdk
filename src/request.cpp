@@ -6,16 +6,10 @@
  * Request class implementation.
  */
 
-#include <vsm/debug.h>
-#include <vsm/request_container.h>
+#include <ugcs/vsm/debug.h>
+#include <ugcs/vsm/request_container.h>
 
-using namespace vsm;
-
-Request::Request():
-    timed_out(false), status(Status::PENDING), completion_processed(false),
-    completion_delivered(false)
-{
-}
+using namespace ugcs::vsm;
 
 Request::~Request()
 {

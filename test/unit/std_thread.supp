@@ -40,6 +40,12 @@
 }
 
 {
+    unittestpp
+    Helgrind:Race
+    fun:*UnitTest*
+}
+
+{
     atomic fields
     Helgrind:Race
     ...

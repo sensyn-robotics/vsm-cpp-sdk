@@ -6,11 +6,11 @@
  * Tests for Singleton class.
  */
 
-#include <vsm/singleton.h>
+#include <ugcs/vsm/singleton.h>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 int creation_count;
 

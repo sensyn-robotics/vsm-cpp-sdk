@@ -45,7 +45,7 @@ end
 group Read transaction
     Disp_thr_1 -> Disp_thr_1: Data received (e.g. from CUCS)
     Disp_thr_1 -> Vehicle_thr_1: Io_event with received Io_buffer\nsubmitted to the receiver vehicle
-    Vehicle_thr_1 -> Vehicle_thr_1: vsm::Process_events() blocking call by SDK,\nqueued events processed
+    Vehicle_thr_1 -> Vehicle_thr_1: ugcs::vsm::Process_events() blocking call by SDK,\nqueued events processed
 end
 
 group Timer usage
@@ -63,13 +63,13 @@ end
 group Read transaction
     Disp_thr_1 -> Disp_thr_1: Data received (e.g. from CUCS)
     Disp_thr_1 -> Main_thr: Io_event with received Io_buffer\nsubmitted to the receiver vehicle
-    Main_thr -> Main_thr: vsm::Process_events() called,\nqueued events processed
+    Main_thr -> Main_thr: ugcs::vsm::Process_events() called,\nqueued events processed
 end
 
 group Timer usage
     Main_thr -> Main_thr: Register timer
     Timer_thr -> Main_thr: Timer event when timer fired
-    Main_thr -> Main_thr: vsm::Process_events() called,\nqueued events processed
+    Main_thr -> Main_thr: ugcs::vsm::Process_events() called,\nqueued events processed
 end
 
 ==Termination==

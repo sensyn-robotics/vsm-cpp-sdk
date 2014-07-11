@@ -6,9 +6,9 @@
 
 #ifndef VSM_DISABLE_HID
 
-#include <vsm/hid_processor.h>
+#include <ugcs/vsm/hid_processor.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Singleton<Hid_processor> Hid_processor::singleton;
 
@@ -30,27 +30,26 @@ Hid_processor::Open(uint32_t vendor_id, uint32_t product_id)
     } else {
         it = streams.emplace(device_id, Stream::Weak_ptr()).first;
     }
-    auto stream = Stream::Create(Shared_from_this(), device_id,
-                                 Stream::Native_handle::Create(device_id));
+    auto stream = Create_stream(device_id);
     Register_stream(stream);
     it->second = stream;
     return stream;
 }
 
 /* Hid_processor::Stream class. */
-
 Hid_processor::Stream::Stream(Hid_processor::Ptr processor, Device_id device_id,
-                              Native_handle::Ptr native_handle):
-    File_processor::Stream(native_handle->Get_read_handle().get(),
-                           native_handle->Get_write_handle().get(),
-                           processor,
-                           native_handle->file_name,
-                           File_processor::Stream::Mode("r+"),
-                           false),
-    proc(processor),
-    device_id(device_id),
-    native_handle(native_handle)
-{}
+                Hid_processor::Stream::Native_handle::Ptr native_handle,
+                File_processor::Stream::Native_handle::Unique_ptr&& native_file_handle) :
+                        File_processor::Stream::Stream(
+                                processor,
+                                native_handle->file_name,
+                                File_processor::Stream::Mode("r+"), false,
+                                std::move(native_file_handle)),
+                        proc(processor), device_id(device_id),
+                        native_handle(native_handle)
+{
+
+}
 
 void
 Hid_processor::Stream::Set_output_report(Io_buffer::Ptr data, uint8_t report_id)

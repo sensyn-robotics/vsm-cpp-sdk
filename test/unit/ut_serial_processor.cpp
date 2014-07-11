@@ -9,43 +9,20 @@
  *      Author: Janis
  */
 
-
 #include <iostream>
 
-#include <vsm/vsm.h>
-#include <vsm/callback.h>
-#include <vsm/debug.h>
-#include <vsm/param_setter.h>
+#include <ugcs/vsm/vsm.h>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
-class Test_case_wrapper
+TEST(socket_processor_listen_accept)
 {
-public:
-    Test_case_wrapper() {
-        Initialize("vsm.conf", std::ios_base::in);
-    }
-
-    ~Test_case_wrapper() {
-        Terminate();
-    }
-};
-
-TEST_FIXTURE(Test_case_wrapper, socket_processor_listen_accept)
-{
-    auto sp = Serial_processor::Get_instance();
-    auto worker = Request_worker::Create("UT serial prcessor worker");
-    CHECK(sp->Is_enabled());
-    worker->Enable();
-
     std::cout << "Enumerating serial ports:" << std::endl;
-    auto v = sp->Enumerate_port_names();
+    auto v = Serial_processor::Enumerate_port_names();
     for (auto i : v)
     {
         std::cout << i << std::endl;
     }
-
-    worker->Disable();
 }

@@ -7,35 +7,125 @@
  * Windows-specific implementation.
  */
 
-#include <vsm/serial_processor.h>
+#include <ugcs/vsm/serial_processor.h>
+#include <ugcs/vsm/windows_file_handle.h>
+#include <ugcs/vsm/windows_wstring.h>
 
-#include <windows.h>
-
-using namespace vsm;
+using namespace ugcs::vsm;
 
 namespace {
 
-/** Envelope for Windows file handle value. */
-class Windows_file_handle_envelope:
-    public File_processor::Stream::Native_handle::Envelope {
-public:
-    Windows_file_handle_envelope(HANDLE handle): handle(handle) {}
+/** Serial port mode on Windows. */
+class Windows_serial_mode: public Serial_processor::Stream::Mode {
 
-    virtual void *
-    Get_handle() override
-    {
-        return &handle;
-    }
+public:
+
+    Windows_serial_mode(const Mode& mode);
+
+    void
+    Fill_dcb(DCB& dcb);
+
+    void
+    Fill_commtimeouts(COMMTIMEOUTS& timeouts);
+};
+
+Windows_serial_mode::Windows_serial_mode(const Mode& mode) : Mode(mode)
+{
+}
+
+void
+Windows_serial_mode::Fill_dcb(DCB& dcb)
+{
+    dcb.DCBlength = sizeof(dcb);
+    dcb.BaudRate = baud;
+    dcb.fBinary = true;
+    dcb.fParity = parity_check;
+    dcb.ByteSize = char_size;
+    dcb.Parity = parity_check ? (parity ? ODDPARITY : EVENPARITY) : NOPARITY;
+    dcb.StopBits = stop_bit ? TWOSTOPBITS : ONESTOPBIT;
+}
+
+void
+Windows_serial_mode::Fill_commtimeouts(COMMTIMEOUTS& timeouts)
+{
+    memset(&timeouts, 0, sizeof(timeouts));
+    timeouts.ReadIntervalTimeout = read_timeout.count();
+}
+
+class Serial_file_handle: public internal::Windows_file_handle {
+public:
+
+    Serial_file_handle(
+            HANDLE handle,
+            const Serial_processor::Stream::Mode& mode,
+            const std::string& name);
+
+    /** Configure the descriptor based on current mode. */
+    void
+    Configure();
 
 private:
-    /** File handle. */
-    HANDLE handle;
+
+    /** Mode of the device. */
+    Windows_serial_mode mode;
+
+    /** Name of the port. */
+    std::string name;
+
 };
+
+Serial_file_handle::Serial_file_handle(
+        HANDLE handle,
+        const Serial_processor::Stream::Mode& mode,
+        const std::string& name) :
+            internal::Windows_file_handle(handle),
+            mode(mode),
+            name(name)
+{
+
+}
+
+void
+Serial_file_handle::Configure()
+{
+    COMMTIMEOUTS timeouts;
+    mode.Fill_commtimeouts(timeouts);
+
+    if (!SetCommTimeouts(handle, &timeouts)) {
+        VSM_EXCEPTION(File_processor::Exception,
+            "Failed to set timeouts (SetCommTimeouts): %s",
+            Log::Get_system_error().c_str());
+    }
+
+    DCB dcb;
+    memset(&dcb, 0, sizeof(dcb));
+    if (!GetCommState(handle, &dcb)) {
+        VSM_EXCEPTION(File_processor::Exception,
+            "Failed to get mode (GetCommState): %s",
+            Log::Get_system_error().c_str());
+    }
+
+    mode.Fill_dcb(dcb);
+
+    if (!SetCommState(handle, &dcb)) {
+        DWORD error_code = GetLastError();
+        std::string error = Log::Get_system_error();
+        if (error_code == ERROR_FILE_NOT_FOUND) {
+            /* Serial port node already removed. */
+            LOG_WARNING("Serial port node lost: %s", name.c_str());
+            VSM_EXCEPTION(File_processor::Not_found_exception,
+                "Failed to apply mode (SetCommState): %s", error.c_str());
+        }
+        /* Assuming mode parameters are not valid. */
+        VSM_EXCEPTION(Invalid_param_exception,
+            "Failed to apply mode (SetCommState): %s", error.c_str());
+    }
+}
 
 } /* anonymous namespace */
 
-std::unique_ptr<Serial_processor::Stream::Native_handle::Envelope>
-Serial_processor::Stream::Open_handle(const std::string &port_name, const Mode &mode)
+Serial_processor::Stream::Native_handle::Unique_ptr
+Serial_processor::Open_native_handle(const std::string &port_name, const Stream::Mode &mode)
 {
     /*  Prepend device prefix if not yet. */
     const char prefix[] = "\\\\.\\";
@@ -49,8 +139,18 @@ Serial_processor::Stream::Open_handle(const std::string &port_name, const Mode &
         name += port_name;
     }
 
-    HANDLE handle = CreateFile(name.c_str(), GENERIC_READ | GENERIC_WRITE,
-                               0, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
+    HANDLE handle;
+
+    try {
+        handle = CreateFileW(Windows_wstring(name),
+                GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING,
+                FILE_FLAG_OVERLAPPED, 0);
+    } catch (const Windows_wstring::Conversion_failure&) {
+        VSM_EXCEPTION(File_processor::Exception,
+                "Failed to convert file name to wide character string: %s",
+                name.c_str());
+    }
+
     if (handle == INVALID_HANDLE_VALUE) {
         switch (GetLastError()) {
         case ERROR_ACCESS_DENIED:
@@ -67,49 +167,10 @@ Serial_processor::Stream::Open_handle(const std::string &port_name, const Mode &
         }
     }
 
-    /* Disable any timeouts so that we can have event-based workflow. */
-    COMMTIMEOUTS timeouts;
-    memset(&timeouts, 0, sizeof(timeouts));
-    timeouts.ReadIntervalTimeout = 1;
-    if (!SetCommTimeouts(handle, &timeouts)) {
-        CloseHandle(handle);
-        VSM_EXCEPTION(File_processor::Exception,
-                      "Failed to set timeouts (SetCommTimeouts): %s", Log::Get_system_error().c_str());
-    }
+    auto serial_handle = std::make_unique<Serial_file_handle>(handle, mode, port_name);
+    serial_handle->Configure();
 
-    DCB dcb;
-    memset(&dcb, 0, sizeof(dcb));
-    if (!GetCommState(handle, &dcb)) {
-        CloseHandle(handle);
-        VSM_EXCEPTION(File_processor::Exception,
-                      "Failed to get mode (GetCommState): %s", Log::Get_system_error().c_str());
-    }
-
-    dcb.DCBlength = sizeof(dcb);
-    dcb.BaudRate = mode.baud;
-    dcb.fBinary = true;
-    dcb.fParity = mode.parity_check;
-    dcb.ByteSize = mode.char_size;
-    dcb.Parity = mode.parity_check ? (mode.parity ? ODDPARITY : EVENPARITY) : NOPARITY;
-    dcb.StopBits = mode.stop_bit ? TWOSTOPBITS : ONESTOPBIT;
-
-    if (!SetCommState(handle, &dcb)) {
-        CloseHandle(handle);
-        DWORD error_code = GetLastError();
-        std::string error = Log::Get_system_error();
-        if (error_code == ERROR_FILE_NOT_FOUND) {
-            /* Serial port node already removed. */
-            LOG_WARNING("Serial port node lost: %s", name.c_str());
-            VSM_EXCEPTION(Not_found_exception,
-                          "Failed to apply mode (SetCommState): %s", error.c_str());
-        }
-        /* Assuming mode parameters are not valid. */
-        VSM_EXCEPTION(Invalid_param_exception,
-                      "Failed to apply mode (SetCommState): %s", error.c_str());
-    }
-
-    return std::unique_ptr<Serial_processor::Stream::Native_handle::Envelope>
-        (new Windows_file_handle_envelope(handle));
+    return std::move(serial_handle);
 }
 
 std::list<std::string>

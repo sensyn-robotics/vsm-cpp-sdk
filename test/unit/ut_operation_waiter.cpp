@@ -6,17 +6,17 @@
  * Tests for Operation_waiter class.
  */
 
-#include <vsm/vsm.h>
-#include <vsm/operation_waiter.h>
-#include <vsm/request_temp_completion_context.h>
-#include <vsm/request_worker.h>
-#include <vsm/param_setter.h>
+#include <ugcs/vsm/vsm.h>
+#include <ugcs/vsm/operation_waiter.h>
+#include <ugcs/vsm/request_temp_completion_context.h>
+#include <ugcs/vsm/request_worker.h>
+#include <ugcs/vsm/param_setter.h>
 
 #include <thread>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 class Fixture {
 public:

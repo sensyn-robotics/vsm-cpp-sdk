@@ -2,9 +2,9 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/ucs_vehicle_command_transaction.h>
+#include <ugcs/vsm/ucs_vehicle_command_transaction.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 std::string
 Ucs_vehicle_command_transaction::Get_name() const
@@ -31,7 +31,8 @@ Ucs_vehicle_command_transaction::On_abort()
 
 void
 Ucs_vehicle_command_transaction::Process(
-        mavlink::Message<mavlink::MESSAGE_ID::COMMAND_LONG>::Ptr message)
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::COMMAND_LONG_EX,
+                         mavlink::ugcs::Extension>::Ptr message)
 {
     if (vehicle_command) {
         /* Already in progress. */
@@ -46,17 +47,35 @@ Ucs_vehicle_command_transaction::Process(
     bool unsupported = false;
 
     switch (message->payload->command) {
-    case mavlink::MAV_CMD::MAV_CMD_OVERRIDE_GOTO:
-        switch (static_cast<int>(message->payload->param1)) {
-        case mavlink::MAV_GOTO::MAV_GOTO_DO_HOLD:
-            type = Vehicle_command::Type::HOLD;
-            break;
-        case mavlink::MAV_GOTO::MAV_GOTO_DO_CONTINUE:
-            type = Vehicle_command::Type::GO;
-            break;
-        default:
+    case mavlink::MAV_CMD::MAV_CMD_COMPONENT_ARM_DISARM:
+        if (message->payload->param1) {
+            type = Vehicle_command::Type::ARM;
+        } else {
+            type = Vehicle_command::Type::DISARM;
+        }
+        break;
+    case mavlink::MAV_CMD::MAV_CMD_DO_SET_MODE:
+        if (message->payload->param1 ==
+                mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_AUTO_ENABLED) {
+            type = Vehicle_command::Type::AUTO_MODE;
+        } else if (message->payload->param1 ==
+                mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_MANUAL_INPUT_ENABLED) {
+            type = Vehicle_command::Type::MANUAL_MODE;
+        } else {
             unsupported = true;
         }
+        break;
+    case mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_RETURN_HOME:
+        type = Vehicle_command::Type::RETURN_HOME;
+        break;
+    case mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_TAKEOFF_EX:
+        type = Vehicle_command::Type::TAKEOFF;
+        break;
+    case mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_LAND_EX:
+        type = Vehicle_command::Type::LAND;
+        break;
+    case mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_EMERGENCY_LAND:
+        type = Vehicle_command::Type::EMERGENCY_LAND;
         break;
     default:
         unsupported = true;
@@ -83,7 +102,7 @@ Ucs_vehicle_command_transaction::Process(
 void
 Ucs_vehicle_command_transaction::On_vehicle_command_completed(Vehicle_request::Result result)
 {
-    LOG_DEBUG("Command completed for vehicle %d, result %d",
+    LOG_DEBUG("Command completed for vehicle %u, result %d",
             vehicle->system_id,
             static_cast<int>(result));
 

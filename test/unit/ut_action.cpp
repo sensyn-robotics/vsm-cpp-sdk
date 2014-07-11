@@ -3,9 +3,9 @@
 // See LICENSE file for license details.
 
 #include <UnitTest++.h>
-#include <vsm/actions.h>
+#include <ugcs/vsm/actions.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Geodetic_tuple geo_pos(1,2,3);
 

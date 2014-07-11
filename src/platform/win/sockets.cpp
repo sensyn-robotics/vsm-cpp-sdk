@@ -12,28 +12,28 @@
  */
 
 // This file should be built only on windows platforms
-#ifdef _WIN32
+#if _WIN32
 
-#include <vsm/platform_sockets.h>
-#include <vsm/exception.h>
+#include <ugcs/vsm/sockets.h>
+#include <ugcs/vsm/exception.h>
 
 void
-platform::Init_sockets()
+ugcs::vsm::sockets::Init_sockets()
 {
     static WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
-        VSM_EXCEPTION(vsm::Internal_error_exception, "WSAStartup failed: error %d", WSAGetLastError());
+        VSM_EXCEPTION(ugcs::vsm::Internal_error_exception, "WSAStartup failed: error %d", WSAGetLastError());
 }
 
 void
-platform::Done_sockets()
+ugcs::vsm::sockets::Done_sockets()
 {
     if (WSACleanup() != 0)
-        VSM_EXCEPTION(vsm::Internal_error_exception, "WSACleanup failed: error %d", WSAGetLastError());
+        VSM_EXCEPTION(ugcs::vsm::Internal_error_exception, "WSACleanup failed: error %d", WSAGetLastError());
 }
 
 int
-platform::Create_socketpair(platform::Socket_handle& sock1, platform::Socket_handle& sock2)
+ugcs::vsm::sockets::Create_socketpair(Socket_handle& sock1, Socket_handle& sock2)
 {
     sock1 = sock2 = INVALID_SOCKET;
     union {
@@ -90,29 +90,35 @@ platform::Create_socketpair(platform::Socket_handle& sock1, platform::Socket_han
 }
 
 int
-platform::Close_socket(platform::Socket_handle s)
+ugcs::vsm::sockets::Close_socket(Socket_handle s)
 {
     return closesocket(s);
 }
 
 bool
-platform::Is_last_operation_pending()
+ugcs::vsm::sockets::Is_last_operation_pending()
 {
     int e = WSAGetLastError();
     return (e == WSAEWOULDBLOCK);
 }
 
 int
-platform::Make_nonblocking(platform::Socket_handle handle)
+ugcs::vsm::sockets::Make_nonblocking(Socket_handle handle)
 {
     unsigned long arg = 1;
     return ioctlsocket(handle, FIONBIO, &arg);
 }
 
 int
-platform::Prepare_for_listen(platform::Socket_handle)
+ugcs::vsm::sockets::Prepare_for_listen(Socket_handle)
 {
     // do not try to set SO_REUSEADDR on windows.
+    return 0;
+}
+
+int
+ugcs::vsm::sockets::Disable_sigpipe(Socket_handle)
+{
     return 0;
 }
 

@@ -2,11 +2,11 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/telemetry_manager.h>
+#include <ugcs/vsm/telemetry_manager.h>
 
 #include <cmath>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 /* ****************************************************************************/
 /* Telemetry_manager::Report class. */
@@ -162,6 +162,14 @@ Telemetry_manager::Report::Ptr
 Telemetry_manager::Open_report(std::chrono::milliseconds timestamp)
 {
     return std::make_shared<Report>(*this, timestamp);
+}
+
+void
+Telemetry_manager::Sys_status_update()
+{
+    if (iface.sys_status_update) {
+        iface.sys_status_update();
+    }
 }
 
 void

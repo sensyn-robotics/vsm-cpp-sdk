@@ -9,12 +9,13 @@
  *      Author: Janis
  */
 
-#include <vsm/shared_memory.h>
+#include <ugcs/vsm/shared_memory.h>
+#include <ugcs/vsm/windows.h>
 
 namespace // anonymous
 {
 
-class Shared_memory_win: public vsm::Shared_memory
+class Shared_memory_win: public ugcs::vsm::Shared_memory
 {
     DEFINE_COMMON_CLASS(Shared_memory_win, Shared_memory)
 public:
@@ -42,7 +43,7 @@ Shared_memory_win::~Shared_memory_win()
     Close();
 }
 
-vsm::Shared_memory::Open_result
+ugcs::vsm::Shared_memory::Open_result
 Shared_memory_win::Open(const std::string& name, const size_t size)
 {
     if (size == 0) {
@@ -97,8 +98,8 @@ Shared_memory_win::Close()
 
 }// anonymous namespace
 
-namespace vsm
-{
+namespace ugcs {
+namespace vsm {
 
 bool
 Shared_memory::Delete(const std::string&)
@@ -114,3 +115,4 @@ Shared_memory::Create()
 }
 
 } /* namespace vsm */
+} /* namespace ugcs */

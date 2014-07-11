@@ -2,10 +2,10 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/crash_handler.h>
-#include <vsm/log.h>
+#include <ugcs/vsm/crash_handler.h>
+#include <ugcs/vsm/log.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 std::string Crash_handler::reports_file_base;
 

@@ -6,11 +6,11 @@
  * Tests for Wgs84_datum class.
  */
 
-#include <vsm/coordinates.h>
+#include <ugcs/vsm/coordinates.h>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 TEST(basic_functionality)
 {

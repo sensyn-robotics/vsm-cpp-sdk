@@ -10,17 +10,17 @@ if (NOT DEFINED VSM_SDK_DIR)
     if (DEFINED ENV{VSM_SDK_DIR})
         set(VSM_SDK_DIR $ENV{VSM_SDK_DIR})
     else()
-        # Default SDK path
         if(CMAKE_SYSTEM_NAME MATCHES "Windows")
-            set(VSM_SDK_DIR "C:/Program Files/vsm_sdk")
+            set(VSM_SDK_DIR "C:/UGCS/vsm-sdk")
         else()
-            set(VSM_SDK_DIR "/opt/vsm_sdk")
+            set(VSM_SDK_DIR "/opt/ugcs/vsm-sdk")
         endif()
     endif()
 endif()
 
 # Common for all VSMs
-include("${VSM_SDK_DIR}/lib/make/vsm.cmake")
+set(CMAKE_MODULE_PATH "${VSM_SDK_DIR}/share/cmake")
+include("ugcs/vsm")
 
 # Default VSM config file
 # Optional arguments are source and destination file locations.
@@ -28,7 +28,7 @@ include("${VSM_SDK_DIR}/lib/make/vsm.cmake")
 # your location to default binary folder location or
 # Build_vsm_config(/path/to/your/vsm.conf ${CMAKE_BINARY_DIR}/your.name) to
 # copy and rename the destination file also.
-Build_vsm_config()
+Build_vsm_config(${VSM_SDK_DIR}/share/vsm.conf ${CMAKE_BINARY_DIR}/vsm.conf)
 
 # VSM source and header files
 file(GLOB SOURCES "*.cpp" "*.h")

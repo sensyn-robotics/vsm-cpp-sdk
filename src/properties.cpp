@@ -6,8 +6,9 @@
  * Properties class implementation.
  */
 
-#include <vsm/properties.h>
-#include <vsm/debug.h>
+#include <ugcs/vsm/properties.h>
+#include <ugcs/vsm/platform.h>
+#include <ugcs/vsm/debug.h>
 
 #include <climits>
 #include <cmath>
@@ -16,7 +17,7 @@
 #include <sstream>
 #include <map>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 /* Properties::Property class. */
 

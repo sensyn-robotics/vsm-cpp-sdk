@@ -6,14 +6,14 @@
  * Tests for callback abstraction.
  */
 
-#include <vsm/callback.h>
+#include <ugcs/vsm/callback.h>
 #include <unordered_set>
 #include <set>
 #include <functional>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 int test_arg1;
 const char *test_arg2;

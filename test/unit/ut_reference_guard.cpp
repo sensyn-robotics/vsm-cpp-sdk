@@ -6,13 +6,13 @@
  * Reference_guard class tests.
  */
 
-#include <vsm/reference_guard.h>
+#include <ugcs/vsm/reference_guard.h>
 
 #include <memory>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 class A {
 public:

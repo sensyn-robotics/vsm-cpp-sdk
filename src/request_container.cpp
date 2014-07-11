@@ -6,15 +6,15 @@
  * Request container class implementation.
  */
 
-#include <vsm/debug.h>
-#include <vsm/request_container.h>
+#include <ugcs/vsm/debug.h>
+#include <ugcs/vsm/request_container.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Request_container::Request_container(
         const std::string& name,
         Request_waiter::Ptr waiter):
-    waiter(waiter), is_enabled(false), name(name)
+    waiter(waiter), name(name)
 {
 }
 
@@ -124,7 +124,7 @@ Request_container::Disable()
     lock.Lock();
     if (!request_queue.empty()) {
         VSM_EXCEPTION(Internal_error_exception,
-                "%ld requests still present after container is disabled.",
+                "%zu requests still present after container is disabled.",
                 request_queue.size());
     }
 }
@@ -204,7 +204,7 @@ Request_container::Processing_loop()
     }
     auto lock = waiter->Lock();
     if (request_queue.size()) {
-        LOG_DEBUG("Request container [%s] still has %ld requests after processing "
+        LOG_DEBUG("Request container [%s] still has %zu requests after processing "
                   "loop exit.", name.c_str(), request_queue.size());
     }
 }

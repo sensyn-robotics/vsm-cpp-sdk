@@ -2,13 +2,13 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/log.h>
-#include <vsm/debug.h>
-#include <vsm/cucs_processor.h>
-#include <vsm/timer_processor.h>
-#include <vsm/properties.h>
+#include <ugcs/vsm/log.h>
+#include <ugcs/vsm/debug.h>
+#include <ugcs/vsm/cucs_processor.h>
+#include <ugcs/vsm/timer_processor.h>
+#include <ugcs/vsm/properties.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 constexpr std::chrono::seconds Cucs_processor::WRITE_TIMEOUT;
 
@@ -62,7 +62,7 @@ Cucs_processor::Unregister_vehicle(Vehicle::Ptr vehicle)
      * need to process request. */
     waiter.Wait(false);
     if (!success) {
-        VSM_EXCEPTION(Invalid_param_exception, "Vehicle with ID %d already unregistered",
+        VSM_EXCEPTION(Invalid_param_exception, "Vehicle with ID %u already unregistered",
                 vehicle->system_id);
     }
 }
@@ -79,12 +79,12 @@ Cucs_processor::Send_adsb_report(const Adsb_report& report)
     pending_adsb_reports.fetch_add(1);
     Submit_request(request);
     if (pending_adsb_reports.load() >= MAX_ADSB_REPORTS_PENDING) {
-        LOG_WARNING("CUCS processor overload suspected, %ld pending ADS-B "
+        LOG_WARNING("CUCS processor overload suspected, %zu pending ADS-B "
                 "reports are present. Waiting for all reports to be completed...",
                 pending_adsb_reports.load());
         Operation_waiter waiter(request);
         waiter.Wait(false);
-        LOG_DEBUG("%ld pending ADS-B reports after waiting.",
+        LOG_DEBUG("%zu pending ADS-B reports after waiting.",
                 pending_adsb_reports.load());
     }
 }
@@ -132,7 +132,7 @@ Cucs_processor::Process_on_disable(Request::Ptr request)
         cucs_listener->Close();
     }
     if (vehicles.size()) {
-        LOG_ERR("%ld vehicles are still present in Cucs processor while disabling.",
+        LOG_ERR("%zu vehicles are still present in Cucs processor while disabling.",
                 vehicles.size());
         ASSERT(false);
     }
@@ -179,7 +179,7 @@ Cucs_processor::On_incoming_connection(Socket_processor::Stream::Ref stream, Io_
     if (result == Io_result::OK) {
         LOG_INFO("UCS connection accepted [%s].",
                 stream->Get_name().c_str());
-        Mavlink_stream::Ptr mav_stream = Mavlink_stream::Create(
+        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream = Ucs_vehicle_ctx::Ugcs_mavlink_stream::Create(
                 stream, mavlink::ugcs::Extension::Get());
 
         mav_stream->Bind_decoder_demuxer();
@@ -198,7 +198,7 @@ Cucs_processor::On_incoming_connection(Socket_processor::Stream::Ref stream, Io_
 
 void
 Cucs_processor::Schedule_next_read(
-        Mavlink_stream::Ptr& mav_stream,
+        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr& mav_stream,
         Operation_waiter& waiter)
 {
     waiter.Abort();
@@ -212,7 +212,7 @@ Cucs_processor::Schedule_next_read(
 
 void
 Cucs_processor::Read_completed(Io_buffer::Ptr buffer, Io_result result,
-        Mavlink_stream::Ptr mav_stream)
+        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream)
 {
     auto iter = ucs_connections.find(mav_stream);
     ASSERT(iter != ucs_connections.end());
@@ -220,7 +220,7 @@ Cucs_processor::Read_completed(Io_buffer::Ptr buffer, Io_result result,
         mav_stream->Get_decoder().Decode(buffer);
         Schedule_next_read(mav_stream, iter->second);
     } else {
-        LOG_WARN("UCS connection closed [%s], %lu vehicles are still registered.",
+        LOG_WARN("UCS connection closed [%s], %zu vehicles are still registered.",
                 mav_stream->Get_stream()->Get_name().c_str(),
                 vehicles.size());
         mav_stream->Get_stream()->Close();
@@ -234,24 +234,30 @@ Cucs_processor::Read_completed(Io_buffer::Ptr buffer, Io_result result,
 }
 
 void
-Cucs_processor::Register_mavlink_handlers(Mavlink_stream::Ptr mav_stream)
+Cucs_processor::Register_mavlink_handlers(Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream)
 {
     auto& demuxer = mav_stream->Get_demuxer();
 
     demuxer.Register_default_handler(
-            Make_mavlink_demuxer_default_handler(
+            Mavlink_demuxer::Make_default_handler(
                     &Cucs_processor::On_default_mavlink_message_handler,
                     Shared_from_this(),
                     mav_stream));
 
     /* Here are all Mavlink messages supported by UCS processor and UCS
-     * transactions. Other messages will end up in default handler.
+     * transactions with their negative ack builders. Other messages will
+     * end up in default handler.
      */
-    Register_mavlink_message<mavlink::MESSAGE_ID::MISSION_CLEAR_ALL>(mav_stream);
-    Register_mavlink_message<mavlink::MESSAGE_ID::MISSION_COUNT>(mav_stream);
-    Register_mavlink_message<mavlink::MESSAGE_ID::COMMAND_LONG, mavlink::Extension>(mav_stream);
+    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::MISSION_CLEAR_ALL_EX,
+        Mission_nack_builder, mavlink::ugcs::Extension>(mav_stream);
+    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::MISSION_COUNT_EX,
+        Mission_nack_builder, mavlink::ugcs::Extension>(mav_stream);
+    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::COMMAND_LONG_EX,
+        Command_nack_builder, mavlink::ugcs::Extension>(mav_stream);
     Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::MISSION_ITEM_EX,
-        mavlink::ugcs::Extension>(mav_stream);
+        Mission_nack_builder, mavlink::ugcs::Extension>(mav_stream);
+    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::TAIL_NUMBER_REQUEST,
+        Tail_number_response_nack_builder, mavlink::ugcs::Extension>(mav_stream);
 
 }
 
@@ -262,8 +268,8 @@ Cucs_processor::Start_listening()
     auto props = Properties::Get_instance();
     cucs_listener_op = Socket_processor::Get_instance()->Listen(
             Socket_address::Create(
-                    props->Get("cucs_processor.server_address"),
-                    props->Get("cucs_processor.server_port")),
+                    props->Get("ucs.local_listening_address"),
+                    props->Get("ucs.local_listening_port")),
             Make_socket_listen_callback(
                     &Cucs_processor::On_listening_started,
                     Shared_from_this()),
@@ -301,6 +307,9 @@ Cucs_processor::On_register_vehicle(Request::Ptr request, Vehicle::Ptr vehicle,
     if (!ucs_connections.size()) {
         LOG_WARN("Vehicle [%s:%s] registered, but no any UCS servers connected.",
           vehicle->Get_model_name().c_str(), vehicle->Get_serial_number().c_str());
+    } else {
+        /* Immediately notify all servers about new vehicle. */
+        Send_heartbeat(vehicle.get());
     }
 }
 
@@ -360,9 +369,9 @@ Cucs_processor::On_send_adsb_report(
 bool
 Cucs_processor::On_default_mavlink_message_handler(
         mavlink::MESSAGE_ID_TYPE message_id,
-        mavlink::System_id,
+        typename mavlink::Mavlink_kind_ugcs::System_id,
         uint8_t,
-        Mavlink_stream::Ptr mav_stream)
+        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream)
 {
     LOG_WARN("Unsupported Mavlink message %d, closing connection.", message_id);
     mav_stream->Get_stream()->Close();
@@ -373,24 +382,86 @@ bool
 Cucs_processor::On_heartbeat_timer()
 {
     for (auto& vehicle_iter: vehicles) {
-        auto vehicle = vehicle_iter.second->Get_vehicle();
-        for (auto& iter: ucs_connections) {
-            mavlink::Pld_heartbeat hb;
-            hb->autopilot = vehicle->autopilot;
-            hb->base_mode = vehicle->system_mode;
-            int custom_mode = vehicle->custom_mode.uplink_connected ?
-                    mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::MAV_CUSTOM_MODE_FLAG_UPLINK_CONNECTED :
-                    0;
-            custom_mode |= vehicle->custom_mode.downlink_connected ?
-                    mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::MAV_CUSTOM_MODE_FLAG_DOWNLINK_CONNECTED :
-                    0;
-            hb->custom_mode = static_cast<mavlink::ugcs::MAV_CUSTOM_MODE_FLAG>(custom_mode);
-            hb->system_status = vehicle->system_state;
-            hb->type = vehicle->type;
-            Send_message(iter.first, hb, vehicle->system_id, DEFAULT_COMPONENT_ID);
-        }
+        Send_heartbeat(vehicle_iter.second->Get_vehicle().get());
     }
     return true;
+}
+
+void
+Cucs_processor::Send_heartbeat(Vehicle* vehicle)
+{
+    for (auto& iter: ucs_connections) {
+        mavlink::Pld_heartbeat hb;
+        hb->autopilot = vehicle->autopilot;
+
+        auto status = vehicle->Get_system_status();
+        switch (status.control_mode) {
+        case Vehicle::Sys_status::Control_mode::MANUAL:
+            hb->base_mode = mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_MANUAL_INPUT_ENABLED;
+            break;
+        case Vehicle::Sys_status::Control_mode::AUTO:
+            hb->base_mode = mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_AUTO_ENABLED;
+            break;
+        case Vehicle::Sys_status::Control_mode::UNKNOWN:
+            break;
+        }
+
+        switch (status.state) {
+        case Vehicle::Sys_status::State::DISARMED:
+            hb->system_status = mavlink::MAV_STATE::MAV_STATE_POWEROFF;
+            break;
+        case Vehicle::Sys_status::State::ARMED:
+            hb->system_status = mavlink::MAV_STATE::MAV_STATE_ACTIVE;
+            break;
+        case Vehicle::Sys_status::State::UNKNOWN:
+            hb->system_status = mavlink::MAV_STATE::MAV_STATE_UNINIT;
+            break;
+
+        }
+        int custom_mode = status.uplink_connected ?
+                mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::MAV_CUSTOM_MODE_FLAG_UPLINK_CONNECTED :
+                0;
+        custom_mode |= status.downlink_connected ?
+                mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::MAV_CUSTOM_MODE_FLAG_DOWNLINK_CONNECTED :
+                0;
+
+        auto capabilities = vehicle->Get_capabilities();
+
+#define __TRANSLATE_CAPABILITY(__capability, __mav_capability) \
+        capabilities.Is_set(__capability) ? \
+                mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::__mav_capability : \
+                0;
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::ARM_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_ARM_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::DISARM_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_DISARM_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::AUTO_MODE_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_AUTO_MODE_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::MANUAL_MODE_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_MANUAL_MODE_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::RETURN_HOME_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_RETURN_HOME_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::TAKEOFF_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_TAKEOFF_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::LAND_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_LAND_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::EMERGENCY_LAND_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_EMERGENCY_LAND_AVAILABLE);
+
+#undef __TRANSLATE_CAPABILITY
+
+        hb->custom_mode = static_cast<mavlink::ugcs::MAV_CUSTOM_MODE_FLAG>(custom_mode);
+        hb->type = vehicle->type;
+        Send_message(iter.first, hb, vehicle->system_id, DEFAULT_COMPONENT_ID);
+    }
 }
 
 void
@@ -420,6 +491,11 @@ Cucs_processor::Register_vehicle_telemetry(Ucs_vehicle_ctx::Ptr ctx)
 
 #undef __REGISTER_TELEMETRY_LOCAL
 
+    telemetry.sys_status_update = Make_callback(
+            &Cucs_processor::On_sys_status_update,
+            Shared_from_this(),
+            weak_ctx);
+
     ctx->Get_vehicle()->Register_telemetry_interface(telemetry);
 }
 
@@ -427,6 +503,19 @@ void
 Cucs_processor::Unregister_vehicle_telemetry(Ucs_vehicle_ctx::Ptr ctx)
 {
     ctx->Get_vehicle()->Unregister_telemetry_interface();
+}
+
+void
+Cucs_processor::On_sys_status_update(Ucs_vehicle_ctx::Weak_ptr ctx)
+{
+    auto request = Request::Create();
+    auto proc_handler = Make_callback(
+            &Cucs_processor::On_sys_status_update_handle,
+            Shared_from_this(),
+            ctx,
+            request);
+    request->Set_processing_handler(proc_handler);
+    Submit_request(request);
 }
 
 void
@@ -441,10 +530,23 @@ Cucs_processor::Broadcast_mavlink_message(
 }
 
 void
+Cucs_processor::On_sys_status_update_handle(
+        Ucs_vehicle_ctx::Weak_ptr ctx,
+        Request::Ptr request)
+{
+    Ucs_vehicle_ctx::Ptr strong_ctx = ctx.lock();
+    if (strong_ctx) {
+        ASSERT(strong_ctx->Get_vehicle());
+        Send_heartbeat(strong_ctx->Get_vehicle().get());
+    }
+    request->Complete();
+}
+
+void
 Cucs_processor::Send_message(
-        const Mavlink_stream::Ptr mav_stream,
+        const Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream,
         const mavlink::Payload_base& payload,
-        mavlink::System_id system_id,
+        typename mavlink::Mavlink_kind_ugcs::System_id system_id,
         uint8_t component_id)
 {
     mav_stream->Send_message(
@@ -462,7 +564,7 @@ Cucs_processor::Send_message(
 void
 Cucs_processor::Write_to_ucs_timed_out(
         const Operation_waiter::Ptr& waiter,
-        Mavlink_stream::Weak_ptr mav_stream)
+        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Weak_ptr mav_stream)
 {
     auto locked = mav_stream.lock();
     Io_stream::Ref stream = locked ? locked->Get_stream() : nullptr;

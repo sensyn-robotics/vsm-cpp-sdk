@@ -6,14 +6,14 @@
  * Tests for Properties class.
  */
 
-#include <vsm/properties.h>
-#include <vsm/platform.h>
+#include <ugcs/vsm/properties.h>
+#include <ugcs/vsm/platform.h>
 
 #include <UnitTest++.h>
 
 #include <list>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 TEST(basic_functionality)
 {

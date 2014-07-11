@@ -7,12 +7,12 @@
  *  Io_buffer class implementation.
  */
 
-#include <vsm/io_buffer.h>
-#include <vsm/exception.h>
+#include <ugcs/vsm/io_buffer.h>
+#include <ugcs/vsm/exception.h>
 
 #include <cstring>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 const size_t Io_buffer::END = -1;
 
@@ -40,7 +40,7 @@ Io_buffer::Io_buffer():
 }
 
 Io_buffer::Io_buffer(const Io_buffer &buf, size_t offset, size_t len):
-    std::enable_shared_from_this<vsm::Io_buffer>(buf),
+    std::enable_shared_from_this<ugcs::vsm::Io_buffer>(buf),
     data(buf.data)
 {
     if (len == END) {

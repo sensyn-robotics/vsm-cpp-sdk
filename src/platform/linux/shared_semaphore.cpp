@@ -7,6 +7,9 @@
  *
  *  Created on: Oct 24, 2013
  *      Author: Janis
+ *
+ * Linux Specific implementation of named semaphore
+ *
  */
 
 #include <chrono>
@@ -14,11 +17,11 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <semaphore.h>
-#include <vsm/shared_semaphore.h>
+#include <ugcs/vsm/shared_semaphore.h>
 
 namespace
 {
-class Shared_semaphore_linux: public vsm::Shared_semaphore
+class Shared_semaphore_linux: public ugcs::vsm::Shared_semaphore
 {
     DEFINE_COMMON_CLASS(Shared_semaphore_linux, Shared_semaphore)
 public:
@@ -61,7 +64,7 @@ Shared_semaphore_linux::~Shared_semaphore_linux()
     Close();
 }
 
-vsm::Shared_semaphore::Open_result
+ugcs::vsm::Shared_semaphore::Open_result
 Shared_semaphore_linux::Open(const std::string& name, int initial_count, int max_count)
 {
     Close();
@@ -94,7 +97,7 @@ Shared_semaphore_linux::Close()
     }
 }
 
-vsm::Shared_semaphore::Lock_result
+ugcs::vsm::Shared_semaphore::Lock_result
 Shared_semaphore_linux::Wait(std::chrono::milliseconds timeout)
 {
     if (semaphore == SEM_FAILED) {
@@ -198,8 +201,8 @@ Shared_semaphore_linux::Get_count()
 }
 }
 
-namespace vsm
-{
+namespace ugcs {
+namespace vsm {
 
 bool
 Shared_semaphore::Delete(const std::string& name)
@@ -217,3 +220,4 @@ Shared_semaphore::Create()
 }
 
 } /* namespace vsm */
+} /* namespace ugcs */

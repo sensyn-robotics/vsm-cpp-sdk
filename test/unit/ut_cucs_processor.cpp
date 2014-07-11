@@ -3,9 +3,9 @@
 // See LICENSE file for license details.
 
 
-#include <vsm/cucs_processor.h>
+#include <ugcs/vsm/cucs_processor.h>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 

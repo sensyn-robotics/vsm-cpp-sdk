@@ -6,14 +6,14 @@
  * Implementation of socket processor.
  */
 
-#include <vsm/socket_processor.h>
-#include <vsm/param_setter.h>
-#include <vsm/utils.h>
-#include <vsm/debug.h>
+#include <ugcs/vsm/socket_processor.h>
+#include <ugcs/vsm/param_setter.h>
+#include <ugcs/vsm/utils.h>
+#include <ugcs/vsm/debug.h>
 
 #include <cstring>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 namespace {
 
@@ -116,7 +116,7 @@ Operation_waiter
 Socket_processor::Stream::Write_to(
         Io_buffer::Ptr buffer,
         Socket_address::Ptr dest_addr,
-        Write_to_handler completion_handler,
+        Write_handler completion_handler,
         Request_completion_context::Ptr comp_ctx)
 {
     Write_request::Ptr request =
@@ -179,12 +179,12 @@ Socket_processor::Socket_processor(Piped_request_waiter::Ptr piped_waiter) :
 {
     /* Ignore SIGPIPE signal. We get this error from select. */
 //    Utils::Ignore_signal(SIGPIPE);
-    platform::Init_sockets();
+    sockets::Init_sockets();
 }
 
 Socket_processor::~Socket_processor()
 {
-    platform::Done_sockets();
+    sockets::Done_sockets();
 }
 
 void
@@ -200,7 +200,7 @@ Socket_processor::Stream::Set_socket_type(int type)
 }
 
 void
-Socket_processor::Stream::Set_socket(platform::Socket_handle s)
+Socket_processor::Stream::Set_socket(sockets::Socket_handle s)
 {
     ASSERT(this->s == INVALID_SOCKET);
     this->s = s;
@@ -219,7 +219,7 @@ Socket_processor::Stream::Set_connect_request(Io_request::Ptr request)
     connect_request = request;
 }
 
-platform::Socket_handle
+sockets::Socket_handle
 Socket_processor::Stream::Get_socket()
 {
     return s;
@@ -240,7 +240,7 @@ void
 Socket_processor::Stream::Close_socket()
 {
     if (s != INVALID_SOCKET) {
-        if (platform::Close_socket(s)) {
+        if (sockets::Close_socket(s)) {
             LOG_ERR("close socket failure: %s", Log::Get_system_error().c_str());
         }
         s = INVALID_SOCKET;
@@ -339,7 +339,7 @@ void
 Socket_processor::Process_on_disable(Request::Ptr request)
 {
     if (!streams.empty()) {
-        LOG_ERROR("%ld streams are still present during socket processor disabling.",
+        LOG_ERROR("%zu streams are still present during socket processor disabling.",
                 streams.size());
         ASSERT(false);
     }
@@ -355,12 +355,12 @@ void
 Socket_processor::On_wait_and_process()
 {
     fd_set rfds, wfds, efds;
-    platform::Socket_handle max_handle;
+    sockets::Socket_handle max_handle;
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
     FD_ZERO(&efds);
 
-    platform::Socket_handle wait_pipe = piped_waiter->Get_wait_pipe();
+    sockets::Socket_handle wait_pipe = piped_waiter->Get_wait_pipe();
     FD_SET(wait_pipe, &rfds);
     max_handle = wait_pipe;
 
@@ -368,7 +368,7 @@ Socket_processor::On_wait_and_process()
         Stream::Ptr &stream = stream_iter.second;
         if (stream)
         {
-            platform::Socket_handle s = stream->Get_socket();
+            sockets::Socket_handle s = stream->Get_socket();
             auto is_set = false;
             switch (stream->Get_state()) {
             case Io_stream::State::OPENING:
@@ -499,6 +499,7 @@ Socket_processor::Handle_select_connect(Stream::Ptr stream)
     if (result == Io_result::OK && request->Is_processing())
     {
         stream->Set_state(Io_stream::State::OPENED);
+        stream->is_connected = true;
     }
 
     request->Complete(Request::Status::OK, std::move(locker));
@@ -528,12 +529,12 @@ Socket_processor::Handle_select_accept(Stream::Ptr listen_stream)
             {
                 sockaddr_storage peer_addr;
                 socklen_t ss_len = sizeof(sockaddr_storage);
-                platform::Socket_handle s1;
+                sockets::Socket_handle s1;
 
                 s1 = accept(listen_stream->Get_socket(), reinterpret_cast<sockaddr*>(&peer_addr), &ss_len);
                 if (s1 == INVALID_SOCKET)
                 {// accept failed or pending
-                    if (platform::Is_last_operation_pending())
+                    if (sockets::Is_last_operation_pending())
                     {// got the signal from select but there are no connections pending any more!
                         // leave the request in the list and wait for next signal.
                         break;
@@ -545,9 +546,9 @@ Socket_processor::Handle_select_accept(Stream::Ptr listen_stream)
                 }
                 else
                 {// success, got new connection. stream and request are still valid.
-                    if (platform::Make_nonblocking(s1) != 0)
+                    if (sockets::Make_nonblocking(s1) != 0)
                     {/* Fatal here. */
-                        platform::Close_socket(s1);
+                        sockets::Close_socket(s1);
                         VSM_SYS_EXCEPTION("Socket %d failed to set Nonblocking", s1);
                     }
                     ASSERT(stream->Get_state() == Io_stream::State::OPENING_PASSIVE);
@@ -583,9 +584,9 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
     while (!stream->write_requests.empty()) {
         /* Last write request which is waiting */
         auto request = stream->write_requests.front().first;
-        auto dest_address = stream->write_requests.front().second;
 
-        if (stream->socket_type == SOCK_DGRAM && dest_address == nullptr) {
+        auto dest_address = stream->write_requests.front().second;
+        if (!stream->is_connected && dest_address == nullptr) {
             // Use default address if destination not specified explicitly in request
             dest_address = stream->peer_address;
         }
@@ -604,7 +605,7 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
                             stream->Get_socket(),
                             reinterpret_cast<const char*>(buffer->Get_data()),
                             buffer->Get_length(),
-                            platform::SEND_FLAGS,
+                            sockets::SEND_FLAGS,
                             dest_address->Get_sockaddr_ref(),
                             dest_address->Get_len());
                 } else {
@@ -612,7 +613,7 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
                             stream->Get_socket(),
                             reinterpret_cast<const char*>(buffer->Get_data()),
                             buffer->Get_length(),
-                            platform::SEND_FLAGS);
+                            sockets::SEND_FLAGS);
                 }
                 if (written > 0)
                 {// Success. Update Bytes_written and try again if there is more data. */
@@ -632,7 +633,7 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
                         return; // will continue later.
                     }
                 }
-                else if (platform::Is_last_operation_pending())
+                else if (sockets::Is_last_operation_pending())
                 {// write pending
                     return;     // will continue later.
                 }
@@ -703,6 +704,7 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
                             0,
                             address_ptr->Get_sockaddr_ref(),
                             &len);
+                    address_ptr->Set_resolved(read_bytes > 0);
                 } else {
                     read_bytes = recv(
                             stream->Get_socket(),
@@ -723,7 +725,7 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
                     // else we asked for 0 bytes, got 0.
                     break;
                 }
-                else if (platform::Is_last_operation_pending())
+                else if (sockets::Is_last_operation_pending())
                 {// read pending
                     if (stream->read_bytes < readmin)
                     {// min_to_read not reached yet, will finish later.
@@ -737,6 +739,7 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
                 }
                 else
                 {// Socket error. assume no other operation can be performed.
+                	request->Set_result_arg(Io_result::CLOSED, locker);
                     close_stream = true;
                     break;
                 }
@@ -774,7 +777,9 @@ Operation_waiter
 Socket_processor::Connect(
         Socket_address::Ptr addr,
         Connect_handler completion_handler,
-        Request_completion_context::Ptr completion_context)
+        Request_completion_context::Ptr completion_context,
+        int sock_type,
+        Socket_address::Ptr src_addr)
 {
     Stream::Ptr stream = Stream::Create(Shared_from_this());
     stream->Set_state(Io_stream::State::OPENING);
@@ -782,9 +787,12 @@ Socket_processor::Connect(
     Io_request::Ptr request = Io_request::Create(stream, Io_stream::OFFSET_NONE, completion_handler.Get_arg<1>());
     completion_handler.Set_arg<0>(stream); /* Ensures stream existence for completion handler. */
     stream->Set_connect_request(request);
-    stream->Set_socket_type(SOCK_STREAM);
+    stream->Set_socket_type(sock_type);
     // Copy the address from user to avoid uncontrolled modification.
     stream->peer_address = Socket_address::Create(addr);
+    if (src_addr) {
+        stream->local_address = Socket_address::Create(src_addr);
+    }
     stream->Update_name();
     request->Set_completion_handler(completion_context, completion_handler);
 
@@ -810,11 +818,11 @@ Socket_processor::On_connect(Io_request::Ptr request, Stream::Ptr stream)
     }
     addrinfo hints;
     addrinfo *result = nullptr, *rp;
-    platform::Socket_handle s = INVALID_SOCKET;
+    sockets::Socket_handle s = INVALID_SOCKET;
 
     memset(&hints, 0, sizeof(addrinfo));
     hints.ai_family = AF_INET; /* Only IPv4 for now. */
-    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_socktype = stream->Get_socket_type();
     hints.ai_flags = 0;
     hints.ai_protocol = 0; /* Any protocol */
     hints.ai_canonname = nullptr;
@@ -841,11 +849,37 @@ Socket_processor::On_connect(Io_request::Ptr request, Stream::Ptr stream)
                 LOG_INFO("socket creation failed: %s", Log::Get_system_error().c_str());
                 continue;
             }
+            // Try to bind to user specified local address.
+            if (stream->local_address) {
+                /**
+                 * Portability crap. MacOS bind is broken. It does not accept 128 here
+                 * which is the length of struct sockaddr.
+                 * Use sizeof(struct sockaddr_in) for ipv4 instead.
+                 */
+                socklen_t addr_size;
+                if (result->ai_family == AF_INET) {
+                    addr_size = sizeof(struct sockaddr_in);
+                } else {
+                    addr_size = stream->local_address->Get_len();
+                }
+                if (bind(
+                        s,
+                        stream->local_address->Get_sockaddr_ref(),
+                        addr_size
+                        ) != 0) {
+                    LOG_INFO("Bind to %s failed: %s",
+                            stream->local_address->Get_as_string().c_str(),
+                            Log::Get_system_error().c_str());
+                    sockets::Close_socket(s);
+                    s = INVALID_SOCKET;
+                    continue;
+                }
+            }
 
-            if (platform::Make_nonblocking(s) != 0)
+            if (sockets::Make_nonblocking(s) != 0)
             {/* Fatal here. */
                 freeaddrinfo(result);
-                platform::Close_socket(s);
+                sockets::Close_socket(s);
                 VSM_SYS_EXCEPTION("Socket %d failed to set Nonblocking", s);
             }
 
@@ -856,13 +890,14 @@ Socket_processor::On_connect(Io_request::Ptr request, Stream::Ptr stream)
                 {// normal operation
                     stream->Set_state(Io_stream::State::OPENED);
                     stream->Set_socket(s);
+                    stream->is_connected = true;
                     request->Set_result_arg(Io_result::OK, locker);
                     // Add to our streams list.
                     streams[stream] = stream;
                 }
                 else
                 {// abort requested.
-                    platform::Close_socket(s);
+                    sockets::Close_socket(s);
                     stream->Set_state(Io_stream::State::CLOSED);
                     request->Set_result_arg(Io_result::CANCELED, locker);
                 }
@@ -871,7 +906,7 @@ Socket_processor::On_connect(Io_request::Ptr request, Stream::Ptr stream)
                 break;
             }
 
-            if (platform::Is_last_operation_pending()) {
+            if (sockets::Is_last_operation_pending()) {
                 /* Ok. Async connection in progress. */
                 stream->Set_socket(s);
                 // Add to our streams list.
@@ -881,7 +916,7 @@ Socket_processor::On_connect(Io_request::Ptr request, Stream::Ptr stream)
             }
             LOG_INFO("socket connect failure: %s", Log::Get_system_error().c_str());
             /* Try next resolved address. */
-            platform::Close_socket(s);
+            sockets::Close_socket(s);
             s = INVALID_SOCKET;
         }
         if (s == INVALID_SOCKET) {
@@ -928,7 +963,7 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
 {
     addrinfo hints;
     addrinfo *result = nullptr, *rp;
-    platform::Socket_handle s = INVALID_SOCKET;
+    sockets::Socket_handle s = INVALID_SOCKET;
 
     memset(&hints, 0, sizeof(addrinfo));
     hints.ai_family = AF_INET; /* Only IPv4 for now. */
@@ -958,13 +993,13 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
                 LOG_INFO("socket creation failed: %s", Log::Get_system_error().c_str());
                 continue;
             }
-            if (platform::Make_nonblocking(s) != 0)
+            if (sockets::Make_nonblocking(s) != 0)
             {/* Fatal here. */
                 freeaddrinfo(result);
-                platform::Close_socket(s);
+                sockets::Close_socket(s);
                 VSM_SYS_EXCEPTION("Socket %d failed to set Nonblocking", s);
             }
-            if (platform::Prepare_for_listen(s) != 0)
+            if (sockets::Prepare_for_listen(s) != 0)
             {// failed to set SO_REUSEADDR, but let's not die because of that
                 LOG_ERR("Prepare_for_listen failed: %s", Log::Get_system_error().c_str());
             }
@@ -984,7 +1019,7 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
                     }
                     else
                     {// cancel or abort requested.
-                        platform::Close_socket(s);
+                        sockets::Close_socket(s);
                         stream->Set_state(Io_stream::State::CLOSED);
                         request->Set_result_arg(Io_result::CANCELED, locker);
                     }
@@ -998,7 +1033,7 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
             }
 
             /* Try next resolved address. */
-            platform::Close_socket(s);
+            sockets::Close_socket(s);
             s = INVALID_SOCKET;
         }
         if (s == INVALID_SOCKET) {

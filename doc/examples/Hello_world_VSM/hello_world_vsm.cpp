@@ -9,15 +9,15 @@
 
 /* Main include file for VSM SDK. Should be included in all VSM applications. */
 /** [main include] */
-#include <vsm/vsm.h>
+#include <ugcs/vsm/vsm.h>
 /** [main include] */
 
 /* Custom vehicle defined by VSM developer. */
 /** [custom vehicle] */
-class Custom_vehicle:public vsm::Vehicle
+class Custom_vehicle:public ugcs::vsm::Vehicle
 {
     /* To add shared pointer capability to this class. */
-    DEFINE_COMMON_CLASS(Custom_vehicle, vsm::Vehicle)
+    DEFINE_COMMON_CLASS(Custom_vehicle, ugcs::vsm::Vehicle)
 /** [custom vehicle] */
 public:
     /* Custom constructor. Vehicle and autopilot types are fixed, but serial
@@ -26,9 +26,9 @@ public:
     /** [vehicle constructor] */
     Custom_vehicle(
             const std::string& serial_number):
-                vsm::Vehicle(
-                        vsm::mavlink::MAV_TYPE::MAV_TYPE_GENERIC,
-                        vsm::mavlink::MAV_AUTOPILOT::MAV_AUTOPILOT_GENERIC,
+                ugcs::vsm::Vehicle(
+                        ugcs::vsm::mavlink::MAV_TYPE::MAV_TYPE_GENERIC,
+                        ugcs::vsm::mavlink::MAV_AUTOPILOT::MAV_AUTOPILOT_GENERIC,
                         serial_number,
                         "MyDrone") {}
     /** [vehicle constructor] */
@@ -40,14 +40,14 @@ public:
     virtual void
     On_enable() override
     {
-        timer = vsm::Timer_processor::Get_instance()->Create_timer(
+        timer = ugcs::vsm::Timer_processor::Get_instance()->Create_timer(
                 /* Telemetry with 1 second granularity. */
                 std::chrono::seconds(1),
                 /* Send_telemetry method will be called on timer. Smart pointer
                  * is used to reference vehicle instance. Plain 'this' could also
                  * be used here, but it is generally not recommended. */
                 /** [shared this for timer] */
-                vsm::Make_callback(&Custom_vehicle::Send_telemetry, Shared_from_this()),
+                ugcs::vsm::Make_callback(&Custom_vehicle::Send_telemetry, Shared_from_this()),
                 /** [shared this for timer] */
                 /* Execution will be done in default vehicle context,
                  * which is served by dedicated vehicle thread together with
@@ -56,12 +56,15 @@ public:
                 Get_completion_ctx());
 
         Set_system_status(
-                vsm::mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_SAFETY_ARMED,
-                vsm::mavlink::MAV_STATE::MAV_STATE_ACTIVE,
-                /* Uplink & downlink connected. */
-                vsm::Vehicle::Custom_mode(true, true),
-                /* Uptime is always 1 second, as an example only. */
-                std::chrono::seconds(1));
+                ugcs::vsm::Vehicle::Sys_status(
+                        /* Uplink & downlink connected. */
+                        true, true,
+                        /* Manual control. */
+                        ugcs::vsm::Vehicle::Sys_status::Control_mode::MANUAL,
+                        /* Armed. */
+                        ugcs::vsm::Vehicle::Sys_status::State::ARMED,
+                        /* Uptime is always 1 second, as an example only. */
+                        std::chrono::seconds(1)));
     }
     /** [on enable] */
 
@@ -77,36 +80,36 @@ public:
     /* Handler for a task submitted for the vehicle by UgCS. */
     /** [task request] */
     virtual void
-    Handle_vehicle_request(vsm::Vehicle_task_request::Handle request) override
+    Handle_vehicle_request(ugcs::vsm::Vehicle_task_request::Handle request) override
     {
         /* Just print out all actions to the log. Here pointer access semantics
          * of the handle is used. */
         for (auto &action: request->actions) {
             LOG_DEBUG("Action %s received.", action->Get_name().c_str());
             /* Specific processing of move action. */
-            if (action->Get_type() == vsm::Action::Type::MOVE) {
+            if (action->Get_type() == ugcs::vsm::Action::Type::MOVE) {
                 /* Get move action class. */
-                vsm::Move_action::Ptr move = action->Get_action<vsm::Action::Type::MOVE>();
+                ugcs::vsm::Move_action::Ptr move = action->Get_action<ugcs::vsm::Action::Type::MOVE>();
                 /* Get movement position as geodetic tuple. */
-                vsm::Geodetic_tuple pos = move->position.Get_geodetic();
+                ugcs::vsm::Geodetic_tuple pos = move->position.Get_geodetic();
                 /* And output the altitude only. */
                 LOG_DEBUG("Move to altitude of %.2f meters.", pos.altitude);
             }
         }
         /* Indicate successful request processing by the vehicle. */
-        request = vsm::Vehicle_request::Result::OK;
+        request = ugcs::vsm::Vehicle_request::Result::OK;
     }
     /** [task request] */
 
     /* Handler for a clear mission request submitted for the vehicle by UgCS. */
     /** [clear all missions] */
     virtual void
-    Handle_vehicle_request(vsm::Vehicle_clear_all_missions_request::Handle request) override
+    Handle_vehicle_request(ugcs::vsm::Vehicle_clear_all_missions_request::Handle request) override
     {
         /* Mimic operation execution. */
         LOG_DEBUG("All missions cleared.");
         /* Indicate successful request processing by the vehicle. */
-        request = vsm::Vehicle_request::Result::OK;
+        request = ugcs::vsm::Vehicle_request::Result::OK;
     }
     /** [clear all missions] */
 
@@ -114,18 +117,18 @@ public:
     /* Handler for a command submitted for the vehicle by UgCS. */
     /** [command request] */
     virtual void
-    Handle_vehicle_request(vsm::Vehicle_command_request::Handle request) override
+    Handle_vehicle_request(ugcs::vsm::Vehicle_command_request::Handle request) override
     {
         /* Mimic command execution. Here dereference access semantics of the
          * handle is used. */
         switch ((*request).Get_type()) {
-        case vsm::Vehicle_command::Type::GO:
+        case ugcs::vsm::Vehicle_command::Type::GO:
             LOG_DEBUG("Vehicle launched!");
             /* Start yaw spinning and climbing. */
             yaw_speed = 0.1;
             climb_speed = 0.5;
             break;
-        case vsm::Vehicle_command::Type::HOLD:
+        case ugcs::vsm::Vehicle_command::Type::HOLD:
             LOG_DEBUG("Vehicle paused.");
             /* Stop yaw spinning and climbing. */
             yaw_speed = 0;
@@ -133,7 +136,7 @@ public:
             break;
         }
         /* Indicate successful request processing by the vehicle. */
-        request = vsm::Vehicle_request::Result::OK;
+        request = ugcs::vsm::Vehicle_request::Result::OK;
     }
     /** [command request] */
 
@@ -145,7 +148,7 @@ private:
     Send_telemetry()
     {
         auto report = Open_telemetry_report();
-        report->Set<vsm::telemetry::Yaw>(yaw);
+        report->Set<ugcs::vsm::telemetry::Yaw>(yaw);
         /* Simulate some spinning between [-Pi;+Pi]. */
         if ((yaw += yaw_speed) >= M_PI) {
             yaw = -M_PI;
@@ -153,10 +156,10 @@ private:
 
         /* Simulate climbing high to the sky. */
         altitude += climb_speed;
-        report->Set<vsm::telemetry::Abs_altitude>(altitude);
+        report->Set<ugcs::vsm::telemetry::Abs_altitude>(altitude);
 
         /* Report also some battery value. */
-        report->Set<vsm::telemetry::Battery_voltage>(13.5);
+        report->Set<ugcs::vsm::telemetry::Battery_voltage>(13.5);
 
         /* Return true to reschedule the same timer again. */
         return true;
@@ -164,7 +167,7 @@ private:
     /** [telemetry] */
 
     /** Timer for telemetry simulation. */
-    vsm::Timer_processor::Timer::Ptr timer;
+    ugcs::vsm::Timer_processor::Timer::Ptr timer;
 
     /** Current yaw value. */
     double yaw = 0;
@@ -183,7 +186,7 @@ int main(int, char* [])
 {
     /** [init] */
     /* First of all, initialize SDK infrastructure and services. */
-    vsm::Initialize();
+    ugcs::vsm::Initialize();
     /** [init] */
     /** [instance creation] */
     /** [instance creation and enable] */
@@ -211,7 +214,7 @@ int main(int, char* [])
     vehicle->Disable();
     /** [disable vehicle] */
     /* Gracefully terminate SDK infrastructure and services. */
-    vsm::Terminate();
+    ugcs::vsm::Terminate();
     /** [exit sequence] */
     return 0;
 }

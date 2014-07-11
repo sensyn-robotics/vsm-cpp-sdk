@@ -6,31 +6,13 @@
 
 #ifndef VSM_DISABLE_HID
 
-#include <vsm/hid_processor.h>
-
-#include <windows.h>
+#include <ugcs/vsm/hid_processor.h>
+#include <ugcs/vsm/windows_file_handle.h>
 #include "vsm_hid.h"
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 namespace {
-
-/** Envelope for Windows file handle value. */
-class Windows_file_handle_envelope:
-    public File_processor::Stream::Native_handle::Envelope {
-public:
-    Windows_file_handle_envelope(HANDLE handle): handle(handle) {}
-
-    virtual void *
-    Get_handle() override
-    {
-        return &handle;
-    }
-
-private:
-    /** File handle. */
-    HANDLE handle;
-};
 
 class Windows_handle: public Hid_processor::Stream::Native_handle {
 public:
@@ -39,11 +21,11 @@ public:
 
     ~Windows_handle();
 
-    virtual std::unique_ptr<Envelope>
-    Get_read_handle() override;
+    HANDLE
+    Get_read_handle();
 
-    virtual std::unique_ptr<Envelope>
-    Get_write_handle() override;
+    HANDLE
+    Get_write_handle();
 
     virtual void
     Set_output_report(Io_buffer::Ptr data, uint8_t report_id) override;
@@ -91,18 +73,16 @@ Windows_handle::~Windows_handle()
     }
 }
 
-std::unique_ptr<Windows_handle::Envelope>
+HANDLE
 Windows_handle::Get_read_handle()
 {
-    return std::unique_ptr<Windows_handle::Envelope>
-        (new Windows_file_handle_envelope(file_handle_read));
+    return  file_handle_read;
 }
 
-std::unique_ptr<Windows_handle::Envelope>
+HANDLE
 Windows_handle::Get_write_handle()
 {
-    return std::unique_ptr<Windows_handle::Envelope>
-        (new Windows_file_handle_envelope(file_handle_write));
+    return file_handle_write;
 }
 
 bool
@@ -254,6 +234,21 @@ Windows_handle::Find_device(Hid_processor::Device_id device_id)
         }
     }
     VSM_EXCEPTION(Hid_processor::Not_found_exception, "Device not found");
+}
+
+Hid_processor::Stream::Ptr
+Hid_processor::Create_stream(Device_id device_id)
+{
+    auto handle = std::make_shared<Windows_handle>(device_id);
+    auto file_handle = std::make_unique<internal::Windows_file_handle>(
+    		handle->Get_read_handle(),
+    		handle->Get_write_handle());
+
+    return std::make_shared<Stream>(
+    		Shared_from_this(),
+    		device_id,
+            handle,
+            std::move(file_handle));
 }
 
 Hid_processor::Stream::Native_handle::Ptr

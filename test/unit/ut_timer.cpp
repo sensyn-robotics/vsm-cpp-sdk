@@ -6,14 +6,14 @@
  * Tests for timer service.
  */
 
-#include <vsm/timer_processor.h>
-#include <vsm/request_worker.h>
+#include <ugcs/vsm/timer_processor.h>
+#include <ugcs/vsm/request_worker.h>
 #include <unordered_set>
 #include <vector>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 TEST(timer_usage)
 {

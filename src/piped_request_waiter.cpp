@@ -6,27 +6,27 @@
  * Implementation of @ref Piped_request_waiter
  */
 
-#include <vsm/piped_request_waiter.h>
-#include <vsm/log.h>
+#include <ugcs/vsm/piped_request_waiter.h>
+#include <ugcs/vsm/log.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
-Piped_request_waiter::Piped_request_waiter() : notified(false)
+Piped_request_waiter::Piped_request_waiter()
 {
-    platform::Init_sockets();
-    if(platform::Create_socketpair(read_pipe, write_pipe)) {
+    sockets::Init_sockets();
+    if(sockets::Create_socketpair(read_pipe, write_pipe)) {
         VSM_EXCEPTION(Internal_error_exception, "Pipe creation error");
     }
 
-    platform::Make_nonblocking(read_pipe);
-    platform::Make_nonblocking(write_pipe);
+    sockets::Make_nonblocking(read_pipe);
+    sockets::Make_nonblocking(write_pipe);
 }
 
 Piped_request_waiter::~Piped_request_waiter()
 {
-    platform::Close_socket(read_pipe);
-    platform::Close_socket(write_pipe);
-    platform::Done_sockets();
+    sockets::Close_socket(read_pipe);
+    sockets::Close_socket(write_pipe);
+    sockets::Done_sockets();
 }
 
 bool
@@ -72,7 +72,7 @@ Piped_request_waiter::Ack()
     int rc = recv(read_pipe, reinterpret_cast<char*>(event), 1, 0);
     notified = false;
     if (rc == SOCKET_ERROR) {
-        if (!platform::Is_last_operation_pending()) {
+        if (!sockets::Is_last_operation_pending()) {
             VSM_SYS_EXCEPTION("Wait pipe read error");
         }
         /*
@@ -93,7 +93,7 @@ Piped_request_waiter::Notify()
     if (already_notified) {
         return;
     }
-    ssize_t rc = send(write_pipe, "x", 1, platform::SEND_FLAGS );
+    ssize_t rc = send(write_pipe, "x", 1, sockets::SEND_FLAGS );
     if (rc == SOCKET_ERROR) {
         VSM_SYS_EXCEPTION("Notify pipe write error");
     } else if (rc == 0) {

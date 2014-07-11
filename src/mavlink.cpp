@@ -6,13 +6,13 @@
  * MAVLink protocol messages implementation.
  */
 
-#include <vsm/mavlink.h>
-#include <vsm/debug.h>
+#include <ugcs/vsm/mavlink.h>
+#include <ugcs/vsm/debug.h>
 
 #include <sstream>
 
-using namespace vsm;
-using namespace vsm::mavlink;
+using namespace ugcs::vsm;
+using namespace ugcs::vsm::mavlink;
 
 Io_buffer::Ptr
 Payload_base::Get_buffer() const
@@ -274,11 +274,10 @@ Checksum::Get() const
     return accumulator;
 }
 
-uint8_t
-Checksum::Get_extra_byte(MESSAGE_ID_TYPE message_id, const Extension &ext)
+Extra_byte_length_pair
+Checksum::Get_extra_byte_length_pair(MESSAGE_ID_TYPE message_id, const Extension &ext)
 {
-    const std::map<MESSAGE_ID_TYPE, uint8_t> *base_map =
-        Extension::Get().Get_crc_extra_byte_map();
+    const auto *base_map = Extension::Get().Get_crc_extra_byte_map();
     auto it = base_map->find(message_id);
     if (it != base_map->end()) {
         return it->second;
@@ -287,7 +286,7 @@ Checksum::Get_extra_byte(MESSAGE_ID_TYPE message_id, const Extension &ext)
     if (ext.Get_name().empty()) {
         VSM_EXCEPTION(Invalid_id_exception, "Unknown message ID: %d", message_id);
     }
-    const std::map<MESSAGE_ID_TYPE, uint8_t> *ext_map = ext.Get_crc_extra_byte_map();
+    const auto *ext_map = ext.Get_crc_extra_byte_map();
     it = ext_map->find(message_id);
     if (it == ext_map->end()) {
         VSM_EXCEPTION(Invalid_id_exception, "Unknown message ID: %d", message_id);

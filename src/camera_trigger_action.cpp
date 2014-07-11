@@ -2,9 +2,9 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/camera_trigger_action.h>
+#include <ugcs/vsm/camera_trigger_action.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Camera_trigger_action::State
 Camera_trigger_action::Mavlink_to_state(double mav_param)

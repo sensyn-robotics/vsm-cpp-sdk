@@ -2,12 +2,12 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/adsb_frame.h>
-#include <vsm/coordinates.h>
+#include <ugcs/vsm/adsb_frame.h>
+#include <ugcs/vsm/coordinates.h>
 #include <cstring>
 #include <sstream>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 constexpr size_t Adsb_frame::SIZE;
 
@@ -63,7 +63,7 @@ Adsb_frame::Adsb_frame(Io_buffer::Ptr buffer) :
 
     if (buffer->Get_length() != SIZE) {
         VSM_EXCEPTION(Invalid_buffer,
-                      "wrong ADS-B buffer size (%ld", buffer->Get_length());
+                      "wrong ADS-B buffer size (%zu)", buffer->Get_length());
     }
     frame = buffer;
     frame_ptr = static_cast<const Frame*>(frame->Get_data());

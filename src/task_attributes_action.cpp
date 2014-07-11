@@ -2,9 +2,9 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/task_attributes_action.h>
+#include <ugcs/vsm/task_attributes_action.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Task_attributes_action::Emergency_action
 Task_attributes_action::Mavlink_to_emergency_action(double mav_param)

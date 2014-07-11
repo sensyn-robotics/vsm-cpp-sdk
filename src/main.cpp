@@ -6,13 +6,13 @@
  * XXX add comment
  */
 
-#include <vsm/vsm.h>
-#include <vsm/cucs_processor.h>
-#include <vsm/crash_handler.h>
+#include <ugcs/vsm/vsm.h>
+#include <ugcs/vsm/cucs_processor.h>
+#include <ugcs/vsm/crash_handler.h>
 
 #include <fstream>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 namespace {
 
@@ -32,20 +32,20 @@ Hid_processor::Ptr hid_processor;
 } /* anonymous namespace */
 
 void
-vsm::Initialize(int argc, char *argv[])
+ugcs::vsm::Initialize(int argc, char *argv[], const std::string &default_conf_file)
 {
-    std::string config_file("vsm.conf");
+    std::string config_file = default_conf_file;
     for (auto c = 0; c < argc; c++) {
         if (strcmp(argv[c], "--config") == 0 && c < argc - 1) {
             c++;
             config_file = std::string(argv[c]);
         }
     }
-    vsm::Initialize(config_file);
+    ugcs::vsm::Initialize(config_file);
 }
 
 void
-vsm::Initialize(const std::string &props_file,
+ugcs::vsm::Initialize(const std::string &props_file,
                 std::ios_base::openmode props_open_mode)
 {
     properties = Properties::Get_instance();
@@ -93,7 +93,7 @@ vsm::Initialize(const std::string &props_file,
 }
 
 void
-vsm::Terminate(bool save_config)
+ugcs::vsm::Terminate(bool save_config)
 {
     transport_detector->Disable();
     transport_detector = nullptr;

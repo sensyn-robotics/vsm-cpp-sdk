@@ -6,11 +6,11 @@
  * Request_waiter class implementation.
  */
 
-#include <vsm/defs.h>
-#include <vsm/request_container.h>
-#include <vsm/exception.h>
+#include <ugcs/vsm/defs.h>
+#include <ugcs/vsm/request_container.h>
+#include <ugcs/vsm/exception.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 /* Request_waiter::Locker class implementation. */
 

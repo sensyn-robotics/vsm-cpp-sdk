@@ -3,7 +3,7 @@
 // See LICENSE file for license details.
 
 
-#include <vsm/piped_request_waiter.h>
+#include <ugcs/vsm/piped_request_waiter.h>
 
 #include <iostream>
 #include <thread>
@@ -12,7 +12,7 @@
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 //XXX
 #ifdef __unix__

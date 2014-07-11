@@ -2,14 +2,17 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/text_stream_filter.h>
+#include <ugcs/vsm/text_stream_filter.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
-Text_stream_filter::Text_stream_filter(Io_stream::Ref stream,
-                                       Request_completion_context::Ptr comp_ctx):
+Text_stream_filter::Text_stream_filter(
+        Io_stream::Ref stream,
+        Request_completion_context::Ptr comp_ctx,
+        size_t max_read):
     stream(stream),
-    comp_ctx(comp_ctx)
+    comp_ctx(comp_ctx),
+    max_read(max_read)
 {
 }
 
@@ -45,9 +48,10 @@ Text_stream_filter::Disable(bool close_stream)
 void
 Text_stream_filter::Schedule_read()
 {
-    if (!read_is_scheduled) {
+    /* Schedule only when we are enabled. */
+    if (!read_is_scheduled && stream) {
         read_is_scheduled = true;
-        read_op_waiter = stream->Read(1, 1,
+        read_op_waiter = stream->Read(max_read, 1,
                 Make_read_callback(&Text_stream_filter::On_data_received,
                         Shared_from_this()),
                         comp_ctx);
@@ -125,6 +129,10 @@ Text_stream_filter::On_data_received(Io_buffer::Ptr buf, Io_result result)
         std::string data = buf->Get_string();
         for (char c: data) {
             On_char_received(c);
+            /* Don't continue if filter has been disabled. */
+            if (!stream) {
+                break;
+            }
         }
         Schedule_read();
     } else {

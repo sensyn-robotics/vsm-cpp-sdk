@@ -6,11 +6,11 @@
  * Test for vehicle class.
  */
 
-#include <vsm/vehicle.h>
+#include <ugcs/vsm/vehicle.h>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 class Some_vehicle: public Vehicle
 {
@@ -21,6 +21,7 @@ public:
     Some_vehicle(int some_prop):
         Vehicle(mavlink::MAV_TYPE::MAV_TYPE_QUADROTOR,
                 mavlink::MAV_AUTOPILOT::MAV_AUTOPILOT_ARDUPILOTMEGA,
+                Vehicle::Capabilities(),
                 "123456", "SuperCopter"),
                 some_prop(some_prop)
     {}
@@ -36,33 +37,14 @@ TEST(basic_usage)
     CHECK(ptr == v);
 }
 
-namespace vsm {
-/* Naming to fool the Vehicle to access private system_id field. */
-class Ucs_transaction: public vsm::Vehicle
-{
-    DEFINE_COMMON_CLASS(Ucs_transaction, vsm::Vehicle)
-    friend class vsm::Vehicle;
-public:
-    Ucs_transaction():
-        Vehicle(mavlink::MAV_TYPE::MAV_TYPE_QUADROTOR,
-                mavlink::MAV_AUTOPILOT::MAV_AUTOPILOT_ARDUPILOTMEGA,
-                "ABCD", "1234567890")
-    {
-
-    }
-
-    bool Check_id()
-    {
-        Calculate_system_id();
-        return system_id == 252;
-    }
-};
-
-} /* namespace vsm; */
-
 TEST(id_generator_hash_function)
 {
-    auto v = Ucs_transaction::Create();
-    CHECK(v->Check_id());
+    auto v = Vehicle::Create(
+            mavlink::MAV_TYPE::MAV_TYPE_QUADROTOR,
+            mavlink::MAV_AUTOPILOT::MAV_AUTOPILOT_ARDUPILOTMEGA,
+            Vehicle::Capabilities(),
+            "ABCD", "1234567890");
+    v->Calculate_system_id();
+    CHECK_EQUAL(3540108284, v->system_id);
 }
 

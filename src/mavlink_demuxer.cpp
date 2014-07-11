@@ -6,9 +6,9 @@
  * Implementation of Mavlink demultiplexer.
  */
 
-#include <vsm/mavlink_demuxer.h>
+#include <ugcs/vsm/mavlink_demuxer.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 constexpr Mavlink_demuxer::Message_id Mavlink_demuxer::MESSAGE_ID_ANY;
 
@@ -32,7 +32,7 @@ Mavlink_demuxer::Register_default_handler(Default_handler handler)
 
 bool
 Mavlink_demuxer::Demux(Io_buffer::Ptr buffer, mavlink::MESSAGE_ID_TYPE message_id,
-                       mavlink::System_id system_id, uint8_t component_id)
+                       System_id system_id, uint8_t component_id)
 {
     if (Demux_try(buffer, message_id, system_id, component_id)) {
         return true;
@@ -45,40 +45,6 @@ Mavlink_demuxer::Demux(Io_buffer::Ptr buffer, mavlink::MESSAGE_ID_TYPE message_i
     }
     return false;
 }
-
-#ifndef AR_DRONE_REDESIGNED
-void
-Mavlink_demuxer::Unregister_handler(System_id system_id,
-                                    Message_id message_id,
-                                    Component_id component_id)
-{
-    /** In most cases, there will be some 'any' user provided argument, which
-     * implies linear search through handlers.
-     */
-    std::unique_lock<std::mutex> lock(mutex);
-    for (auto iter = handlers.begin(); iter != handlers.end();) {
-        if (system_id != SYSTEM_ID_ANY && iter->first.system_id != system_id) {
-
-            iter++;
-            continue;
-        }
-        if (message_id != MESSAGE_ID_ANY && iter->first.message_id != message_id) {
-
-            iter++;
-            continue;
-        }
-        if (component_id != COMPONENT_ID_ANY &&
-            iter->first.component_id != component_id) {
-
-            iter++;
-            continue;
-        }
-        /** Handler matched, unregister it. */
-        iter = handlers.erase(iter);
-    }
-}
-
-#endif
 
 void
 Mavlink_demuxer::Unregister_handler(Key& key)
@@ -93,7 +59,7 @@ bool
 Mavlink_demuxer::Demux_try(
         Io_buffer::Ptr buffer,
         mavlink::MESSAGE_ID_TYPE message_id,
-        mavlink::System_id system_id,
+        System_id system_id,
         uint8_t component_id)
 {
     /* Try exact match first. */
@@ -128,7 +94,7 @@ Mavlink_demuxer::Demux_try_one(Io_buffer::Ptr buffer,
                                mavlink::MESSAGE_ID_TYPE message_id,
                                System_id system_id,
                                Component_id component_id,
-                               mavlink::System_id real_system_id,
+                               System_id real_system_id,
                                uint8_t real_component_id)
 {
     Callback_base::Ptr cb;

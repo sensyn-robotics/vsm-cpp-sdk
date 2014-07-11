@@ -2,15 +2,15 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/ucs_transaction.h>
+#include <ugcs/vsm/ucs_transaction.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 constexpr std::chrono::seconds Ucs_transaction::WRITE_TIMEOUT;
 
 Ucs_transaction::Ucs_transaction(
-        Mavlink_stream::Ptr mav_stream,
-        mavlink::System_id ucs_system_id,
+        Ugcs_mavlink_stream::Ptr mav_stream,
+        typename mavlink::Mavlink_kind_ugcs::System_id ucs_system_id,
         uint8_t ucs_component_id,
         Vehicle::Ptr vehicle,
         Request_completion_context::Ptr completion_context,
@@ -45,7 +45,7 @@ Ucs_transaction::Abort()
     On_abort();
 }
 
-mavlink::System_id
+typename mavlink::Mavlink_kind_ugcs::System_id
 Ucs_transaction::Get_ucs_system_id() const
 {
     return ucs_system_id;
@@ -57,7 +57,7 @@ Ucs_transaction::Get_ucs_component_id() const
     return ucs_component_id;
 }
 
-Mavlink_stream::Ptr
+Ucs_transaction::Ugcs_mavlink_stream::Ptr
 Ucs_transaction::Get_mavlink_stream()
 {
     return mav_stream;
@@ -71,14 +71,16 @@ Ucs_transaction::Is_aborted() const
 
 void
 Ucs_transaction::Process(
-        mavlink::Message<mavlink::MESSAGE_ID::MISSION_CLEAR_ALL>::Ptr msg)
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::MISSION_CLEAR_ALL_EX,
+                         mavlink::ugcs::Extension>::Ptr msg)
 {
     Default_message_processing(msg);
 }
 
 void
 Ucs_transaction::Process(
-        mavlink::Message<mavlink::MESSAGE_ID::MISSION_COUNT>::Ptr msg)
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::MISSION_COUNT_EX,
+                         mavlink::ugcs::Extension>::Ptr msg)
 {
     Default_message_processing(msg);
 }
@@ -93,7 +95,8 @@ Ucs_transaction::Process(
 
 void
 Ucs_transaction::Process(
-        mavlink::Message<mavlink::MESSAGE_ID::COMMAND_LONG>::Ptr msg)
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::COMMAND_LONG_EX,
+                         mavlink::ugcs::Extension>::Ptr msg)
 {
     Default_message_processing(msg);
 }
@@ -110,7 +113,7 @@ void
 Ucs_transaction::Send_mission_ack(mavlink::MAV_MISSION_RESULT result,
         uint8_t vehicle_component_id)
 {
-    mavlink::Pld_mission_ack ack;
+    mavlink::ugcs::Pld_mission_ack_ex ack;
 
     ack->type = result;
     ack->target_system = ucs_system_id;
@@ -121,7 +124,7 @@ Ucs_transaction::Send_mission_ack(mavlink::MAV_MISSION_RESULT result,
 
 void
 Ucs_transaction::Send_command_ack(mavlink::MAV_RESULT result,
-        const mavlink::Pld_command_long& command)
+        const mavlink::ugcs::Pld_command_long_ex& command)
 {
     mavlink::Pld_command_ack ack;
 
@@ -134,7 +137,7 @@ Ucs_transaction::Send_command_ack(mavlink::MAV_RESULT result,
 void
 Ucs_transaction::Send_message(
         const mavlink::Payload_base& payload,
-        mavlink::System_id system_id,
+        typename mavlink::Mavlink_kind_ugcs::System_id system_id,
         uint8_t component_id)
 {
     mav_stream->Send_message(
@@ -152,7 +155,7 @@ Ucs_transaction::Send_message(
 void
 Ucs_transaction::Write_to_ucs_timed_out(
         const Operation_waiter::Ptr& waiter,
-        Mavlink_stream::Weak_ptr mav_stream)
+        Ugcs_mavlink_stream::Weak_ptr mav_stream)
 {
     auto locked = mav_stream.lock();
     Io_stream::Ref stream = locked ? locked->Get_stream() : nullptr;

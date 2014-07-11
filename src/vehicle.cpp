@@ -6,24 +6,27 @@
  * Vehicle class implementation.
  */
 
-#include <vsm/vehicle.h>
-#include <vsm/log.h>
-#include <vsm/cucs_processor.h>
+#include <ugcs/vsm/vehicle.h>
+#include <ugcs/vsm/log.h>
+#include <ugcs/vsm/cucs_processor.h>
 
 #include <iostream>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 std::hash<Vehicle*> Vehicle::Hasher::hasher;
 
+std::mutex Vehicle::state_mutex;
+
 Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
+        const Capabilities& capabilities,
         const std::string& serial_number, const std::string& model_name,
         bool create_thread) :
                 serial_number(serial_number),
                 model_name(model_name),
                 type(type),
                 autopilot(autopilot),
-                uptime(0)
+                capabilities(capabilities)
 {
     completion_ctx = Request_completion_context::Create("Vehicle completion");
     processor = Request_processor::Create("Vehicle processor");
@@ -141,29 +144,67 @@ Vehicle::Get_completion_ctx()
     return completion_ctx;
 }
 
-Vehicle::Custom_mode::Custom_mode(bool uplink_connected, bool downlink_connected) :
-        uplink_connected(uplink_connected), downlink_connected(downlink_connected)
+Vehicle::Sys_status::Sys_status(
+        bool uplink_connected,
+        bool downlink_connected,
+        Control_mode control_mode,
+        State state,
+        std::chrono::seconds uptime) :
+        uplink_connected(uplink_connected), downlink_connected(downlink_connected),
+        control_mode(control_mode), state(state), uptime(uptime)
 {
 
 }
 
-void
-Vehicle::Set_system_status(mavlink::MAV_MODE_FLAG system_mode,
-                           mavlink::MAV_STATE system_state,
-                           const Custom_mode& custom_mode,
-                           std::chrono::seconds uptime)
+bool
+Vehicle::Sys_status::operator==(const Sys_status& other) const
 {
-    /* Ignore mode/state races. Shouldn't matter. */
-    this->system_mode = system_mode;
-    this->system_state = system_state;
-    this->custom_mode = custom_mode;
-    this->uptime = uptime;
+    return uplink_connected == other.uplink_connected &&
+           downlink_connected == other.downlink_connected &&
+           state == other.state &&
+           control_mode == other.control_mode;
+}
+
+void
+Vehicle::Set_system_status(const Sys_status& system_status)
+{
+    bool update;
+    {
+        std::unique_lock<std::mutex> lock(state_mutex);
+        update = !(system_status == this->sys_status);
+        this->sys_status = system_status;
+    }
+    if (update) {
+        telemetry.Sys_status_update();
+    }
+}
+
+Vehicle::Sys_status
+Vehicle::Get_system_status() const
+{
+    std::unique_lock<std::mutex> lock(state_mutex);
+    return sys_status;
+}
+
+Vehicle::Capabilities
+Vehicle::Get_capabilities() const
+{
+    std::unique_lock<std::mutex> lock(state_mutex);
+    return capabilities;
+}
+
+void
+Vehicle::Set_capabilities(const Capabilities& capabilities)
+{
+    std::unique_lock<std::mutex> lock(state_mutex);
+    this->capabilities = capabilities;
 }
 
 Telemetry_manager::Report::Ptr
 Vehicle::Open_telemetry_report()
 {
-    return telemetry.Open_report(uptime);
+    auto status = Get_system_status();
+    return telemetry.Open_report(status.uptime);
 }
 
 namespace {
@@ -198,7 +239,7 @@ Vehicle::Calculate_system_id()
     auto seed = serial_number + model_name;
     const char* buff = seed.c_str();
     auto h = fnv1a_hash64(reinterpret_cast<const uint8_t*>(buff), seed.length());
-    system_id = h & 0xff;
+    system_id = h;
 }
 
 void

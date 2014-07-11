@@ -4,11 +4,11 @@
 
 /* Unit tests for MAVLink messages parser/serializer. */
 
-#include <vsm/mavlink.h>
+#include <ugcs/vsm/mavlink.h>
 #include <UnitTest++.h>
 
-using namespace vsm;
-using namespace vsm::mavlink;
+using namespace ugcs::vsm;
+using namespace ugcs::vsm::mavlink;
 
 /* Define plain format of some message under test. */
 struct Mav_param_request_read {

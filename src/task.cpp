@@ -2,11 +2,11 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/task.h>
-#include <vsm/move_action.h>
-#include <vsm/set_home_action.h>
+#include <ugcs/vsm/task.h>
+#include <ugcs/vsm/move_action.h>
+#include <ugcs/vsm/set_home_action.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Wgs84_position
 Task::Get_home_position()
@@ -54,5 +54,5 @@ Task::Get_home_position_impl()
     if (pos) {
         return std::make_tuple(*pos, elevation);
     }
-    VSM_EXCEPTION(vsm::Invalid_param_exception, "No home position in the task");
+    VSM_EXCEPTION(ugcs::vsm::Invalid_param_exception, "No home position in the task");
 }

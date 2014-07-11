@@ -6,9 +6,9 @@
  * Request_worker class implementation.
  */
 
-#include <vsm/request_worker.h>
+#include <ugcs/vsm/request_worker.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Request_worker::Request_worker(
         const std::string& name,

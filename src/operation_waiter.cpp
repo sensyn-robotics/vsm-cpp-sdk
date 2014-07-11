@@ -6,9 +6,9 @@
  * Operation waiter implementation.
  */
 
-#include <vsm/operation_waiter.h>
+#include <ugcs/vsm/operation_waiter.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Operation_waiter::~Operation_waiter()
 {

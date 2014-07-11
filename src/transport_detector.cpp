@@ -9,11 +9,11 @@
  *      Author: janis
  */
 
-#include <vsm/transport_detector.h>
-#include <vsm/serial_processor.h>
-#include <vsm/utils.h>
+#include <ugcs/vsm/transport_detector.h>
+#include <ugcs/vsm/serial_processor.h>
+#include <ugcs/vsm/utils.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 constexpr std::chrono::seconds Transport_detector::TCP_CONNECT_TIMEOUT;
 constexpr size_t Transport_detector::ARBITER_NAME_MAX_LEN;
@@ -251,9 +251,11 @@ void
 Transport_detector::Add_blacklisted_impl(Connect_handler handler,
         const std::string port_regexp, Request::Ptr request)
 {
-    auto it = port_black_list.emplace(handler, std::list<regex::regex>()).first;
-    it->second.emplace_back(port_regexp, platform_independent_filename_regex_matching_flag);
-    LOG_INFO("Added blacklisted port='%s'", port_regexp.c_str());
+    if (!port_regexp.empty()) {
+        auto it = port_black_list.emplace(handler, std::list<regex::regex>()).first;
+        it->second.emplace_back(port_regexp, platform_independent_filename_regex_matching_flag);
+        LOG_INFO("Added blacklisted port='%s'", port_regexp.c_str());
+    }
     request->Complete();
 }
 
@@ -465,7 +467,7 @@ Transport_detector::Port::Open_serial(bool ok_to_open)
                             [](std::string name, int baud, Io_stream::Ref stream,
                                     Connect_handler h, Request::Ptr req)
                                     {
-                        h.Set_args(name, baud , stream);
+                        h.Set_args(name, baud, nullptr, stream);
                         h.Invoke();
                         req->Complete();
                                     },
@@ -508,7 +510,6 @@ Transport_detector::Port::Reopen_and_call_next_handler()
     if (stream) {
         // stream exists already. Reopen for next handler.
         if (!stream->Is_closed()) {
-            LOG("Closing port %s", stream->Get_name().c_str());
             stream->Close();
         }
         stream = nullptr;
@@ -549,12 +550,14 @@ Transport_detector::Port::Reopen_and_call_next_handler()
         case UDP_IN:
             socket_connecting_op.Abort();
             socket_connecting_op =
-                    Socket_processor::Get_instance()->Bind_udp(
-                    local_addr,
+                    Socket_processor::Get_instance()->Connect(
+                    peer_addr,
                     Make_socket_listen_callback(
                             &Transport_detector::Port::Ip_connected,
                             this),
-                    worker);
+                    worker,
+                    SOCK_DGRAM,
+                    local_addr);
 
             break;
         default:
@@ -597,15 +600,17 @@ Transport_detector::Port::Ip_connected(
              * is executing in one thread only.
              */
             auto temp_handler = Make_callback(
-                    [](std::string peer, Io_stream::Ref stream, Connect_handler h,
+                    [](std::string peer, Io_stream::Ref stream,
+                    		Socket_address::Ptr peer_addr, Connect_handler h,
                             Request::Ptr request)
                             {
-                h.Set_args(peer, 0 , stream);
+                h.Set_args(peer, 0, peer_addr, stream);
                 h.Invoke();
                 request->Complete();
                             },
                             address,
                             new_stream,
+                            Socket_address::Create(peer_addr),
                             handler,
                             request);
             request->Set_processing_handler(temp_handler);

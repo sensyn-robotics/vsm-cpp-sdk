@@ -2,13 +2,6 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-/*
- * windows_service.cpp
- *
- *  Created on: Aug 8, 2013
- *      Author: Janis
- */
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -20,9 +13,10 @@
 #undef ERROR
 #endif
 
-#include <vsm/log.h>
+#include <ugcs/vsm/log.h>
+#include <ugcs/vsm/file_processor.h>
 
-#include <vsm/run_as_service.h>
+#include <ugcs/vsm/run_as_service.h>
 
 namespace {//anonymous namespace
 
@@ -40,8 +34,8 @@ const CHAR argument_separator = '|';
 // Used to report service status to EventViewer
 SERVICE_STATUS_HANDLE   svc_status_handle;
 
-vsm::Program_init g_start_main;
-vsm::Program_done g_stop_main;
+ugcs::vsm::Program_init g_start_main;
+ugcs::vsm::Program_done g_stop_main;
 
 // Report the current service status to the SCM.
 VOID
@@ -225,7 +219,7 @@ Open_scm()
 
     if (NULL == sc_manager)
     {
-        LOG_ERROR("OpenSCManager failed (%s)", vsm::Log::Get_system_error().c_str());
+        LOG_ERROR("OpenSCManager failed (%s)", ugcs::vsm::Log::Get_system_error().c_str());
         return NULL;
     }
     return sc_manager;
@@ -240,7 +234,7 @@ Open_service(SC_HANDLE sc_manager)
         if (service) {
             return service;
         } else {
-            LOG_INFO("OpenService failed (%s)", vsm::Log::Get_system_error().c_str());
+            LOG_INFO("OpenService failed (%s)", ugcs::vsm::Log::Get_system_error().c_str());
         }
     }
     return NULL;
@@ -257,7 +251,7 @@ Windows_service_start()
             if (StartService(service, 0, NULL)) {
                 ret = true;
             } else {
-                LOG_INFO("StartService failed (%s)", vsm::Log::Get_system_error().c_str());
+                LOG_INFO("StartService failed (%s)", ugcs::vsm::Log::Get_system_error().c_str());
             }
             CloseServiceHandle(service);
         }
@@ -281,7 +275,7 @@ Windows_service_stop()
                 ||  err == NO_ERROR) {
                 ret = true;
             } else {
-                LOG_INFO("StopService failed (%s)", vsm::Log::Get_system_error().c_str());
+                LOG_INFO("StopService failed (%s)", ugcs::vsm::Log::Get_system_error().c_str());
             }
             CloseServiceHandle(service);
         }
@@ -302,7 +296,7 @@ Windows_service_create(int argc, char *argv[])
 
     if( !GetModuleFileName( NULL, szPath, MAX_PATH ) )
     {
-        LOG_ERROR("GetModuleFileName failed (%s)", vsm::Log::Get_system_error().c_str());
+        LOG_ERROR("GetModuleFileName failed (%s)", ugcs::vsm::Log::Get_system_error().c_str());
         return false;
     }
 
@@ -391,7 +385,7 @@ Windows_service_create(int argc, char *argv[])
     }
 
     // Test if the config file exists and is readable
-    auto f = fopen(conf_file.c_str(), "rt+");
+    auto f = ugcs::vsm::File_processor::Fopen_utf8(conf_file, "rt");
     if (f) {
         fclose(f);
         LOG_INFO("Using config file '%s'", conf_file.c_str());
@@ -423,7 +417,7 @@ Windows_service_create(int argc, char *argv[])
         service_password);         // password
 
     if (my_service == NULL) {
-        LOG_ERROR("CreateService failed (%s)", vsm::Log::Get_system_error().c_str());
+        LOG_ERROR("CreateService failed (%s)", ugcs::vsm::Log::Get_system_error().c_str());
         CloseServiceHandle(sc_manager);
         return false;
     }
@@ -460,7 +454,7 @@ Windows_service_create(int argc, char *argv[])
         if (startup_mode == SERVICE_AUTO_START)
             return Windows_service_start();
     } else {
-        LOG_ERROR("Failed to parameters in registry (%s)", vsm::Log::Get_system_error().c_str());
+        LOG_ERROR("Failed to save parameters in registry (%s)", ugcs::vsm::Log::Get_system_error().c_str());
     }
     return true;
 }
@@ -479,7 +473,7 @@ Windows_service_delete()
                 ||  err == NO_ERROR) {
                 ret = true;
             } else {
-                LOG_INFO("DeleteService failed (%s)", vsm::Log::Get_system_error().c_str());
+                LOG_INFO("DeleteService failed (%s)", ugcs::vsm::Log::Get_system_error().c_str());
             }
             CloseServiceHandle(service);
         }
@@ -528,7 +522,7 @@ Windows_service_get_state()
                 }
                 ret = true;
             } else {
-                LOG_INFO("QueryServiceStatus failed (%s)", vsm::Log::Get_system_error().c_str());
+                LOG_INFO("QueryServiceStatus failed (%s)", ugcs::vsm::Log::Get_system_error().c_str());
             }
             CloseServiceHandle(service);
         }
@@ -538,11 +532,11 @@ Windows_service_get_state()
 }
 } //anonymous namespace
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 // Main (and only) entry point for windows service framework
-bool
-vsm::Run_as_service(const char* service_name, int argc, char *argv[], Program_init prog_start, Program_done prog_stop)
+Run_as_service_result
+ugcs::vsm::Run_as_service(const char* service_name, int argc, char *argv[], Program_init prog_start, Program_done prog_stop)
 {
     g_start_main = prog_start;
     g_stop_main = prog_stop;
@@ -568,12 +562,12 @@ vsm::Run_as_service(const char* service_name, int argc, char *argv[], Program_in
         // This call returns when the service has stopped.
         // The process should simply terminate when the call returns.
         if (StartServiceCtrlDispatcher(dispatch_table)) {
-            return true;    // Was invoked as service main.
+            return SERVICE_RESULT_OK;    // Was invoked as service main.
         } else {
             unsigned long error = GetLastError();
             if (error != ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
                 Report_event(TEXT("StartServiceCtrlDispatcher error"));
-                return true;
+                return SERVICE_RESULT_ERROR;
             }
         }
     }
@@ -587,29 +581,43 @@ vsm::Run_as_service(const char* service_name, int argc, char *argv[], Program_in
             if (strcmp(argv[c], "create") == 0) {
                 if (Windows_service_create(argc, argv)) {
                     LOG_INFO("Service %s created", g_service_name);
+                } else {
+                    return SERVICE_RESULT_ERROR;
                 }
             } else if (strcmp(argv[c], "delete") == 0) {
-                if (Windows_service_stop() && Windows_service_delete())
+                if (Windows_service_stop() && Windows_service_delete()) {
                     LOG_INFO("Service %s deleted", g_service_name);
+                } else {
+                    return SERVICE_RESULT_ERROR;
+                }
             } else if (strcmp(argv[c], "start") == 0) {
-                if (Windows_service_start())
+                if (Windows_service_start()) {
                     LOG_INFO("Service %s started", g_service_name);
+                } else {
+                    return SERVICE_RESULT_ERROR;
+                }
             } else if (strcmp(argv[c], "stop") == 0) {
-                if (Windows_service_stop())
+                if (Windows_service_stop()) {
                     LOG_INFO("Service %s stopped", g_service_name);
+                } else {
+                    return SERVICE_RESULT_ERROR;
+                }
             } else if (strcmp(argv[c], "restart") == 0) {
-                if (Windows_service_stop() && Windows_service_start())
+                if (Windows_service_stop() && Windows_service_start()) {
                     LOG_INFO("Service %s restarted", g_service_name);
+                } else {
+                    return SERVICE_RESULT_ERROR;
+                }
             } else if (strcmp(argv[c], "state") == 0) {
                 Windows_service_get_state();
             } else {
                 LOG_ERROR("Unknown service option");
+                return SERVICE_RESULT_ERROR;
             }
-            return true;    // service option handled.
+            return SERVICE_RESULT_OK;    // --service option handled.
         }
     }
     // no service specific parameters given.
 
-    // check for installed service.
-    return false;   // no service specific parameters given.
+    return SERVICE_RESULT_NORMAL_INVOCATION;   // no service specific parameters given.
 }

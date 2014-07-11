@@ -2,13 +2,14 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/vehicle_requests.h>
+#include <ugcs/vsm/vehicle_requests.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 #include <UnitTest++.h>
 
 /* To access Vehicle_request::request private member. */
+namespace ugcs {
 namespace vsm {
 class Vehicle {
 public:
@@ -19,6 +20,7 @@ public:
         return req->request;
     }
 };
+}
 }
 
 typedef Vehicle_request_spec<std::string> Vsm_string_request;
@@ -36,8 +38,8 @@ TEST(vehicle_request_handle_copy_and_payload_access)
     auto comp_ctx = Request_completion_context::Create("UT vehicle request completion");
     comp_ctx->Enable();
     auto req = Vehicle_clear_all_missions_request::Create(comp_handler, comp_ctx);
-    vsm::Vehicle::Get_request(req)->Set_processing_handler(proc_handler);
-    vsm::Vehicle::Get_request(req)->Process(true);
+    ugcs::vsm::Vehicle::Get_request(req)->Set_processing_handler(proc_handler);
+    ugcs::vsm::Vehicle::Get_request(req)->Process(true);
     Vehicle_clear_all_missions_request::Handle h1(req);
     /* Initially NOK. */
     CHECK(Vehicle_request::Result::NOK == req->Get_completion_result());
@@ -65,8 +67,8 @@ TEST(vehicle_request_handle_copy_and_payload_access)
 
     /* Payload access reference semantics. */
     auto req2 = Vsm_string_request::Create(comp_handler, comp_ctx);
-    vsm::Vehicle::Get_request(req2)->Set_processing_handler(proc_handler);
-    vsm::Vehicle::Get_request(req2)->Process(true);
+    ugcs::vsm::Vehicle::Get_request(req2)->Set_processing_handler(proc_handler);
+    ugcs::vsm::Vehicle::Get_request(req2)->Process(true);
     req2->payload = "42";
     Vsm_string_request::Handle h3(req2);
     CHECK("42" == *h3);
@@ -85,8 +87,8 @@ TEST(vehicle_request_handle_copy_and_payload_access)
 
     /* Payload access pointer semantics. */
     auto req3 = Vsm_payload_string_request::Create(comp_handler, comp_ctx);
-    vsm::Vehicle::Get_request(req3)->Set_processing_handler(proc_handler);
-    vsm::Vehicle::Get_request(req3)->Process(true);
+    ugcs::vsm::Vehicle::Get_request(req3)->Set_processing_handler(proc_handler);
+    ugcs::vsm::Vehicle::Get_request(req3)->Process(true);
     req3->payload.val = "42";
     /* Automatic completion when last handle is destroyed. */
     {

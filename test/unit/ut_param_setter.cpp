@@ -6,11 +6,11 @@
  * Tests for parameters setters.
  */
 
-#include <vsm/param_setter.h>
+#include <ugcs/vsm/param_setter.h>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 TEST(basic_functionality)
 {

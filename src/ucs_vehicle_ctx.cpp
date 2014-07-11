@@ -2,12 +2,12 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/ucs_vehicle_ctx.h>
-#include <vsm/ucs_mission_clear_all_transaction.h>
-#include <vsm/ucs_task_upload_transaction.h>
-#include <vsm/ucs_vehicle_command_transaction.h>
+#include <ugcs/vsm/ucs_vehicle_ctx.h>
+#include <ugcs/vsm/ucs_mission_clear_all_transaction.h>
+#include <ugcs/vsm/ucs_task_upload_transaction.h>
+#include <ugcs/vsm/ucs_vehicle_command_transaction.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 constexpr std::chrono::seconds Ucs_vehicle_ctx::WRITE_TIMEOUT;
 
@@ -36,7 +36,7 @@ Ucs_vehicle_ctx::Get_vehicle()
 }
 
 void
-Ucs_vehicle_ctx::Stream_disconnected(const Mavlink_stream::Ptr& mav_stream)
+Ucs_vehicle_ctx::Stream_disconnected(const Ugcs_mavlink_stream::Ptr& mav_stream)
 {
     if (active_transaction &&
         active_transaction->Get_mavlink_stream() == mav_stream) {
@@ -49,24 +49,27 @@ Ucs_vehicle_ctx::Stream_disconnected(const Mavlink_stream::Ptr& mav_stream)
 
 void
 Ucs_vehicle_ctx::Process(
-        mavlink::Message<mavlink::MESSAGE_ID::MISSION_CLEAR_ALL>::Ptr message,
-        Mavlink_stream::Ptr mav_stream)
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::MISSION_CLEAR_ALL_EX,
+                         mavlink::ugcs::Extension>::Ptr message,
+        Ugcs_mavlink_stream::Ptr mav_stream)
 {
     Create_or_forward_transaction<Ucs_mission_clear_all_transaction>(message, mav_stream);
 }
 
 void
 Ucs_vehicle_ctx::Process(
-        mavlink::Message<mavlink::MESSAGE_ID::MISSION_COUNT>::Ptr message,
-        Mavlink_stream::Ptr mav_stream)
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::MISSION_COUNT_EX,
+                         mavlink::ugcs::Extension>::Ptr message,
+        Ugcs_mavlink_stream::Ptr mav_stream)
 {
     Create_or_forward_transaction<Ucs_task_upload_transaction>(message, mav_stream);
 }
 
 void
 Ucs_vehicle_ctx::Process(
-        mavlink::Message<mavlink::MESSAGE_ID::COMMAND_LONG>::Ptr message,
-        Mavlink_stream::Ptr mav_stream)
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::COMMAND_LONG_EX,
+                         mavlink::ugcs::Extension>::Ptr message,
+        Ugcs_mavlink_stream::Ptr mav_stream)
 {
     Create_or_forward_transaction<Ucs_vehicle_command_transaction>(message, mav_stream);
 }
@@ -75,9 +78,22 @@ void
 Ucs_vehicle_ctx::Process(
         mavlink::Message<mavlink::ugcs::MESSAGE_ID::MISSION_ITEM_EX,
                          mavlink::ugcs::Extension>::Ptr message,
-        Mavlink_stream::Ptr mav_stream)
+        Ugcs_mavlink_stream::Ptr mav_stream)
 {
     Forward_transaction(message, mav_stream);
+}
+
+void
+Ucs_vehicle_ctx::Process(
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::TAIL_NUMBER_REQUEST,
+                         mavlink::ugcs::Extension>::Ptr message,
+        Ugcs_mavlink_stream::Ptr mav_stream)
+{
+    mavlink::ugcs::Pld_tail_number_response response;
+    response->result = mavlink::MAV_RESULT::MAV_RESULT_ACCEPTED;
+    response->tail_number = vehicle->Get_model_name() + "-" +
+            vehicle->Get_serial_number();
+    Send_message(mav_stream, response, message->payload->target_component);
 }
 
 void
@@ -92,7 +108,7 @@ Ucs_vehicle_ctx::On_transaction_done()
 void
 Ucs_vehicle_ctx::Write_to_ucs_timed_out(
         const Operation_waiter::Ptr& waiter,
-        Mavlink_stream::Weak_ptr mav_stream)
+        Ugcs_mavlink_stream::Weak_ptr mav_stream)
 {
     auto locked = mav_stream.lock();
     Io_stream::Ref stream = locked ? locked->Get_stream() : nullptr;

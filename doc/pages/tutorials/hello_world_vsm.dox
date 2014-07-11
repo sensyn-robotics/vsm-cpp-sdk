@@ -17,9 +17,9 @@ functionality:
 
 @snippet hello_world_vsm.cpp main include
 
-All the SDK functionality resides under @ref ::vsm namespace.
+All the SDK functionality resides under @ref ugcs::vsm namespace.
 
-Custom vehicle class should be defined by deriving from a @ref vsm::Vehicle 
+Custom vehicle class should be defined by deriving from a @ref ugcs::vsm::Vehicle 
 class:
 
 @snippet hello_world_vsm.cpp custom vehicle
@@ -45,26 +45,26 @@ _Class::Ptr_ shared pointer:
 
 </ul>
 
-vsm::Vehicle class does not have a default constructor, so derived vehicle 
+ugcs::vsm::Vehicle class does not have a default constructor, so derived vehicle 
 class needs to provide argument values for base class constructor:
 
 @snippet hello_world_vsm.cpp vehicle constructor
 
-Currently, vehicle and autopilot types are defined by using types from vsm::mavlink
+Currently, vehicle and autopilot types are defined by using types from ugcs::vsm::mavlink
 namespace, but it will be changed in next releases. It is fully up to VSM
 application developer to decide about custom vehicle constructor arguments, but
 usually at least vehicle serial number is configurable while vehicle/autopilot
 types and model name are fixed.
 
-Next step is to decide whether override of vsm::Vehicle::On_enable method is 
+Next step is to decide whether override of ugcs::vsm::Vehicle::On_enable method is 
 needed or not. As a general rule, override is needed if some class-level 
 initialization actions require _this_ shared pointer usage, for example, 
 telemetry simulation timer creation and setting of system status:
 
 @snippet hello_world_vsm.cpp on enable
 
-As a rule, vsm::Vehicle::On_disable method override is also necessary if 
-vsm::Vehicle::On_enable is overridden. In the example, the counterpart action 
+As a rule, ugcs::vsm::Vehicle::On_disable method override is also necessary if 
+ugcs::vsm::Vehicle::On_enable is overridden. In the example, the counterpart action 
 is performed in _On_disable_ method, namely timer cancellation to avoid memory 
 leaks:
 
@@ -74,40 +74,40 @@ Timer created in the _On_enable_ method is used to simulate the telemetry
 generation by the vehicle and to make the "Hello world" example to be more 
 interesting and 'alive'.
 
-All custom vehicles should override vsm::Vehicle::Handle_vehicle_request processing 
+All custom vehicles should override ugcs::vsm::Vehicle::Handle_vehicle_request processing 
 methods (see @ref vehicle_requests_section) to provide vehicle specific 
 implementation of processing logic. The simplest vehicle request is a 
-vsm::Vehicle_clear_all_missions_request which in the example just outputs a message:
+ugcs::vsm::Vehicle_clear_all_missions_request which in the example just outputs a message:
 
 @snippet hello_world_vsm.cpp clear all missions
 
 In a real application, all saved missions should be erased from the vehicle. In 
 this example vehicle requests are processed synchronously, i.e. in the scope of the 
-vsm::Vehicle::Handle_vehicle_request method itself. This is not mandatory. VSM 
+ugcs::vsm::Vehicle::Handle_vehicle_request method itself. This is not mandatory. VSM 
 application developer may save a copy of the request handle for deferred 
 processing and return from the overridden method without completing the request. 
 This way, multiple vehicle related activities can be processed in parallel, for 
 example sending telemetry to UgCS and in the same time processing the VSM 
 request as a complex sequence of actions executed with, probably, notable 
-delays. The payload of vsm::Vehicle_clear_all_missions_request request is empty, so 
+delays. The payload of ugcs::vsm::Vehicle_clear_all_missions_request request is empty, so 
 there is nothing to read from it.
 
-vsm::Vehicle_command_request is a request denoting a command to be executed 
-by a vehicle. The command is defined by vsm::Vehicle_command::Type enumeration 
-and is retrieved by vsm::Vehicle_command::Get_type method:
+ugcs::vsm::Vehicle_command_request is a request denoting a command to be executed 
+by a vehicle. The command is defined by ugcs::vsm::Vehicle_command::Type enumeration 
+and is retrieved by ugcs::vsm::Vehicle_command::Get_type method:
 
 @snippet hello_world_vsm.cpp command request
 
 Here some interesting behavior is simulated. Namely, vehicle yaw spinning and 
 altitude climbing is started/stopped based on respective type of the 
-vsm::Vehicle_command::Type command.
+ugcs::vsm::Vehicle_command::Type command.
 
-The most complex and important vehicle request is vsm::Vehicle_task_request which 
+The most complex and important vehicle request is ugcs::vsm::Vehicle_task_request which 
 denotes a mission to be loaded into the vehicle for latter execution. The 
-payload of the request is vsm::Task which provides a sequence of @ref 
-vsm::Action "Actions" in vsm::Task::actions public member. The type of an 
-action is determined by vsm::Action::Get_type method. The specific action 
-class is retrieved using vsm::Action::Get_action template method:
+payload of the request is ugcs::vsm::Task which provides a sequence of @ref 
+ugcs::vsm::Action "Actions" in ugcs::vsm::Task::actions public member. The type of an 
+action is determined by ugcs::vsm::Action::Get_type method. The specific action 
+class is retrieved using ugcs::vsm::Action::Get_action template method:
 
 @snippet hello_world_vsm.cpp task request
 
@@ -117,8 +117,8 @@ timer:
 @snippet hello_world_vsm.cpp telemetry
 
 Telemetry is sent to UgCS by opening a report using 
-vsm::Vehicle::Open_telemetry_report, then filling it with telemetry parameters 
-(see vsm::telemetry for all available parameter types) supported by the 
+ugcs::vsm::Vehicle::Open_telemetry_report, then filling it with telemetry parameters 
+(see ugcs::vsm::telemetry for all available parameter types) supported by the 
 vehicle. In the example yaw, absolute altitude and battery voltage parameters 
 are sent every second. _yaw_speed_ and _climb_speed_ control the current delta 
 of related parameters to simulate some activity on a vehicle. This activity 
@@ -139,7 +139,7 @@ instantiation is done immediately after VSM initialization:
 
 @snippet hello_world_vsm.cpp instance creation and enable
 
-vsm::Vehicle::Enable method should be always called to complete the vehicle 
+ugcs::vsm::Vehicle::Enable method should be always called to complete the vehicle 
 instance initialization. As a rule, it should be called right after instance 
 creation with _Class::Create_ method.
 

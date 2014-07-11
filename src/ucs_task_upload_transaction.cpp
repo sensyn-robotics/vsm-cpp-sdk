@@ -2,11 +2,11 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/ucs_task_upload_transaction.h>
-#include <vsm/properties.h>
-#include <vsm/ucs_to_vsm_transformations.h>
+#include <ugcs/vsm/ucs_task_upload_transaction.h>
+#include <ugcs/vsm/properties.h>
+#include <ugcs/vsm/ucs_to_vsm_transformations.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 std::string
 Ucs_task_upload_transaction::Get_name() const
@@ -59,7 +59,8 @@ Ucs_task_upload_transaction::Verify_task()
 
 void
 Ucs_task_upload_transaction::Process(
-        mavlink::Message<mavlink::MESSAGE_ID::MISSION_COUNT>::Ptr message)
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::MISSION_COUNT_EX,
+                         mavlink::ugcs::Extension>::Ptr message)
 {
     mavlink::MAV_MISSION_RESULT result =
             mavlink::MAV_MISSION_RESULT::MAV_MISSION_ACCEPTED;
@@ -159,7 +160,7 @@ Ucs_task_upload_transaction::Get_next_mission_item()
             Done();
         }
     } else {
-        LOG_DEBUG("Requesting mission item %lu.", current_task_item);
+        LOG_DEBUG("Requesting mission item %zu.", current_task_item);
 
         mavlink::Pld_mission_request req;
         req->seq = current_task_item;

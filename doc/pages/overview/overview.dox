@@ -34,13 +34,13 @@ also is a requirement for VSM application development.
 
 SDK provides additional cross-platform features which are considered to be
 demanded in a typical VSM application, for example:
-- File I/O using vsm::File_processor.
-- Networking I/O using vsm::Socket_processor.
-- Serial I/O using vsm::Serial_processor.
-- Logging using vsm::Log.
+- File I/O using ugcs::vsm::File_processor.
+- Networking I/O using ugcs::vsm::Socket_processor.
+- Serial I/O using ugcs::vsm::Serial_processor.
+- Logging using ugcs::vsm::Log.
 - Asynchronous programming (see @ref async_programming_page).
-- Coordinates manipulation using vsm::Position.
-- Configuration file management using vsm::Properties.
+- Coordinates manipulation using ugcs::vsm::Position.
+- Configuration file management using ugcs::vsm::Properties.
 
 The usage of additional features, however, is not mandated. VSM application 
 developer is free to use platform-specific methods or any other libraries to
@@ -74,7 +74,7 @@ provided for convenient
 cross-platform VSM application development. It is technically possible to
 develop a VSM application without using of additional functionality provided by
 SDK. Please note, that some additional features are dependent, for example, in
-order to use vsm::Mavlink_decoder, the vsm::Io_buffer should also be used.
+order to use ugcs::vsm::Mavlink_decoder, the ugcs::vsm::Io_buffer should also be used.
 Following tutorials explains the usage of additional functionality:
     + @ref async_programming_page
 

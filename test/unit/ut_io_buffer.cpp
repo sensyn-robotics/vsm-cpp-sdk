@@ -4,13 +4,13 @@
 
 /* Unit tests for Io_buffer class. */
 
-#include <vsm/io_buffer.h>
+#include <ugcs/vsm/io_buffer.h>
 
 #include <UnitTest++.h>
 
 #include <cstring>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 TEST(basic_functionality)
 {

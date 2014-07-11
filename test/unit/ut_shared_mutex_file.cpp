@@ -6,16 +6,16 @@
  * Unit test for file processor.
  */
 
-#include <vsm/shared_mutex_file.h>
-#include <vsm/param_setter.h>
-#include <vsm/request_worker.h>
+#include <ugcs/vsm/shared_mutex_file.h>
+#include <ugcs/vsm/param_setter.h>
+#include <ugcs/vsm/request_worker.h>
 
 #include <UnitTest++.h>
 
 #include <unistd.h>
 #include <fcntl.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 const char *test_path = "vsm_shared_mutex_test";
 
@@ -24,11 +24,11 @@ class File_deleter {
 public:
     File_deleter()
     {
-        int result = access(test_path, F_OK);
+        int result = File_processor::Access_utf8(test_path, F_OK);
         if (result) {
             CHECK_EQUAL(ENOENT, errno);
         } else {
-            CHECK_EQUAL(0, unlink(test_path));
+            CHECK(File_processor::Remove_utf8(test_path));
         }
     }
 };
@@ -65,6 +65,9 @@ TEST_FIXTURE(File_deleter, locking_unlocking)
         m2->Acquire(Make_setter(result2)).Timeout(std::chrono::milliseconds(100));
         LOG("Test 3 lock result=%s", Io_stream::Io_result_as_char(result2));
         CHECK(Io_result::TIMED_OUT == result2);
+
+        // Must release here otherwise it hangs on MacOS
+        m1->Release();
     }
 
     File_processor::Get_instance()->Disable();

@@ -124,14 +124,64 @@
 				<param index="6">Longitude as defined by MISSION_ITEM.</param>
 				<param index="7">Altitude as defined by MISSION_ITEM.</param>
 			</entry>
+			<entry name="MAV_CMD_NAV_EMERGENCY_LAND" value="10007">
+				<description>Emergency landing. Turn everything off, and fall down.</description>
+				<param index="1">Empty</param>
+				<param index="2">Empty</param>
+				<param index="3">Empty</param>
+				<param index="4">Empty</param>
+				<param index="5">Empty</param>
+				<param index="6">Empty</param>
+				<param index="7">Empty</param>
+			</entry>
+			<entry name="MAV_CMD_NAV_RETURN_HOME" value="10008">
+				<description>Return to the home position as set by the route attributes.</description>
+				<param index="1">Empty</param>
+				<param index="2">Empty</param>
+				<param index="3">Empty</param>
+				<param index="4">Empty</param>
+				<param index="5">Empty</param>
+				<param index="6">Empty</param>
+				<param index="7">Empty</param>
+			</entry>
 		</enum>
 		<enum name="MAV_CUSTOM_MODE_FLAG">
 			<description>Custom mode flags.</description>
+			<entry value="1" name="MAV_CUSTOM_MODE_FLAG_DOWNLINK_CONNECTED">
+				<description>Downlink is connected, system is able to push telemetry messages.</description>
+			</entry>
 			<entry value="2" name="MAV_CUSTOM_MODE_FLAG_UPLINK_CONNECTED">
 				<description>Uplink is connected, system is able to receive mission items and commands.</description>
 			</entry>
-			<entry value="1" name="MAV_CUSTOM_MODE_FLAG_DOWNLINK_CONNECTED">
-				<description>Downlink is connected, system is able to push telemetry messages.</description>
+			<entry value="4" name="MAV_CUSTOM_MODE_FLAG_HOLD_AVAILABLE">
+				<description>Hold command is available at the moment.</description>
+			</entry>
+			<entry value="8" name="MAV_CUSTOM_MODE_FLAG_CONTINUE_AVAILABLE">
+				<description>Continue command is available at the moment.</description>
+			</entry>
+			<entry value="16" name="MAV_CUSTOM_MODE_FLAG_ARM_AVAILABLE">
+				<description>Arm command is available at the moment.</description>
+			</entry>
+			<entry value="32" name="MAV_CUSTOM_MODE_FLAG_DISARM_AVAILABLE">
+				<description>Disarm command is available at the moment.</description>
+			</entry>
+			<entry value="64" name="MAV_CUSTOM_MODE_FLAG_AUTO_MODE_AVAILABLE">
+				<description>AuroMode command is available at the moment.</description>
+			</entry>
+			<entry value="128" name="MAV_CUSTOM_MODE_FLAG_MANUAL_MODE_AVAILABLE">
+				<description>ManualMode command is available at the moment.</description>
+			</entry>
+			<entry value="256" name="MAV_CUSTOM_MODE_FLAG_RETURN_HOME_AVAILABLE">
+				<description>ReturnHome command is available at the moment.</description>
+			</entry>
+			<entry value="512" name="MAV_CUSTOM_MODE_FLAG_TAKEOFF_AVAILABLE">
+				<description>Takeoff command is available at the moment.</description>
+			</entry>
+			<entry value="1024" name="MAV_CUSTOM_MODE_FLAG_LAND_AVAILABLE">
+				<description>Land command is available at the moment.</description>
+			</entry>
+			<entry value="2048" name="MAV_CUSTOM_MODE_FLAG_EMERGENCY_LAND_AVAILABLE">
+				<description>EmergencyLand command is available at the moment.</description>
 			</entry>
 		</enum>
 		<enum name="MAV_ICAO_ADDRESS_TYPE">
@@ -148,7 +198,7 @@
 		<message id="150" name="MISSION_ITEM_EX">
 			<description>Message encoding a mission item. Extends common MISSION_ITEM message and provides additional attributes 
 				over parameter 8+ fields.</description>
-			<field type="uint8_t" name="target_system">System that should execute the command.</field>
+			<field type="uint32_t" name="target_system">System that should execute the command.</field>
 			<field type="uint8_t" name="target_component">Component that should execute the command, 0 for all components.</field>
 			<field type="uint16_t" name="seq">Item sequence number.</field>
 			<field type="uint8_t" name="frame">Coordinate system of the item position. See MAV_FRAME enum.</field>
@@ -169,7 +219,7 @@
 		</message>
 		<message id="151" name="COMMAND_LONG_EX">
 			<description>Send a command.</description>
-			<field type="uint8_t" name="target_system">System that should execute the command</field>
+			<field type="uint32_t" name="target_system">System that should execute the command</field>
 			<field type="uint8_t" name="target_component">Component which should execute the command, 0 for all components</field>
 			<field type="uint16_t" name="command">Command, as defined by the MAV_CMD enum.</field>
 			<field type="uint8_t" name="confirmation">0: first transmission of this command. 1-255: confirmation transmissions 
@@ -202,6 +252,33 @@
 			<field type="float" name="ground_speed">Ground relative speed of the aircraft. Set in meters per second.</field>
 			<field type="float" name="vertical_velocity">Vertical velocity of the aircraft (can be negative, when expressing descending rate). 
 				Set in meters per second.</field>
+		</message>
+		<message id="153" name="MISSION_CLEAR_ALL_EX">
+			<description>Delete all mission items at once.</description>
+			<field type="uint32_t" name="target_system">System ID</field>
+			<field type="uint8_t" name="target_component">Component ID</field>
+		</message>
+		<message id="154" name="MISSION_COUNT_EX">
+			<description>This message is emitted as response to MISSION_REQUEST_LIST by the MAV and to initiate a write transaction. The GCS can then request the individual mission item based on the knowledge of the total number of MISSIONs.</description>
+			<field type="uint32_t" name="target_system">System ID</field>
+			<field type="uint8_t" name="target_component">Component ID</field>
+			<field type="uint16_t" name="count">Number of mission items in the sequence</field>
+		</message>
+		<message id="155" name="MISSION_ACK_EX">
+			<description>Ack message during MISSION handling. The type field states if this message is a positive ack (type=0) or if an error happened (type=non-zero).</description>
+			<field type="uint32_t" name="target_system">System ID</field>
+			<field type="uint8_t" name="target_component">Component ID</field>
+			<field type="uint8_t" name="type">See MAV_MISSION_RESULT enum</field>
+		</message>
+		<message id="156" name="TAIL_NUMBER_REQUEST">
+			<description>Request for tail number of the vehicle.</description>
+			<field type="uint32_t" name="target_system">System ID</field>
+			<field type="uint8_t" name="target_component">Component ID (not used)</field>
+		</message>
+		<message id="157" name="TAIL_NUMBER_RESPONSE">
+			<description>Response with tail number of the vehicle.</description>
+			<field type="char[64]" name="tail_number">Tail number of the vehicle.</field>
+			<field type="uint8_t" name="result">See MAV_RESULT enum</field>
 		</message>
 	</messages>
 </mavlink>

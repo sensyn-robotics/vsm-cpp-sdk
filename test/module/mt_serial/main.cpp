@@ -7,14 +7,14 @@
  * It acts just as echo responder on the specified serial port.
  */
 
-#include <vsm/vsm.h>
-#include <vsm/serial_processor.h>
+#include <ugcs/vsm/vsm.h>
+#include <ugcs/vsm/serial_processor.h>
 
 #include <cstdio>
 
 #include <signal.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 const char usage[] = "\
 Usage: \n\
@@ -86,7 +86,7 @@ main (int argc, char *argv[])
     sigaction(SIGINT, &sa, NULL);
 #   endif
 
-    vsm::Initialize();
+    ugcs::vsm::Initialize();
 
     Serial_processor::Ptr proc = Serial_processor::Create();
     proc->Enable();
@@ -99,6 +99,6 @@ main (int argc, char *argv[])
     worker->Disable();
     proc->Disable();
 
-    vsm::Terminate();
+    ugcs::vsm::Terminate();
     return 0;
 }

@@ -6,19 +6,19 @@
  * Test for VSM exceptions.
  */
 
-#include <vsm/exception.h>
-#include <vsm/debug.h>
+#include <ugcs/vsm/exception.h>
+#include <ugcs/vsm/debug.h>
 
 #include <UnitTest++.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 TEST(basic_exception)
 {
     bool cought = false;
     try {
         VSM_EXCEPTION(Exception, "Test exception %d", 237);
-    } catch (const vsm::Exception &e) {
+    } catch (const ugcs::vsm::Exception &e) {
         std::string s = e.what();
         CHECK(s.find("Test exception 237") != std::string::npos);
         cought = true;

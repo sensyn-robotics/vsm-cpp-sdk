@@ -9,10 +9,10 @@
  *      Author: janis
  */
 
-#include <vsm/shared_mutex_file.h>
+#include <ugcs/vsm/shared_mutex_file.h>
 
-namespace vsm
-{
+namespace ugcs {
+namespace vsm {
 
 Shared_mutex_file::~Shared_mutex_file()
 {
@@ -35,3 +35,4 @@ Shared_mutex_file::Release(Shared_mutex_file::Acquire_handler completion_handler
 
 
 } /* namespace vsm */
+} /* namespace ugcs */

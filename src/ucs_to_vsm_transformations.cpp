@@ -2,10 +2,10 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/ucs_to_vsm_transformations.h>
-#include <vsm/actions.h>
+#include <ugcs/vsm/ucs_to_vsm_transformations.h>
+#include <ugcs/vsm/actions.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Action::Ptr
 Ucs_to_vsm_transformations::Parse_mission_item_ex(

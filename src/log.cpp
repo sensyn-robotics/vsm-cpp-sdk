@@ -7,13 +7,16 @@
  *   Log class partial implementation (platform independent).
  */
 
-#include <vsm/log.h>
+#include <ugcs/vsm/log.h>
+#include <ugcs/vsm/platform.h>
+#include <ugcs/vsm/file_processor.h>
 #include <algorithm>
 #include <locale>
 #include <set>
 #include <sstream>
+#include <iostream>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 volatile Log *Log::log = nullptr;
 
@@ -156,7 +159,7 @@ Log::Reopen_custom_log_file(const std::string &log_file)
     if (custom_log_file) {
         std::fclose(custom_log_file);
     }
-    custom_log_file = std::fopen(log_file.c_str(), "a");
+    custom_log_file = File_processor::Fopen_utf8(log_file, "a");
     if (!custom_log_file) {
         Write_console_message_inst(
                 -1,
@@ -250,6 +253,7 @@ Log::Write_custom_message(int thread_id, Log::Level level, const char *msg,
     }
 
     std::va_list cust_args;
+    /* Note va_end! */
     va_copy(cust_args, args);
 
     char ts_buf[128];
@@ -286,8 +290,11 @@ Log::Write_custom_message(int thread_id, Log::Level level, const char *msg,
         if (Is_cleanup_needed()) {
             Do_cleanup(thread_id);
         }
+        va_end(cust_args);
         return;
     }
+
+    va_end(cust_args);
 
     /*
      * Some error happened during custom log file writing. Duplicate the
@@ -320,14 +327,25 @@ Log::Write_console_message_v_inst(int thread_id, Level level, const char *msg,
 
     auto duration = now.time_since_epoch();
     unsigned long ms =
-            std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() % 1000;
+        std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() % 1000;
 
     std::va_list con_args;
     va_copy(con_args, args);
-    std::printf("%s.%03lu - <%s> %d ", ts_buf, ms, Get_level_str(level), thread_id);
-    std::vprintf(msg, con_args);
-    std::printf("\n");
+    Printf_utf8("%s.%03lu - <%s> %d ", ts_buf, ms, Get_level_str(level), thread_id);
+    Vprintf_utf8(msg, con_args);
+    std::cout<<std::endl;
     fflush(stdout);
+    va_end(con_args);
+}
+
+int
+Log::Printf_utf8(const char *message, ...)
+{
+    std::va_list args;
+    va_start(args, message);
+    int ret = Vprintf_utf8(message, args);
+    va_end(args);
+    return ret;
 }
 
 bool
@@ -356,13 +374,13 @@ Log::Do_cleanup(int thread_id)
             check_name += "(" + std::to_string(idx) + ")";
         }
         /* Destination file should not exist. */
-        FILE* dst = std::fopen(check_name.c_str(), "r");
+        FILE* dst = File_processor::Fopen_utf8(check_name, "r");
         if (dst != nullptr) {
             std::fclose(dst);
             continue;
         }
         /* Try rename. */
-        if (std::rename(custom_log_file_name.c_str(), check_name.c_str())) {
+        if (!File_processor::Rename_utf8(custom_log_file_name, check_name)) {
             Write_console_message_inst(
                     thread_id,
                     Level::WARNING,

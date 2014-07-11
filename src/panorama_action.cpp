@@ -2,9 +2,9 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/panorama_action.h>
+#include <ugcs/vsm/panorama_action.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Panorama_action::Trigger_state
 Panorama_action::Mavlink_to_trigger_state(double mav_param)

@@ -6,35 +6,31 @@
  * Serial_processor implementation.
  */
 
-#include <vsm/serial_processor.h>
+#include <ugcs/vsm/serial_processor.h>
 
-using namespace vsm;
-
-/* ****************************************************************************/
-/* Serial_processor::Stream class. */
-
-Serial_processor::Stream::Stream(Serial_processor::Ptr processor,
-                                 const std::string &port_name, const Mode &mode):
-    File_processor::Stream(Open_handle(port_name, mode).get(), nullptr,
-                           processor, port_name,
-                           File_processor::Stream::Mode("r+"), false),
-    processor(processor), mode(mode)
-{
-
-}
-
-/* ****************************************************************************/
-/* Serial_processor class. */
+using namespace ugcs::vsm;
 
 Singleton<Serial_processor> Serial_processor::singleton;
 
 Serial_processor::Serial_processor()
 {}
 
+Serial_processor::Stream::Stream(Serial_processor::Ptr processor,
+        const std::string& port_name,
+        const Stream::Mode &mode,
+        Native_handle::Unique_ptr&& native_handle):
+    File_processor::Stream(processor, port_name,
+            File_processor::Stream::Mode("r+"), false, std::move(native_handle)),
+    processor(processor), mode(mode)
+{
+
+}
+
 Serial_processor::Stream::Ref
 Serial_processor::Open(const std::string &port_name, const Stream::Mode &mode)
 {
-    auto stream = Stream::Create(Shared_from_this(), port_name, mode);
+    auto stream = Stream::Create(Shared_from_this(), port_name, mode,
+            Open_native_handle(port_name, mode));
     if (stream)
         Register_stream(stream);
     return stream;

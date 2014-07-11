@@ -10,9 +10,9 @@
  */
 
 #include <cstring>
-#include <vsm/socket_address.h>
+#include <ugcs/vsm/socket_address.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Socket_address::Socket_address():name(), service(), is_resolved(false)
 {
@@ -131,6 +131,12 @@ sockaddr*
 Socket_address::Get_sockaddr_ref()
 {
     return reinterpret_cast<sockaddr*>(&storage);
+}
+
+void
+Socket_address::Set_resolved(bool r)
+{
+    is_resolved = r;
 }
 
 const char *

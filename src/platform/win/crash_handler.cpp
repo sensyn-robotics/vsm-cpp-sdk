@@ -27,6 +27,8 @@
 #define PACKAGE_VER
 #endif
 
+#include <ugcs/vsm/file_processor.h>
+
 #include <windows.h>
 #include <excpt.h>
 #include <imagehlp.h>
@@ -39,7 +41,7 @@
 #include <stdbool.h>
 #include <time.h>
 
-#include <vsm/crash_handler.h>
+#include <ugcs/vsm/crash_handler.h>
 
 namespace {
 
@@ -331,16 +333,16 @@ exception_filter(LPEXCEPTION_POINTERS info)
     tm* now_local = localtime(&now);
 
     snprintf(report, sizeof(report), "%s_%d%02d%02d-%02d%02d%02d",
-    		report_base_name, now_local->tm_year + 1900, now_local->tm_mon + 1,
-    		now_local->tm_mday, now_local->tm_hour, now_local->tm_min,
-    		now_local->tm_sec);
+            report_base_name, now_local->tm_year + 1900, now_local->tm_mon + 1,
+            now_local->tm_mday, now_local->tm_hour, now_local->tm_min,
+            now_local->tm_sec);
 
-    FILE* h = fopen(report, "a");
+    FILE* h = ugcs::vsm::File_processor::Fopen_utf8(report, "a");
     if (h) {
-    	fprintf(h, "Backtrace:\r\n");
-    	fprintf(h, "%s\r\n", g_output);
-    	fflush(h);
-    	fclose(h);
+        fprintf(h, "Backtrace:\r\n");
+        fprintf(h, "%s\r\n", g_output);
+        fflush(h);
+        fclose(h);
     }
 
     fprintf(stderr, "%s\r\n", g_output);
@@ -372,7 +374,7 @@ backtrace_unregister(void)
 
 }
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 void
 Crash_handler::Enable()

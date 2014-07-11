@@ -3,12 +3,14 @@
 // See LICENSE file for license details.
 
 #include <UnitTest++.h>
-#include <vsm/mavlink_demuxer.h>
+#include <ugcs/vsm/mavlink_demuxer.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
+
+typedef mavlink::Mavlink_kind_ugcs Mavlink_kind;
 
 mavlink::MESSAGE_ID_TYPE def_msg_id;
-mavlink::System_id def_sys_id;
+typename Mavlink_kind::System_id def_sys_id;
 uint8_t def_com_id;
 bool resubmit;
 bool hb_handler_called;
@@ -22,13 +24,18 @@ Heartbeat_handler(mavlink::Message<mavlink::MESSAGE_ID::HEARTBEAT>::Ptr message)
     hb_handler_called = true;
 }
 
+Mavlink_demuxer::Key* hb_reg_key = nullptr;
+
 bool
-Default_handler(mavlink::MESSAGE_ID_TYPE message_id, mavlink::System_id system_id,
-                uint8_t component_id, Mavlink_demuxer* demuxer)
+Default_handler(
+        mavlink::MESSAGE_ID_TYPE message_id,
+        typename Mavlink_kind::System_id system_id,
+        uint8_t component_id,
+        Mavlink_demuxer* demuxer)
 {
     if (message_id == mavlink::MESSAGE_ID::HEARTBEAT) {
-        demuxer->Register_handler<mavlink::MESSAGE_ID::HEARTBEAT, mavlink::Extension>(
-                Make_mavlink_demuxer_handler<
+        *hb_reg_key = demuxer->Register_handler<mavlink::MESSAGE_ID::HEARTBEAT, mavlink::Extension>(
+                Mavlink_demuxer::Make_handler<
                 mavlink::MESSAGE_ID::HEARTBEAT,
                 mavlink::Extension>(Heartbeat_handler),
                 system_id, component_id);
@@ -45,7 +52,7 @@ TEST(basic_test)
     CHECK(!demuxer.Demux(nullptr, mavlink::MESSAGE_ID::HEARTBEAT, 0, 0));
 
     demuxer.Register_default_handler
-        (Make_mavlink_demuxer_default_handler(Default_handler, &demuxer));
+        (Mavlink_demuxer::Make_default_handler(Default_handler, &demuxer));
 
     Io_buffer::Ptr buffer = Io_buffer::Create("crap");
 
@@ -53,11 +60,13 @@ TEST(basic_test)
 
     /* Resubmit should fail demuxing on specific handler, because buffer is crap. */
     resubmit = true;
+    Mavlink_demuxer::Key hb00;
+    hb_reg_key = &hb00;
     CHECK_THROW(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 0, 0),
                 Invalid_param_exception);
 
     /* Demuxing shouldn't fail, because specific handler is not called. */
-    demuxer.Unregister_handler();
+    demuxer.Unregister_handler(hb00);
     resubmit = false;
     /* Should not throw any exceptions. */
     demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 0, 0);
@@ -65,6 +74,8 @@ TEST(basic_test)
     mavlink::Pld_heartbeat hb;
     buffer = Io_buffer::Create(&hb, sizeof(hb));
 
+    Mavlink_demuxer::Key hb10;
+    hb_reg_key = &hb10;
     hb_handler_called = false;
     CHECK(!demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 1, 0));
     /* Not called, because resubmit is false and different system it provided. */
@@ -80,6 +91,8 @@ TEST(basic_test)
     /* Called, because HB handler for (1,0) is already registered. */
     CHECK(hb_handler_called);
 
+    Mavlink_demuxer::Key hb23;
+    hb_reg_key = &hb23;
     hb_handler_called = false;
     resubmit = true;
     CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 2, 3));
@@ -91,26 +104,17 @@ TEST(basic_test)
     CHECK_EQUAL(2, def_sys_id);
     CHECK_EQUAL(3, def_com_id);
 
-    /* Unregister all from system id 2. */
-    demuxer.Unregister_handler(2, Mavlink_demuxer::MESSAGE_ID_ANY,
-                               Mavlink_demuxer::COMPONENT_ID_ANY);
+    /* Unregister 00 and 10. */
+    demuxer.Unregister_handler(hb00);
+    demuxer.Unregister_handler(hb10);
     hb_handler_called = false;
     resubmit = false;
-    CHECK(!demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 2, 3));
-    CHECK(!hb_handler_called);
-
-    hb_handler_called = false;
-    CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 1, 0));
-    /* Called, because HB handler for (1,0) is still registered. */
+    /* 23 should still be registered. */
+    CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 2, 3));
     CHECK(hb_handler_called);
-    CHECK(mavlink::MESSAGE_ID::HEARTBEAT == def_msg_id);
-    CHECK_EQUAL(1, def_sys_id);
-    CHECK_EQUAL(0, def_com_id);
 
     /* Unregister all. */
-    demuxer.Unregister_handler(Mavlink_demuxer::SYSTEM_ID_ANY,
-                               Mavlink_demuxer::MESSAGE_ID_ANY,
-                               Mavlink_demuxer::COMPONENT_ID_ANY);
+    demuxer.Unregister_handler(hb23);
     hb_handler_called = false;
     CHECK(!demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 1, 0));
     /* Not called, because all handlers were unregistered. */
@@ -127,8 +131,8 @@ TEST(handler_from_dedicated_processor)
     processor->Enable();
 
     demuxer.Register_handler<mavlink::MESSAGE_ID::HEARTBEAT, mavlink::Extension>(
-                    Make_mavlink_demuxer_handler<
-                    mavlink::MESSAGE_ID::HEARTBEAT,mavlink::Extension>
+            Mavlink_demuxer::Make_handler<
+                    mavlink::MESSAGE_ID::HEARTBEAT, mavlink::Extension>
                         (Heartbeat_handler),
                     42, 43, processor);
 
@@ -153,7 +157,7 @@ TEST(handler_key_reg_unreg)
     for (int i = 0; i < 2; i++) {
         auto key = demuxer.Register_handler
                 <mavlink::MESSAGE_ID::HEARTBEAT, mavlink::Extension>(
-                        Make_mavlink_demuxer_handler
+                        Mavlink_demuxer::Make_handler
                         <mavlink::MESSAGE_ID::HEARTBEAT,mavlink::Extension>
                         (Heartbeat_handler),
                         42, 43);

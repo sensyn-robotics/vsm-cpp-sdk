@@ -2,9 +2,9 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/adsb_report.h>
+#include <ugcs/vsm/adsb_report.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 Adsb_report::Adsb_report()
 {

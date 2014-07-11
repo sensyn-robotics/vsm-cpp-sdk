@@ -6,9 +6,9 @@
  * Timer processor.
  */
 
-#include <vsm/timer_processor.h>
+#include <ugcs/vsm/timer_processor.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 /* Timer_processor::Timer class implementation. */
 
@@ -269,7 +269,7 @@ Timer_processor::On_disable()
                 ctx_name = req->Get_completion_context()->Get_name();
             }
         }
-        LOG_ERR("Timer interval [%ld ms] in context [%s] is still running.",
+        LOG_ERR("Timer interval [%" PRIu64 " ms] in context [%s] is still running.",
                 iter.second->interval.count(),
                 ctx_name.c_str());
         /* This is not normal. Timer users should cancel their timers before

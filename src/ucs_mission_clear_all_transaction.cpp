@@ -2,9 +2,9 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#include <vsm/ucs_mission_clear_all_transaction.h>
+#include <ugcs/vsm/ucs_mission_clear_all_transaction.h>
 
-using namespace vsm;
+using namespace ugcs::vsm;
 
 std::string
 Ucs_mission_clear_all_transaction::Get_name() const
@@ -31,7 +31,8 @@ Ucs_mission_clear_all_transaction::On_disable()
 
 void
 Ucs_mission_clear_all_transaction::Process(
-        mavlink::Message<mavlink::MESSAGE_ID::MISSION_CLEAR_ALL>::Ptr message)
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::MISSION_CLEAR_ALL_EX,
+                         mavlink::ugcs::Extension>::Ptr message)
 {
     if (clear_all_missions) {
         /* Already in progress. */
@@ -54,7 +55,7 @@ Ucs_mission_clear_all_transaction::Process(
 void
 Ucs_mission_clear_all_transaction::On_clear_all_missions_completed(Vehicle_request::Result result)
 {
-    LOG_DEBUG("Mission clear all completed for vehicle %d, result %d",
+    LOG_DEBUG("Mission clear all completed for vehicle %u, result %d",
             vehicle->system_id,
             static_cast<int>(result));
 
