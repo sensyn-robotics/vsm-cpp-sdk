@@ -266,6 +266,9 @@ Cucs_processor::Start_listening()
 {
     cucs_listener_op.Abort();
     auto props = Properties::Get_instance();
+    if (props->Exists("ucs.disable")) {
+        return;
+    }
     cucs_listener_op = Socket_processor::Get_instance()->Listen(
             Socket_address::Create(
                     props->Get("ucs.local_listening_address"),
@@ -425,13 +428,24 @@ Cucs_processor::Send_heartbeat(Vehicle* vehicle)
                 mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::MAV_CUSTOM_MODE_FLAG_DOWNLINK_CONNECTED :
                 0;
 
+        if (vehicle->Read_reset_altitude_origin()) {
+            custom_mode |= mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::MAV_CUSTOM_MODE_FLAG_RESET_ALTITUDE_ORIGIN;
+        }
+
         auto capabilities = vehicle->Get_capabilities();
+        auto capability_states = vehicle->Get_capability_states();
 
 #define __TRANSLATE_CAPABILITY(__capability, __mav_capability) \
         capabilities.Is_set(__capability) ? \
                 mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::__mav_capability : \
                 0;
 
+#define __TRANSLATE_CAPABILITY_STATE(__capability, __mav_capability) \
+        capability_states.Is_set(__capability) ? \
+                mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::__mav_capability : \
+                0;
+
+        /* Capabilities. */
         custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::ARM_AVAILABLE,
                 MAV_CUSTOM_MODE_FLAG_ARM_AVAILABLE);
 
@@ -456,7 +470,58 @@ Cucs_processor::Send_heartbeat(Vehicle* vehicle)
         custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::EMERGENCY_LAND_AVAILABLE,
                 MAV_CUSTOM_MODE_FLAG_EMERGENCY_LAND_AVAILABLE);
 
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::CAMERA_TRIGGER_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_CAMERA_TRIGGER_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::WAYPOINT_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_WAYPOINT_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::PAUSE_MISSION_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_HOLD_AVAILABLE);
+
+        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::RESUME_MISSION_AVAILABLE,
+                MAV_CUSTOM_MODE_FLAG_CONTINUE_AVAILABLE);
+
+
+        /* Capability states. */
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::ARM_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_ARM_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::DISARM_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_DISARM_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::AUTO_MODE_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_AUTO_MODE_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::MANUAL_MODE_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_MANUAL_MODE_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::RETURN_HOME_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_RETURN_HOME_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::TAKEOFF_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_TAKEOFF_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::LAND_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_LAND_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::EMERGENCY_LAND_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_EMERGENCY_LAND_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::CAMERA_TRIGGER_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_CAMERA_TRIGGER_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::WAYPOINT_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_WAYPOINT_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::PAUSE_MISSION_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_HOLD_ENABLED);
+
+        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::RESUME_MISSION_ENABLED,
+                MAV_CUSTOM_MODE_FLAG_CONTINUE_ENABLED);
+
 #undef __TRANSLATE_CAPABILITY
+#undef __TRANSLATE_CAPABILITY_STATE
 
         hb->custom_mode = static_cast<mavlink::ugcs::MAV_CUSTOM_MODE_FLAG>(custom_mode);
         hb->type = vehicle->type;

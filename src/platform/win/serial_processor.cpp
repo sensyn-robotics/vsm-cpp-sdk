@@ -177,8 +177,8 @@ std::list<std::string>
 Serial_processor::Enumerate_port_names()
 {
     auto ret = std::list<std::string>();
-    HKEY hKey;
-    TCHAR caDevName[40], caPortName[20];
+    HKEY hKey = NULL;
+    TCHAR caDevName[100], caPortName[100];
     DWORD dwDevNameSize, dwPortNameSize, dwType;
 
     try
@@ -186,26 +186,41 @@ Serial_processor::Enumerate_port_names()
         if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "Hardware\\DeviceMap\\SerialComm",
                          0, KEY_READ, &hKey) == ERROR_SUCCESS)
         {
-            for (auto i = 0; true; i++ )
-            {
+            for (auto i = 0; ; i++ ) {
                 dwDevNameSize = sizeof(caDevName);
                 dwPortNameSize = sizeof(caPortName);
                 if (RegEnumValue(hKey, i, caDevName, &dwDevNameSize, NULL,
                                  &dwType, reinterpret_cast<LPBYTE>(caPortName),
                                  &dwPortNameSize ) == ERROR_SUCCESS)
                 {
-                    ret.emplace_back(std::string(caPortName));
-                }
-                else
+                    /* Assume all devices we are dealing with are connected
+                     * via USB and appear in registry as /Device/USB* or
+                     * something.
+                     * This is due to bugs in serial comms of internal or
+                     * legacy ports.
+                     * E.g. "Intel(R) Active Management Technology - SOL"
+                     * driver is known to mess up so badly that no other
+                     * ports can be used once the intel port is opened.
+                     * It breaks all vehicle detection and communication over
+                     * serial ports.
+                     * So, skip any internal serial ports.
+                     * I.e. devices in form \Device\Serial<number>
+                     */
+                    if (strncmp(caDevName, "\\Device\\Serial", 14) != 0) {
+                        ret.emplace_back(std::string(caPortName));
+                    }
+                } else {
                     break;
+                }
             }
             RegCloseKey( hKey );
         }
     }
     catch (...)
     {
-      if (hKey != NULL)
-          RegCloseKey(hKey);
+        if (hKey != NULL) {
+            RegCloseKey(hKey);
+        }
     }
     return ret;
 }

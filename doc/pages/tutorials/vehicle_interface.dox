@@ -50,7 +50,10 @@ In this case, end-user of the UgCS should be informed about such mapping.
 
 Vehicle and autopilot types should be also passed to @ref ugcs::vsm::Vehicle::Vehicle 
 "Vehicle&nbsp;constructor". This is to inform UgCS about the features supported
-by a particular vehicle.
+by a particular vehicle. The support for additional features is specified by
+@ref ugcs::vsm::Vehicle::Capabilities "Capabilities" using enumeration
+@ref ugcs::vsm::Vehicle::Capability "Capability". Currently it defines which
+commands are supported by the vehicle.
 
 By default, all vehicle instances are created with a dedicated thread to 
 facilitate parallelization of multi-vehicle VSM applications and safeguard from 

@@ -26,7 +26,8 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
                 model_name(model_name),
                 type(type),
                 autopilot(autopilot),
-                capabilities(capabilities)
+                capabilities(capabilities),
+                reset_altitude_origin(false)
 {
     completion_ctx = Request_completion_context::Create("Vehicle completion");
     processor = Request_processor::Create("Vehicle processor");
@@ -196,8 +197,62 @@ Vehicle::Get_capabilities() const
 void
 Vehicle::Set_capabilities(const Capabilities& capabilities)
 {
+    bool update;
+    {
+        std::unique_lock<std::mutex> lock(state_mutex);
+        update = !(this->capabilities == capabilities);
+        this->capabilities = capabilities;
+    }
+    if (update) {
+        telemetry.Sys_status_update();
+    }
+}
+
+void
+Vehicle::Reset_altitude_origin()
+{
+    bool update;
+    {
+        std::unique_lock<std::mutex> lock(state_mutex);
+        update = !(this->reset_altitude_origin);
+        this->reset_altitude_origin = true;
+    }
+    if (update) {
+        telemetry.Sys_status_update();
+    }
+}
+
+bool
+Vehicle::Read_reset_altitude_origin()
+{
     std::unique_lock<std::mutex> lock(state_mutex);
-    this->capabilities = capabilities;
+    if (this->reset_altitude_origin) {
+        this->reset_altitude_origin = false;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+Vehicle::Capability_states
+Vehicle::Get_capability_states() const
+{
+    std::unique_lock<std::mutex> lock(state_mutex);
+    return capability_states;
+}
+
+void
+Vehicle::Set_capability_states(const Capability_states& capability_states)
+{
+    bool update;
+    {
+        std::unique_lock<std::mutex> lock(state_mutex);
+        update = !(this->capability_states == capability_states);
+        this->capability_states = capability_states;
+    }
+    if (update) {
+        telemetry.Sys_status_update();
+    }
 }
 
 Telemetry_manager::Report::Ptr

@@ -456,6 +456,9 @@ def GenerateMessage(f, msg):
     f.write('namespace internal {\n')
     f.write('struct %s {\n' % structName)
     
+    FormatComment(f, "Reset all fields to UgCS default values", 1)
+    f.write('    void\n    Reset();\n')
+    
     for field in msg.fields:
         if field.description is not None:
             FormatComment(f, field.description, 1)
@@ -518,6 +521,12 @@ def GenerateMessageImpl(f, msg):
     
     f.write('const char mavlink::%sinternal::pld_name_%s[] = "%s";\n\n' %
             (namespace, msg.name.lower(), msg.name))
+    
+    f.write('void\nmavlink::%sinternal::Pld_struct_%s::Reset()\n{\n' %
+            (namespace, msg.name.lower()))
+    for field in msg.fields:
+        f.write('    %s.Reset();\n' % (field.name))
+    f.write("}\n\n")
     
 def GenerateMessageExtraBytes(f):
     f.write('const std::map<MESSAGE_ID_TYPE, Extra_byte_length_pair> mavlink::Extension::crc_extra_bytes_length_map = {\n')
@@ -920,12 +929,12 @@ udp_encap:add(14550, mavlink_proto)
 
 -- bind protocol dissector to TCP  
 tcp_encap = DissectorTable.get("tcp.port")
--- port 5556 used by vsm - ucs connection
-tcp_encap:add(5556, mavlink_proto)
 -- port 14555 used by ardupilot emulator script 
 tcp_encap:add(14555, mavlink_proto)
 -- port 14556 used by ardupilot emulator script 
 tcp_encap:add(14556, mavlink_proto)
+-- port 14557 used by ardupilot emulator script 
+tcp_encap:add(14557, mavlink_proto)
 -- port 40115 used by ser2net to capture USB serial traffic 
 tcp_encap:add(40115, mavlink_proto)
 

@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include <map>
+#include <cmath>
 
 namespace ugcs {
 namespace vsm {
@@ -57,6 +58,38 @@ enum Field_type_id {
 
     /** Number of valid types. */
     FIELD_TYPE_MAX
+};
+
+/** Default value for a Mavlink field. */
+template<class T, class = void>
+struct Field_default_value {
+};
+
+/** Partial specialization for integer types. */
+template<class T>
+struct Field_default_value<T, typename std::enable_if<std::is_integral<T>::value>::type> {
+    /** Default value. */
+    static constexpr T value = std::numeric_limits<T>::max();
+
+    /** Default value checker. */
+    static bool
+    Is_default(T val)
+    {
+        return val == value;
+    }
+};
+
+/** Partial specialization for floating point types. */
+template<class T>
+struct Field_default_value<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
+    static constexpr T value = std::numeric_limits<T>::quiet_NaN();
+
+    /** Default value checker. */
+    static bool
+    Is_default(T val)
+    {
+        return std::isnan(val);
+    }
 };
 
 /** Field value in MAVLink message.
@@ -112,6 +145,20 @@ public:
         return id;
     }
 
+    /** Reset to default value used in UgCS as a "not present" indication. */
+    void
+    Reset()
+    {
+        value = Field_default_value<T>::value;
+    }
+
+    /** Check, if the field is reset. */
+    bool
+    Is_reset() const
+    {
+        return Field_default_value<T>::Is_default(value);
+    }
+
 private:
     /** Stored value (in wire byte order). */
     Le_value<T> value;
@@ -151,6 +198,15 @@ public:
             VSM_EXCEPTION(Invalid_param_exception, "Index out of range");
         }
         return data[index];
+    }
+
+    /** Reset all array values to UgCS default values. */
+    void
+    Reset()
+    {
+        for (auto& elem: data) {
+            elem.Reset();
+        }
     }
 } __PACKED;
 
@@ -196,6 +252,15 @@ public:
     Get_string() const
     {
         return std::string(reinterpret_cast<const char *>(data), Get_length());
+    }
+
+    /** Reset all array values to UgCS default values (zeros for string). */
+    void
+    Reset()
+    {
+        for (auto& elem: data) {
+            elem = 0;
+        }
     }
 
 #ifndef NO_DOXYGEN // Doxygen complains about such operator...
@@ -373,6 +438,10 @@ public:
     virtual uint8_t
     Get_extra_byte() const = 0;
 
+    /** Reset all fields to UgCS default values. */
+    virtual void
+    Reset() = 0;
+
 protected:
     /** Get raw data of the message. */
     virtual const void *
@@ -456,6 +525,13 @@ public:
     Get_extra_byte() const override
     {
         return extra_byte;
+    }
+
+    /** Reset all fields to UgCS default values. */
+    virtual void
+    Reset() override
+    {
+        data.Reset();
     }
 
     /** Compare if data in the payload is bit-same with another payload. */

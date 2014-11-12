@@ -1,0 +1,4 @@
+# Protobuf generated sources and test data should be always in LF
+*.pb.h text eol=lf
+*.pb.cc text eol=lf
+*.txt text eol=lf

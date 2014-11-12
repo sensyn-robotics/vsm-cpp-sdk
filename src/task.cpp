@@ -9,14 +9,14 @@
 using namespace ugcs::vsm;
 
 Wgs84_position
-Task::Get_home_position()
+Task::Get_home_position() const
 {
     /* Return only position. */
     return std::get<0>(Get_home_position_impl());
 }
 
 Wgs84_position
-Task::Get_home_position_relative()
+Task::Get_home_position_relative() const
 {
     auto home = Get_home_position_impl();
     Geodetic_tuple gt(std::get<0>(home).Get_geodetic());
@@ -25,13 +25,28 @@ Task::Get_home_position_relative()
 }
 
 double
-Task::Get_home_position_elevation()
+Task::Get_home_position_elevation() const
 {
     return std::get<1>(Get_home_position_impl());
 }
 
+double
+Task::Get_takeoff_altitude() const
+{
+    if (!takeoff_altitude) {
+        VSM_EXCEPTION(Internal_error_exception, "Takeoff altitude not set in task.");
+    }
+    return *takeoff_altitude;
+}
+
+void
+Task::Set_takeoff_altitude(double altitude)
+{
+    takeoff_altitude = altitude;
+}
+
 std::tuple<Wgs84_position, double>
-Task::Get_home_position_impl()
+Task::Get_home_position_impl() const
 {
     Wgs84_position *pos = nullptr;
     double elevation;

@@ -40,13 +40,13 @@ void
 Telemetry_manager::Raw_data::Reset()
 {
     memset(this, 0, sizeof(*this));
-    position->hdg = 0xffff;
-    gps_raw->eph = 0xffff;
-    gps_raw->epv = 0xffff;
-    gps_raw->vel = 0xffff;
-    gps_raw->cog = 0xffff;
-    gps_raw->satellites_visible = 0xff;
-    sys_status->battery_remaining = -1;
+    sys_status.Reset();
+    position.Reset();
+    attitude.Reset();
+    gps_raw.Reset();
+    raw_imu.Reset();
+    scaled_pressure.Reset();
+    vfr_hud.Reset();
 }
 
 void
@@ -187,7 +187,7 @@ Telemetry_manager::Commit(const tm::Battery_voltage::Base &value)
 {
     last_data.Hit_payload(Raw_data::Payload_type::SYS_STATUS);
     if (!value) {
-        last_data.sys_status->voltage_battery = 0xffff;
+        last_data.sys_status->voltage_battery.Reset();
         return;
     }
 
@@ -203,7 +203,7 @@ Telemetry_manager::Commit(const tm::Battery_current::Base &value)
 {
     last_data.Hit_payload(Raw_data::Payload_type::SYS_STATUS);
     if (!value) {
-        last_data.sys_status->current_battery = 0xffff;
+        last_data.sys_status->current_battery.Reset();
         return;
     }
 
@@ -269,7 +269,7 @@ Telemetry_manager::Commit(const tm::Gps_satellites_count::Base &value)
 {
     last_data.Hit_payload(Raw_data::Payload_type::GPS_RAW);
     if (!value) {
-        last_data.gps_raw->satellites_visible = 255;
+        last_data.gps_raw->satellites_visible.Reset();
         return;
     }
     if (value.value > 254) {
@@ -300,50 +300,73 @@ Telemetry_manager::Commit(const tm::Gps_fix_type::Base &value)
 }
 
 void
-Telemetry_manager::Commit(const tm::Heading::Base &value)
+Telemetry_manager::Commit(const tm::Course::Base &value)
 {
     last_data.Hit_payload(Raw_data::Payload_type::POSITION);
-    if (!value) {
-        last_data.position->hdg = 0xffff;
-        return;
-    }
     last_data.Hit_payload(Raw_data::Payload_type::VFR_HUD);
-    if (value.value > 359.99) {
-        last_data.position->hdg = 35999;
-    } else {
-        last_data.position->hdg = value.value * 100.0;
+    if (!value) {
+        last_data.position->hdg.Reset();
+        last_data.vfr_hud->heading.Reset();
+        return;
     }
-    last_data.vfr_hud->heading = value.value;
+    // normalize the angle value into 0..2Pi
+    auto normalized = fmod(value.value, 2 * M_PI);
+    if (normalized < 0) {
+        normalized += 2 * M_PI;
+    }
+    last_data.position->hdg = (normalized / M_PI) * 180.0 * 100.0;
+    last_data.vfr_hud->heading = std::lround((normalized / M_PI) * 180.0);
 }
 
 void
-Telemetry_manager::Commit(const tm::Pitch::Base &value)
+Telemetry_manager::Commit(const tm::Attitude::Pitch::Base &value)
 {
     if (!value) {
         return;
     }
     last_data.Hit_payload(Raw_data::Payload_type::ATTITUDE);
-    last_data.attitude->pitch = value.value;
+    // normalize the angle value into -Pi..+Pi
+    auto normalized = fmod(value.value, 2 * M_PI);
+    if (normalized < -M_PI) {
+        normalized += 2 * M_PI;
+    } else if (normalized > M_PI) {
+        normalized -= 2 * M_PI;
+    }
+    last_data.attitude->pitch = normalized;
 }
 
 void
-Telemetry_manager::Commit(const tm::Roll::Base &value)
+Telemetry_manager::Commit(const tm::Attitude::Roll::Base &value)
 {
     if (!value) {
         return;
     }
     last_data.Hit_payload(Raw_data::Payload_type::ATTITUDE);
-    last_data.attitude->roll = value.value;
+    // normalize the angle value into -Pi..+Pi
+    auto normalized = fmod(value.value, 2 * M_PI);
+    if (normalized < -M_PI) {
+        normalized += 2 * M_PI;
+    } else if (normalized > M_PI) {
+        normalized -= 2 * M_PI;
+    }
+    last_data.attitude->roll = normalized;
 }
 
 void
-Telemetry_manager::Commit(const tm::Yaw::Base &value)
+Telemetry_manager::Commit(const tm::Attitude::Yaw::Base &value)
 {
     if (!value) {
         return;
     }
     last_data.Hit_payload(Raw_data::Payload_type::ATTITUDE);
-    last_data.attitude->yaw = value.value;
+    // normalize the angle value into -Pi..+Pi
+    auto normalized = fmod(value.value, 2 * M_PI);
+    if (normalized < -M_PI) {
+        normalized += 2 * M_PI;
+    } else if (normalized > M_PI) {
+        normalized -= 2 * M_PI;
+    }
+    last_data.attitude->yaw = normalized;
 }
 
 void
@@ -354,7 +377,7 @@ Telemetry_manager::Commit(const tm::Ground_speed::Base &value)
     }
     last_data.Hit_payload(Raw_data::Payload_type::POSITION);
     double vx, vy;
-    if (last_data.position->hdg == 0xffff) {
+    if (last_data.position->hdg.Is_reset()) {
         vx = value.value;
         vy = 0;
     } else {
@@ -414,4 +437,21 @@ Telemetry_manager::Commit(const tm::Link_quality::Base &value)
     }
     rate = 1.0 - rate;
     last_data.sys_status->drop_rate_comm = 10000 * rate;
+}
+
+void
+Telemetry_manager::Commit(const tm::Rclink_quality::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::SYS_STATUS);
+    double rate = value.value;
+    if (rate > 1.0) {
+        rate = 1.0;
+    } else if (rate < 0.0) {
+        rate = 0.0;
+    }
+    rate = 1.0 - rate;
+    last_data.sys_status->errors_comm = 10000 * rate;
 }

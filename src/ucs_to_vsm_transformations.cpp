@@ -9,15 +9,16 @@ using namespace ugcs::vsm;
 
 Action::Ptr
 Ucs_to_vsm_transformations::Parse_mission_item_ex(
-        const mavlink::ugcs::Pld_mission_item_ex& item)
+        const mavlink::ugcs::Pld_mission_item_ex& item,
+        Optional<double>& takeoff_altitude)
 {
     switch (item->command) {
     case mavlink::MAV_CMD_NAV_WAYPOINT:
-        return Move_action::Create(item);
+        return Move_action::Create(item, takeoff_altitude);
     case mavlink::ugcs::MAV_CMD_NAV_LAND_EX:
         return Landing_action::Create(item);
     case mavlink::ugcs::MAV_CMD_NAV_TAKEOFF_EX:
-        return Takeoff_action::Create(item);
+        return Takeoff_action::Create(item, takeoff_altitude);
     case mavlink::MAV_CMD_CONDITION_DELAY:
         return Wait_action::Create(item);
     case mavlink::MAV_CMD_DO_CHANGE_SPEED:

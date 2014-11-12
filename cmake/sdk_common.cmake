@@ -111,3 +111,57 @@ function(Build_mavlink SDK_SRC_DIR)
         DEPENDS ${MAV_XML} ${MAV_XSD})
     include_directories(${CMAKE_BINARY_DIR}/mavlink/include)
 endfunction()
+
+# Compile protobuf declarations into C++ code.
+# PROTO_INPUT_FILES - should be paths relative to absolute path PROTO_ROOT
+# Set some variables in parent scope:
+# PROTOBUF_AUTO_SRCS - list of automatically generated source files which needs
+# to be compiled.
+function(Compile_protobuf_definitions PROTO_INPUT_FILES PROTO_ROOT
+    PROTO_OUTPUT_DIR PROTO_COMMON_INCLUDE_NAME)
+    
+    # Binary generated during build process
+    set(PROTOBUF_PROTOC ${CMAKE_BINARY_DIR}/protobuf/protoc)
+    
+    # Include prefix "ugcs/vsm" is hardcoded for auto-generated include files.
+    # It works for SDK and does not harm others.
+    set(ALL_DEFS_INCLUDE_FILE
+        ${CMAKE_BINARY_DIR}/_all_protobuf_includes_generated_for_${PROTO_COMMON_INCLUDE_NAME})
+    file(WRITE ${ALL_DEFS_INCLUDE_FILE} "// DO NOT EDIT! Generated automatically\n\n")
+    
+    # A rule for each proto file
+    # Auto include is generated during configure phase, not build time.
+    # Consider it "enough" for now.
+    foreach(DEF ${PROTO_INPUT_FILES})
+        string(REPLACE .proto .pb.h OUT_H ${DEF})
+        set(OUT_H_FULL ${PROTO_OUTPUT_DIR}/${OUT_H})
+        string(REPLACE .proto .pb.cc OUT_CC ${DEF})
+        set(OUT_CC_FULL ${PROTO_OUTPUT_DIR}/${OUT_CC})
+        set(PROTOBUF_AUTO_SRCS ${PROTOBUF_AUTO_SRCS} ${OUT_CC_FULL} ${OUT_H_FULL})
+        file(APPEND ${ALL_DEFS_INCLUDE_FILE} "#include \"../../../${OUT_H}\"\n")
+        add_custom_command(OUTPUT ${OUT_CC_FULL} ${OUT_H_FULL}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${PROTO_OUTPUT_DIR}
+            COMMAND ${PROTOBUF_PROTOC} --cpp_out=${PROTO_OUTPUT_DIR} ${DEF}
+            DEPENDS ${PROTO_ROOT}/${DEF}
+            WORKING_DIRECTORY ${PROTO_ROOT}
+            COMMENT "Protobuf: ${DEF}")
+    endforeach()
+
+    # A rule for building (copying) auto generated include file
+    add_custom_command(OUTPUT ${PROTO_OUTPUT_DIR}/include/ugcs/vsm/${PROTO_COMMON_INCLUDE_NAME}
+        COMMAND ${CMAKE_COMMAND}
+            -E make_directory ${PROTO_OUTPUT_DIR}/include/ugcs/vsm
+        COMMAND ${CMAKE_COMMAND} -E copy ${ALL_DEFS_INCLUDE_FILE} 
+            ${PROTO_OUTPUT_DIR}/include/ugcs/vsm/${PROTO_COMMON_INCLUDE_NAME}
+        DEPENDS ${ALL_DEFS_INCLUDE_FILE}
+        COMMENT "Protobuf common include: ${PROTO_COMMON_INCLUDE_NAME}")
+    
+    set(PROTOBUF_AUTO_SRCS ${PROTOBUF_AUTO_SRCS}
+        ${PROTO_OUTPUT_DIR}/include/ugcs/vsm/${PROTO_COMMON_INCLUDE_NAME})
+    
+    set(PROTOBUF_AUTO_SRCS ${PROTOBUF_AUTO_SRCS} PARENT_SCOPE)
+    # Includes used by the generated headers itself
+    include_directories(${CMAKE_SOURCE_DIR}/third-party/protobuf/src)
+    # Includes for the generated headers
+    include_directories(${PROTO_OUTPUT_DIR}/include) 
+endfunction()

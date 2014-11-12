@@ -193,10 +193,8 @@ private:
     void
     Default_message_processing(Message_ptr msg)
     {
-        LOG_WARN("Unsupported message %d in [%s] transaction for vehicle "
-                "[%s:%s]", msg->payload.Get_id(), Get_name().c_str(),
-                vehicle->Get_model_name().c_str(),
-                vehicle->Get_serial_number().c_str());
+        VEHICLE_LOG_WRN(*vehicle, "Unsupported message %d in [%s] transaction.",
+            msg->payload.Get_id(), Get_name().c_str());
         Send_mission_ack(mavlink::MAV_MISSION_UNSUPPORTED, msg);
     }
 

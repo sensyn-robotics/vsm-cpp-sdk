@@ -54,7 +54,7 @@ Currently, vehicle and autopilot types are defined by using types from ugcs::vsm
 namespace, but it will be changed in next releases. It is fully up to VSM
 application developer to decide about custom vehicle constructor arguments, but
 usually at least vehicle serial number is configurable while vehicle/autopilot
-types and model name are fixed.
+types, model name and capabilities are fixed.
 
 Next step is to decide whether override of ugcs::vsm::Vehicle::On_enable method is 
 needed or not. As a general rule, override is needed if some class-level 

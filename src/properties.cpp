@@ -16,6 +16,7 @@
 #include <memory>
 #include <sstream>
 #include <map>
+#include <algorithm>
 
 using namespace ugcs::vsm;
 
@@ -24,10 +25,17 @@ using namespace ugcs::vsm;
 Properties::Property::Property(std::string &&value):
     str_repr(std::move(value))
 {
+    std::string trimmed = str_repr;
+    trimmed.erase(trimmed.begin(),
+                  std::find_if(trimmed.begin(), trimmed.end(),
+                      std::not1(std::ptr_fun<int, int>(std::isspace))));
+    trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(),
+                      std::not1(std::ptr_fun<int, int>(std::isspace))).base(),
+                  trimmed.end());
     try {
         size_t pos;
-        int_repr = std::stol(str_repr, &pos, 0);
-        if (pos == str_repr.size()) {
+        int_repr = std::stol(trimmed, &pos, 0);
+        if (pos == trimmed.size()) {
             int_valid = true;
         } else {
             int_valid = false;
@@ -38,8 +46,8 @@ Properties::Property::Property(std::string &&value):
 
     try {
         size_t pos;
-        float_repr = std::stod(str_repr, &pos);
-        if (pos == str_repr.size()) {
+        float_repr = std::stod(trimmed, &pos);
+        if (pos == trimmed.size()) {
             float_valid = true;
         } else {
             float_valid = false;

@@ -10,6 +10,7 @@
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/mavlink.h>
+#include <ugcs/vsm/optional.h>
 
 namespace ugcs {
 namespace vsm {
@@ -23,13 +24,14 @@ public:
     /** Thrown when some value is unsupported and could not be transformed/understood. */
     VSM_DEFINE_EXCEPTION(Unsupported_exception);
 
-    /** Parse extended Mavlink mission item and return appropriate action.
+    /** Parse extended Mavlink mission item and return appropriate action and optionally
+     * take-off altitude if applicable to the mission item.
      * @throw Unsupported_exception if Mavlink mission item command is unsupported.
      * @throw ugcs::vsm::Action::Format_exception if internal action representation is
      *        wrong.
      */
     static Action::Ptr
-    Parse_mission_item_ex(const mavlink::ugcs::Pld_mission_item_ex& item);
+    Parse_mission_item_ex(const mavlink::ugcs::Pld_mission_item_ex& item, Optional<double>& takeoff_altitude);
 };
 
 } /* namespace vsm */

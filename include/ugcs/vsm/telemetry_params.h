@@ -162,32 +162,39 @@ public:
     typedef Param_base Base;
 };
 
-/** Heading, deg. */
-class Heading: public internal::Param_base<Heading, double> {
-public:
-    using Param_base::Param_base;
-    /** Base class type. */
-    typedef Param_base Base;
+/** Rotation angles of the vehicle principal axes. */
+struct Attitude {
+    /** Attitude pitch angle between vehicle longitudinal axis and horizon, rad [-pi;+pi].
+     * Positive - nose is above horizon. */
+    class Pitch: public internal::Param_base<Pitch, double> {
+    public:
+        using Param_base::Param_base;
+        /** Base class type. */
+        typedef Param_base Base;
+    };
+
+    /** Attitude roll angle between vehicle lateral axis and horizon, rad [-pi;+pi].
+     * Positive - right roll (right wing is lower than left wing). */
+    class Roll: public internal::Param_base<Roll, double> {
+    public:
+        using Param_base::Param_base;
+        /** Base class type. */
+        typedef Param_base Base;
+    };
+
+    /** Attitude yaw angle between vehicle longitudinal axis and true North, rad [-pi;+pi].
+     * Positive is clock-wise. */
+    class Yaw: public internal::Param_base<Yaw, double> {
+    public:
+        using Param_base::Param_base;
+        /** Base class type. */
+        typedef Param_base Base;
+    };
 };
 
-/** Attitude pitch angle, rad [-pi;+pi]. */
-class Pitch: public internal::Param_base<Pitch, double> {
-public:
-    using Param_base::Param_base;
-    /** Base class type. */
-    typedef Param_base Base;
-};
-
-/** Attitude roll angle, rad [-pi;+pi]. */
-class Roll: public internal::Param_base<Roll, double> {
-public:
-    using Param_base::Param_base;
-    /** Base class type. */
-    typedef Param_base Base;
-};
-
-/** Attitude yaw angle, rad [-pi;+pi]. */
-class Yaw: public internal::Param_base<Yaw, double> {
+/** Course, which is an angle between true North and horizontal movement vector, rad.
+ * Positive is clock-wise. */
+class Course: public internal::Param_base<Course, double> {
 public:
     using Param_base::Param_base;
     /** Base class type. */
@@ -214,6 +221,16 @@ public:
  * 1.0 is the best quality, 0.0 is total link failure.
  */
 class Link_quality: public internal::Param_base<Link_quality, double> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** RC link quality reported by vehicle via downlink.
+ * 1.0 is the best quality, 0.0 is total link failure.
+ */
+class Rclink_quality: public internal::Param_base<Rclink_quality, double> {
 public:
     using Param_base::Param_base;
     /** Base class type. */

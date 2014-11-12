@@ -717,12 +717,17 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
                     stream->read_bytes += read_bytes;
                 }
                 else if (read_bytes == 0)
-                {// zero read or other end closed.
-                    if (readmin != 0)
-                    {// other end closed. possibly half closed connection.
+                {// zero read or other end closed. (half-closed connection)
+                    if (stream->read_bytes < readmin) {
+                        // readmin was not reached. Report the stream as closed
+                        // but return the read data anyway.
                         request->Set_result_arg(Io_result::CLOSED, locker);
                     }
-                    // else we asked for 0 bytes, got 0.
+                    // else we got at least the bytes we asked for, so it's not
+                    // an error.
+
+                    // Do not close the stream as it can possibly
+                    // still be used for writing...
                     break;
                 }
                 else if (sockets::Is_last_operation_pending())

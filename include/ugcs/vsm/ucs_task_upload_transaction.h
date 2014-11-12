@@ -54,6 +54,9 @@ private:
     /** Current mission item to be received from UCS. */
     size_t current_task_item = 0;
 
+    /** Takeoff altitude of the task. */
+    Optional<double> takeoff_altitude;
+
     /** @a true when request is submitted to vehicle and completion is awaited. */
     bool awaiting_vehicle = false;
 

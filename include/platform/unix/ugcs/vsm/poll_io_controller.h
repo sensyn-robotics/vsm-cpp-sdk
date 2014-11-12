@@ -76,6 +76,34 @@ public:
     Unregister_handle(File_processor::Stream::Native_handle &) override
     {}
 
+    /** Delete handle. Possibly deferred.
+     * This is a workaround of kernel panic bug in OSX.
+     * The scenario:
+     * 1) create pipe with descriptors p1, p2.
+     * 2) open serial port with descriptor fd.
+     * 3) poll on two descriptors p1 and fd in separate thread.
+     * 4) issue write on p2. This triggers read event on p1 and wakes up poll().
+     * 5) close(fd)
+     *
+     * Results:
+     *
+     *   - When (4) and (5) are close enough poll does not wake up and
+     *     close(fd) blocks and triggers kernel panic. This does not happen
+     *     100% of time but if the above code is put into loop it
+     *     takes ~20-100 iterations to trigger.
+     *
+     *   - When (4) and (5) are >10ms apart the poll wakes up and close succeeds.
+     *
+     *   - If close(fd) is called before write(p2) then I could not
+     *     repeat the kernel panic.
+     * Solution:
+     *
+     * Do not close the fd while it is in polling state.
+     * Close it after poll returns.
+     */
+    void
+    Delete_handle(int fd);
+
     /** Queue IO operation. The provided callback is called when the operation
      * completes with Io_cb structure filled.
      * @return True if succeeded, false otherwise. Check errno for error code.
@@ -101,6 +129,7 @@ private:
               *write_cb = nullptr;
         /** Allocated index in poll file descriptors array. */
         size_t poll_fd_idx = 0;
+        bool close_on_remove = false;
     };
     /** Dispatcher thread for poll events dispatching. */
     std::thread dispatcher_thread;

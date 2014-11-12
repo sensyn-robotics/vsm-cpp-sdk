@@ -13,6 +13,7 @@
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/coordinates.h>
 #include <ugcs/vsm/mavlink.h>
+#include <ugcs/vsm/optional.h>
 
 namespace ugcs {
 namespace vsm {
@@ -40,7 +41,7 @@ public:
      *
      * @param item With command equal to mavlink::MAV_CMD::MAV_CMD_NAV_WAYPOINT
      */
-    Move_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
+    Move_action(const mavlink::ugcs::Pld_mission_item_ex& item, Optional<double>& takeoff_altitude) :
         Action(Type::MOVE),
         position(Geodetic_tuple(item->x * M_PI / 180.0,
                 item->y * M_PI / 180.0,
@@ -52,6 +53,11 @@ public:
                 elevation(item->elevation)
     {
         ASSERT(item->command == mavlink::MAV_CMD::MAV_CMD_NAV_WAYPOINT);
+        if (item->altitude_origin.Is_reset()) {
+            takeoff_altitude = item->elevation;
+        } else {
+            takeoff_altitude = item->altitude_origin;
+        }
     }
 
     /**

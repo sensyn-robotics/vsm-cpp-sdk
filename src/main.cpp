@@ -9,6 +9,7 @@
 #include <ugcs/vsm/vsm.h>
 #include <ugcs/vsm/cucs_processor.h>
 #include <ugcs/vsm/crash_handler.h>
+#include <ugcs/vsm/protobuf.h>
 
 #include <fstream>
 
@@ -123,4 +124,6 @@ ugcs::vsm::Terminate(bool save_config)
     }
     properties_stream = nullptr;
     properties = nullptr;
+
+    google::protobuf::ShutdownProtobufLibrary();
 }

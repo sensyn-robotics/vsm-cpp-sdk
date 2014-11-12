@@ -47,6 +47,21 @@ Ucs_vehicle_command_transaction::Process(
     bool unsupported = false;
 
     switch (message->payload->command) {
+    case mavlink::MAV_CMD::MAV_CMD_OVERRIDE_GOTO:
+        if (message->payload->param1 == mavlink::MAV_GOTO::MAV_GOTO_DO_HOLD) {
+            if (message->payload->param2 ==
+                    mavlink::MAV_GOTO::MAV_GOTO_HOLD_AT_CURRENT_POSITION) {
+                type = Vehicle_command::Type::PAUSE_MISSION;
+            } else {
+                unsupported = true;
+            }
+        } else if (message->payload->param1 ==
+                mavlink::MAV_GOTO::MAV_GOTO_DO_CONTINUE) {
+            type = Vehicle_command::Type::RESUME_MISSION;
+        } else {
+            unsupported = true;
+        }
+        break;
     case mavlink::MAV_CMD::MAV_CMD_COMPONENT_ARM_DISARM:
         if (message->payload->param1) {
             type = Vehicle_command::Type::ARM;
@@ -77,6 +92,12 @@ Ucs_vehicle_command_transaction::Process(
     case mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_EMERGENCY_LAND:
         type = Vehicle_command::Type::EMERGENCY_LAND;
         break;
+    case mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_TRIGGER:
+        type = Vehicle_command::Type::CAMERA_TRIGGER;
+        break;
+    case mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_WAYPOINT_EX:
+        type = Vehicle_command::Type::WAYPOINT;
+        break;
     default:
         unsupported = true;
     }
@@ -94,8 +115,13 @@ Ucs_vehicle_command_transaction::Process(
     auto completion_handler =
             Make_callback(&Ucs_vehicle_command_transaction::On_vehicle_command_completed,
                     Shared_from_this(), Vehicle_request::Result::NOK);
-    vehicle_command = Vehicle_command_request::Create(completion_handler,
+    if (type == Vehicle_command::Type::WAYPOINT) {
+        vehicle_command = Vehicle_command_request::Create(completion_handler,
+            completion_context, message->payload);
+    } else {
+        vehicle_command = Vehicle_command_request::Create(completion_handler,
             completion_context, type);
+    }
     vehicle->Submit_vehicle_request(vehicle_command);
 }
 

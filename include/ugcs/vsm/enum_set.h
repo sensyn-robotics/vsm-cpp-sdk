@@ -48,6 +48,13 @@ public:
         return set.test(static_cast<long>(value));
     }
 
+    /** Equality operator. */
+    bool
+    operator==(const Enum_set& other) const
+    {
+        return set == other.set;
+    }
+
 private:
 
     /** Traverse enum values one by one. */

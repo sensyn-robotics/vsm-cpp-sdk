@@ -72,6 +72,18 @@ TEST(basic_functionality)
         "uint8_t target_component: 2\n"
         "char param_id[16]: '0123456789012345'\n";
     CHECK_EQUAL(expected_str, str.c_str());
+
+    /* Check reset. */
+    CHECK(!msg->param_index.Is_reset());
+    msg->param_index.Reset(); /* For int. */
+    CHECK_EQUAL(std::numeric_limits<int16_t>::max(), msg->param_index);
+    CHECK(msg->param_index.Is_reset());
+
+    ::ugcs::vsm::mavlink::ugcs::Pld_mission_item_ex mi;
+    CHECK(!mi->param2.Is_reset()); /* For float. */
+    mi->param2.Reset();
+    CHECK(mi->param2.Is_reset());
+    CHECK(std::isnan(mi->param2));
 }
 
 TEST(version_field)

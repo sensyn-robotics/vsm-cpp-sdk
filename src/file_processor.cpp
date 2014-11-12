@@ -634,9 +634,13 @@ File_processor::Stream::Handle_write_cancel(Write_request::Ptr request)
     auto request_lock = request->Lock();
     /* Must not try to cancel already completed or aborted request */
     if (!request->Is_completed() && !request->Is_aborted()) {
-        request->Set_result_arg(
-        state == State::CLOSED ? Io_result::CLOSED : Io_result::CANCELED,
-                request_lock);
+        if (state == State::CLOSED) {
+            request->Set_result_arg(Io_result::CLOSED, request_lock);
+        } else if (request->Timed_out()) {
+            request->Set_result_arg(Io_result::TIMED_OUT, request_lock);
+        } else {
+            request->Set_result_arg(Io_result::CANCELED, request_lock);
+        }
         request->Complete(Request::Status::CANCELED, std::move(request_lock));
     }
 }
@@ -656,9 +660,13 @@ File_processor::Stream::Handle_read_cancel(Read_request::Ptr request)
     auto request_lock = request->Lock();
     /* Must not try to cancel already completed or aborted request */
     if (!request->Is_completed() && !request->Is_aborted()) {
-        request->Set_result_arg(
-        state == State::CLOSED ? Io_result::CLOSED : Io_result::CANCELED,
-                request_lock);
+        if (state == State::CLOSED) {
+            request->Set_result_arg(Io_result::CLOSED, request_lock);
+        } else if (request->Timed_out()) {
+            request->Set_result_arg(Io_result::TIMED_OUT, request_lock);
+        } else {
+            request->Set_result_arg(Io_result::CANCELED, request_lock);
+        }
         request->Set_buffer_arg(Io_buffer::Create(), request_lock);
         request->Complete(Request::Status::CANCELED, std::move(request_lock));
     }

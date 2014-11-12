@@ -47,9 +47,15 @@ Ucs_task_upload_transaction::On_disable()
 bool
 Ucs_task_upload_transaction::Verify_task()
 {
+    if (takeoff_altitude) {
+        task->payload.Set_takeoff_altitude(*takeoff_altitude);
+        VEHICLE_LOG_DBG(*vehicle, "Take-off altitude is %.2f meters.", *takeoff_altitude);
+    } else {
+        return false;
+    }
     for (auto& iter: task->payload.actions) {
         if (iter->Get_type() == Action::Type::MOVE ||
-            iter->Get_type() == Action::Type::SET_HOME) {
+            iter->Get_type() == Action::Type::TAKEOFF) {
             return true;
         }
     }
@@ -92,6 +98,7 @@ Ucs_task_upload_transaction::Process(
     task = Vehicle_task_request::Create(completion_handler, completion_context,
             message->payload->count);
     task_item_count = message->payload->count;
+    takeoff_altitude.Disengage();
     Get_next_mission_item();
 }
 
@@ -115,9 +122,14 @@ void Ucs_task_upload_transaction::Process(
             vehicle->Get_serial_number().c_str(),
             message->payload.Dump().c_str());
     Action::Ptr action;
+    /* Dummy, not used. */
+    Optional<double> local_takeoff_altitude;
+    /* Fill by first occurrence. */
+    Optional<double>& takeoff_altitude_ref =
+        takeoff_altitude ? local_takeoff_altitude : takeoff_altitude;
     try {
         action = Ucs_to_vsm_transformations::Parse_mission_item_ex(
-                message->payload);
+                message->payload, takeoff_altitude_ref);
     } catch (const Ucs_to_vsm_transformations::Unsupported_exception& ex) {
         LOG_WARN("Mission item transform failed: %s", ex.what());
     } catch (const Action::Format_exception& ex) {

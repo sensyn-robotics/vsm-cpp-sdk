@@ -23,19 +23,22 @@ if (CMAKE_SYSTEM_NAME MATCHES "Windows" AND ENABLE_DLL_IMPORT)
     set(DLL_IMPORT_LIB_NAMES ${DLL_IMPORT_LIB_NAMES} vsm_hid)
 endif()
 
-# Special handling for adding libstdc++ to installation.
-# what we do here is reference the stdcpp library in our distribution to support
-# older ubuntu releases (<13.10)
-# Assume vsms will install under .../bin which is at the same level as .../lib.
-if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-    set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib")
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "ugcs-stdcpp-runtime, libc6 (>= 2.15), libgcc1 (>= 1:4.1.1)")
-elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    set(CMAKE_MACOSX_RPATH NO)
-endif()
-
 if (UGCS_PACKAGING_ENABLED)
-    Install_common_log_file()
+    if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+        set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15), libgcc1 (>= 1:4.1.1)")
+        # Special handling for adding libstdc++ to installation.
+        # what we do here is reference the stdcpp library in our distribution to support
+        # ubuntu precise.
+        # Assume vsms will install under .../bin which is at the same level as .../lib.
+        if ("${LINUX_DISTRO_VERSION}" VERSION_EQUAL "12.04")
+            set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib")
+            set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, ugcs-stdcpp-runtime")
+        else()
+            set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, libstdc++6 (>= 4.8.1)")
+        endif()
+    elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+        set(CMAKE_MACOSX_RPATH NO)
+    endif()
 endif()
 
 # Function for building a VSM configuration file, which currently just copies
@@ -75,7 +78,7 @@ set(VSM_LIBS vsm-sdk ${VSM_PLAT_LIBS} ${DLL_IMPORT_LIB_NAMES})
 function(Add_install_target)
     if (UGCS_PACKAGING_ENABLED)
         Patch_mac_binary("${VSM_EXECUTABLE_NAME}" "${VSM_EXECUTABLE_NAME}" "libstdc++.6.dylib" "libgcc_s.1.dylib")
-        Install_vsm_as_upstart_job()
+        Install_vsm_launcher()
         # propagate variable to caller script.
         set (CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
                 ${CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA}

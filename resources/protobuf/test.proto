@@ -1,0 +1,5 @@
+package ugcs;
+
+message Test {
+  required int32 id = 1;
+}

@@ -9,6 +9,7 @@
 #define _TAKEOFF_ACTION_H_
 
 #include <ugcs/vsm/action.h>
+#include <ugcs/vsm/optional.h>
 
 namespace ugcs {
 namespace vsm {
@@ -34,7 +35,7 @@ public:
      *
      * @param item With command equal to mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_TAKEOFF_EX
      */
-    Takeoff_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
+    Takeoff_action(const mavlink::ugcs::Pld_mission_item_ex& item, Optional<double>& takeoff_altitude) :
         Action(Type::TAKEOFF),
         position(Geodetic_tuple(item->x * M_PI / 180.0,
                                 item->y * M_PI / 180.0,
@@ -45,6 +46,11 @@ public:
         acceptance_radius(item->param2)
     {
         ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_TAKEOFF_EX);
+        if (item->altitude_origin.Is_reset()) {
+            takeoff_altitude = item->elevation;
+        } else {
+            takeoff_altitude = item->altitude_origin;
+        }
     }
 
 

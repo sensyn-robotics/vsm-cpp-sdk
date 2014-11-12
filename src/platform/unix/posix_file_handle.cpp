@@ -340,9 +340,9 @@ Posix_file_handle::Close()
         Set_read_activity(false);
     }
     is_closed = true;
-    close(fd);
+    Get_controller().Delete_handle(fd);
     if (write_fd != -1) {
-        close(write_fd);
+        Get_controller().Delete_handle(write_fd);
         write_fd = -1;
     }
     fd = -1;

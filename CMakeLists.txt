@@ -26,6 +26,9 @@ endif()
 
 include("sdk_common")
 
+# Protobuf support
+add_subdirectory(third-party/protobuf/src ${CMAKE_BINARY_DIR}/protobuf)
+
 Find_platform_sources("." PLATFORM_INCLUDES PLATFORM_SOURCES)
 
 # Shared includes
@@ -47,8 +50,19 @@ Build_mavlink(${CMAKE_SOURCE_DIR})
 set(SOURCES ${SOURCES} ${MAV_AUTO_SRCS})
 set(SOURCES ${SOURCES} ${MAV_AUTO_LUA})
 
+file(GLOB PROTOBUF_SDK_SOURCES RELATIVE ${CMAKE_SOURCE_DIR}/resources/protobuf
+    ${CMAKE_SOURCE_DIR}/resources/protobuf/*.proto)
+Compile_protobuf_definitions("${PROTOBUF_SDK_SOURCES}"
+    ${CMAKE_SOURCE_DIR}/resources/protobuf
+    ${CMAKE_BINARY_DIR}/protobuf
+    protobuf.h)
+set(SOURCES ${SOURCES} ${PROTOBUF_AUTO_SRCS})
+
 # add (static) library
-add_library(${CMAKE_PROJECT_NAME} STATIC ${SOURCES} ${DLL_IMPORT_LIBS})
+add_library(${CMAKE_PROJECT_NAME} STATIC ${SOURCES} ${DLL_IMPORT_LIBS}
+    $<TARGET_OBJECTS:protobuf_objlib>)
+
+add_dependencies(${CMAKE_PROJECT_NAME} protoc)
         
 install(TARGETS ${CMAKE_PROJECT_NAME}
         RUNTIME DESTINATION "${UGCS_INSTALL_DIR}/bin"
@@ -91,6 +105,8 @@ endif()
 
 install(FILES   "cmake/ugcs/vsm.cmake"
                 "cmake/ugcs/common.cmake"
+                "cmake/ugcs/ut.cmake"
+                "cmake/ugcs/unittestpp.cmake"
         DESTINATION "${UGCS_INSTALL_DIR}/share/cmake/ugcs")
 
 install(FILES ${DLL_IMPORT_LIBS} 

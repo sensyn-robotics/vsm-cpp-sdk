@@ -43,12 +43,38 @@ public:
         TAKEOFF_AVAILABLE,
         LAND_AVAILABLE,
         EMERGENCY_LAND_AVAILABLE,
+        CAMERA_TRIGGER_AVAILABLE,
+        WAYPOINT_AVAILABLE,
+        PAUSE_MISSION_AVAILABLE,
+        RESUME_MISSION_AVAILABLE,
+        LAST
+    };
+    // @}
+
+    // @{
+    /** State of the vehicle capability. */
+    enum class Capability_state {
+        ARM_ENABLED,
+        DISARM_ENABLED,
+        AUTO_MODE_ENABLED,
+        MANUAL_MODE_ENABLED,
+        RETURN_HOME_ENABLED,
+        TAKEOFF_ENABLED,
+        LAND_ENABLED,
+        EMERGENCY_LAND_ENABLED,
+        CAMERA_TRIGGER_ENABLED,
+        WAYPOINT_ENABLED,
+        PAUSE_MISSION_ENABLED,
+        RESUME_MISSION_ENABLED,
         LAST
     };
     // @}
 
     /** Container type for storing vehicle capabilities. */
     typedef Enum_set<Capability> Capabilities;
+
+    /** Container type for storing vehicle capability states. */
+    typedef Enum_set<Capability_state> Capability_states;
 
     /**
      * Constructor for a base class of user defined vehicle instance. Vehicle
@@ -76,6 +102,8 @@ public:
 
     /** Enable the instance. Should be called right after vehicle instance
      * creation.
+     * @throw Invalid_param_exception If vehicle with the same model and and
+     * serial number is already registered.
      */
     void
     Enable();
@@ -264,6 +292,23 @@ protected:
     void
     Set_capabilities(const Capabilities& capabilities);
 
+    /** Tell server that current altitude origin must be dropped.
+     * (calibration needed to match reported altitude to real world)
+     *
+     * Use this when VSM knows that currently reported Rel_altitude
+     * changed unexpectedly. For example if vehicle resets the reported
+     * altitude on ARM. */
+    void
+    Reset_altitude_origin();
+
+    /** Get vehicle capability states. */
+    Capability_states
+    Get_capability_states() const;
+
+    /** Set vehicle capability states. */
+    void
+    Set_capability_states(const Capability_states& capability_states);
+
     /** Open context for telemetry reporting. */
     Telemetry_manager::Report::Ptr
     Open_telemetry_report();
@@ -313,6 +358,10 @@ private:
     void
     Unregister_telemetry_interface();
 
+    /** Read and reset the "reset_altitude_origin" flag. */
+    bool
+    Read_reset_altitude_origin();
+
     /** Type of the autopilot. */
     const mavlink::MAV_AUTOPILOT autopilot;
 
@@ -326,6 +375,12 @@ private:
 
     /** Current capabilities. */
     Capabilities capabilities;
+
+    /** Current capability states. */
+    Capability_states capability_states;
+
+    /** Trigger altitude origin reset on sever. */
+    bool reset_altitude_origin;
 
     /** System id of this vehicle as seen by UCS server. */
     mavlink::Mavlink_kind_ugcs::System_id system_id;
@@ -357,8 +412,8 @@ private:
  * copies will be made). */
 #define VEHICLE_LOG(level_, vehicle_, fmt_, ...) \
     _LOG_WRITE_MSG(level_, "[%s:%s] " fmt_, \
-        (vehicle_).Get_model_name().c_str(), \
-        (vehicle_).Get_serial_number().c_str(), ## __VA_ARGS__)
+            (vehicle_).Get_model_name().c_str(), \
+            (vehicle_).Get_serial_number().c_str(), ## __VA_ARGS__)
 
 /** Different level convenience vehicle logging macros. Vehicle should be given
  * by value (no copies will be made). */

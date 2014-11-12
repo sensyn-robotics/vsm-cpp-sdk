@@ -20,8 +20,8 @@ class Custom_vehicle:public ugcs::vsm::Vehicle
     DEFINE_COMMON_CLASS(Custom_vehicle, ugcs::vsm::Vehicle)
 /** [custom vehicle] */
 public:
-    /* Custom constructor. Vehicle and autopilot types are fixed, but serial
-     * number and model name are passed to the constructor.
+    /* Custom constructor. Vehicle, autopilot and capabilities are fixed,
+     * but serial number and model name are passed to the constructor.
      */
     /** [vehicle constructor] */
     Custom_vehicle(
@@ -29,6 +29,9 @@ public:
                 ugcs::vsm::Vehicle(
                         ugcs::vsm::mavlink::MAV_TYPE::MAV_TYPE_GENERIC,
                         ugcs::vsm::mavlink::MAV_AUTOPILOT::MAV_AUTOPILOT_GENERIC,
+                        ugcs::vsm::Vehicle::Capabilities(
+                                ugcs::vsm::Vehicle::Capability::ARM_AVAILABLE,
+                                ugcs::vsm::Vehicle::Capability::DISARM_AVAILABLE),
                         serial_number,
                         "MyDrone") {}
     /** [vehicle constructor] */
@@ -122,18 +125,21 @@ public:
         /* Mimic command execution. Here dereference access semantics of the
          * handle is used. */
         switch ((*request).Get_type()) {
-        case ugcs::vsm::Vehicle_command::Type::GO:
-            LOG_DEBUG("Vehicle launched!");
+        case ugcs::vsm::Vehicle_command::Type::ARM:
+            LOG_DEBUG("Vehicle armed!");
             /* Start yaw spinning and climbing. */
             yaw_speed = 0.1;
             climb_speed = 0.5;
             break;
-        case ugcs::vsm::Vehicle_command::Type::HOLD:
-            LOG_DEBUG("Vehicle paused.");
+        case ugcs::vsm::Vehicle_command::Type::DISARM:
+            LOG_DEBUG("Vehicle disarmed.");
             /* Stop yaw spinning and climbing. */
             yaw_speed = 0;
             climb_speed = 0;
             break;
+        default:
+            /* Not supported. */
+            return;
         }
         /* Indicate successful request processing by the vehicle. */
         request = ugcs::vsm::Vehicle_request::Result::OK;
@@ -148,7 +154,7 @@ private:
     Send_telemetry()
     {
         auto report = Open_telemetry_report();
-        report->Set<ugcs::vsm::telemetry::Yaw>(yaw);
+        report->Set<ugcs::vsm::telemetry::Attitude::Yaw>(yaw);
         /* Simulate some spinning between [-Pi;+Pi]. */
         if ((yaw += yaw_speed) >= M_PI) {
             yaw = -M_PI;

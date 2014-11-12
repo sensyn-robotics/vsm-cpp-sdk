@@ -183,19 +183,25 @@ void Fill_mavlink_position(Pld_mission_item_ex& item)
 TEST(construct_from_mavlink_move)
 {
     mavlink::ugcs::Pld_mission_item_ex item;
+    /* Altitude origin is reset, so elevation should be taken. */
+    item->Reset();
     item->command = mavlink::MAV_CMD::MAV_CMD_NAV_WAYPOINT;
     Fill_mavlink_position(item);
     item->param1 = 10; /* wait 1 sec */
     item->param2 = 3; /* acceptance radius 3m */
     item->param3 = 5; /* loiter orbit 5m */
     item->param4 = 45; /* heading grad */
+    item->elevation = 1.5;
 
-    Move_action ma(item);
+    Optional<double> takeoff_altitude;
+    Move_action ma(item, takeoff_altitude);
     CHECK_GEO_POSITION(ma.position.Get_geodetic());
     CHECK_CLOSE(1, ma.wait_time, tol);
     CHECK_EQUAL(3, ma.acceptance_radius);
     CHECK_EQUAL(5, ma.loiter_orbit);
     CHECK_CLOSE(((45 * M_PI) / 180.0), ma.heading, tol);
+    CHECK_CLOSE(1.5, *takeoff_altitude, tol);
+    CHECK_CLOSE(1.5, ma.elevation, tol);
 }
 
 TEST(construct_from_mavlink_wait)
@@ -211,17 +217,23 @@ TEST(construct_from_mavlink_wait)
 TEST(construct_from_mavlink_takeoff)
 {
     mavlink::ugcs::Pld_mission_item_ex item;
+    item->Reset();
     item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_TAKEOFF_EX;
     Fill_mavlink_position(item);
     item->param2 = 2; /* meters. */
     item->param4 = -89; /* grad */
     item->param3 = 0.42; /* m/s */
+    item->altitude_origin = 4.2;
+    item->elevation = 2.4;
 
-    Takeoff_action ta(item);
+    Optional<double> takeoff_altitude;
+    Takeoff_action ta(item, takeoff_altitude);
     CHECK_GEO_POSITION(ta.position.Get_geodetic());
     CHECK_CLOSE(2, ta.acceptance_radius, tol);
     CHECK_CLOSE((-89.0 * M_PI) / 180.0, ta.heading, tol);
     CHECK_CLOSE(0.42, ta.climb_rate, tol);
+    CHECK_CLOSE(4.2, *takeoff_altitude, tol);
+    CHECK_CLOSE(2.4, ta.elevation, tol);
 }
 
 TEST(construct_from_mavlink_landing)

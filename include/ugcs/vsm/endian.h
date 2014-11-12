@@ -362,6 +362,31 @@ public:
         return Converter::Convert(value);
     }
 
+    /** Interpret byte buffer as a storage for underlying type and
+     * return host byte order value. Caller is responsible for the size of
+     * the input buffer.
+     *
+     * @param buffer Input buffer with original value.
+     * @return Value in host byte order.
+     */
+    static T
+    Get(const void* buffer)
+    {
+        return *static_cast<const Bo_value*>(buffer);
+    }
+
+    /** Save value given in host order to byte buffer.
+     * Caller is responsible for the size of the buffer.
+     *
+     * @param buffer Output buffer to save value to.
+     * @param value value in host byte order.
+     */
+    static void
+    Set(void* buffer, const T value)
+    {
+        *(static_cast<Bo_value*>(buffer)) = value;
+    }
+
 private:
     /** Stored value (in wire byte order). */
     T value;

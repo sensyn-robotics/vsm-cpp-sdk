@@ -171,9 +171,22 @@ public:
             return &static_cast<Vehicle_request_spec&>(*vehicle_request).payload;
         }
 
+        /** Access payload using pointer semantics. */
+        const Payload*
+        operator ->() const
+        {
+            return &static_cast<Vehicle_request_spec&>(*vehicle_request).payload;
+        }
+
         /** Access payload using dereference semantics. */
         Payload&
         operator *()
+        {
+            return static_cast<Vehicle_request_spec&>(*vehicle_request).payload;
+        }
+
+        const Payload&
+        operator *() const
         {
             return static_cast<Vehicle_request_spec&>(*vehicle_request).payload;
         }

@@ -15,6 +15,7 @@
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/coordinates.h>
 #include <ugcs/vsm/task_attributes_action.h>
+#include <ugcs/vsm/optional.h>
 
 namespace ugcs {
 namespace vsm {
@@ -37,17 +38,28 @@ public:
      * MOVE action.
      */
     Wgs84_position
-    Get_home_position();
+    Get_home_position() const;
 
     /** Retrieve home position from action with the altitude relative to the
      * ground level. Either get SET_HOME or the first MOVE action.
      */
     Wgs84_position
-    Get_home_position_relative();
+    Get_home_position_relative() const;
 
     /** Get terrain height at home position in meters. */
     double
-    Get_home_position_elevation();
+    Get_home_position_elevation() const;
+
+    /** Get take-off altitude, that is the absolute altitude of the position where
+     * the vehicle was or will be launched.
+     */
+    double
+    Get_takeoff_altitude() const;
+
+    /** Internal SDK method. Used to set the take-off altitude. VSM user is not
+     * supposed to use it. */
+    void
+    Set_takeoff_altitude(double altitude);
 
     /** Action list of the task .*/
     std::vector<Action::Ptr> actions;
@@ -64,7 +76,10 @@ private:
      * @return <position, elevation> tuple;
      */
     std::tuple<Wgs84_position, double>
-    Get_home_position_impl();
+    Get_home_position_impl() const;
+
+    /** Take-off altitude, should be set before giving the task for user. */
+    Optional<double> takeoff_altitude;
 
 };
 

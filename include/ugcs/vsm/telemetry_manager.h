@@ -175,16 +175,16 @@ private:
     Commit(const tm::Gps_fix_type::Base &value);
 
     void
-    Commit(const tm::Heading::Base &value);
+    Commit(const tm::Course::Base &value);
 
     void
-    Commit(const tm::Pitch::Base &value);
+    Commit(const tm::Attitude::Pitch::Base &value);
 
     void
-    Commit(const tm::Roll::Base &value);
+    Commit(const tm::Attitude::Roll::Base &value);
 
     void
-    Commit(const tm::Yaw::Base &value);
+    Commit(const tm::Attitude::Yaw::Base &value);
 
     void
     Commit(const tm::Ground_speed::Base &value);
@@ -194,6 +194,9 @@ private:
 
     void
     Commit(const tm::Link_quality::Base &value);
+
+    void
+    Commit(const tm::Rclink_quality::Base &value);
 };
 
 } /* namespace vsm */

@@ -21,7 +21,8 @@ Currently supported build toolchains/compilers and their respective versions are
 Windows: 
 - Python @b 2.7
 - CMake @b 2.8+
-- MinGW-w64 with GCC @b 4.8.2+
+- MinGW-w64 with GCC @b 4.8.2 and @b 4.8.3 are recommended, 4.9.x are known to
+crash during SDK compilation. 
 
 Linux:
 - Python @b 2.7
@@ -45,7 +46,7 @@ less complete then in MinGW-w64 and in general has more bugs which all together
 does not allow to compile SDK code, at least for now.
 
 Make sure to select:
-- Architecture: @b x32 (even when installing on 64bit Windows)
+- Architecture: @b 32bit (even when installing on 64bit Windows)
 - Threads: @b posix
 - Exceptions: @b dwarf
 
@@ -218,7 +219,7 @@ compile VSM with the following settings:
  - SDK include folder: "include" under your VSM_SDK_DIR
  - SDK library folder: "lib" under your VSM_SDK_DIR
  - Additional Linux platform libraries: "rt"
- - Additional Windows platform libraries: "ws2_32"
+ - Additional Windows platform libraries: "ws2_32 Userenv bfd iberty dbghelp z"
  - SDK library name: "vsm_sdk"
 
 */

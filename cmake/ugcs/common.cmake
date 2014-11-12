@@ -29,9 +29,17 @@ endif()
 
 # Enable packaging script automatically if vsm is compiled from ugcs source tree.
 if (NOT DEFINED UGCS_PACKAGING_ENABLED)
-    # This is UgCS specific script for creating debian packages.
-    if (EXISTS "${CMAKE_SOURCE_DIR}/../../../build-scripts/cmake/configure_packaging.cmake")
-        set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../../../build-scripts/cmake")
+    # Search for UgCS specific script for creating debian packages.
+    find_file(PACKAGING_SCRIPT
+        "configure_packaging.cmake"
+        PATHS "../../../build-scripts/cmake"
+        "../..build-scripts/cmake" 
+        "../build-scripts/cmake"
+        NO_DEFAULT_PATH)
+    
+    if (PACKAGING_SCRIPT)
+        get_filename_component(PACKAGING_SCRIPT_PATH "${PACKAGING_SCRIPT}" PATH)
+        set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PACKAGING_SCRIPT_PATH}")
         include("configure_packaging")
         set(UGCS_PACKAGING_ENABLED YES)
     else()

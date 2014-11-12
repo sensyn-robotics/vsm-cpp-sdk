@@ -93,6 +93,9 @@ Poll_io_controller::Update_poll_fd_array()
             if (fd.poll_fd_idx) {
                 Release_poll_fd_index(fd.poll_fd_idx);
             }
+            if (fd.close_on_remove) {
+                close(it->first);
+            }
             it = fd_map.erase(it);
         }
     }
@@ -208,6 +211,23 @@ Poll_io_controller::Queue_operation(Io_cb &io_cb)
     }
     Send_signal();
     return true;
+}
+
+void
+Poll_io_controller::Delete_handle(int fd)
+{
+    if (fd > 0) {
+        std::lock_guard<std::mutex> lock(map_mutex);
+        auto it = fd_map.find(fd);
+        if (it == fd_map.end()) {
+            // Handle is not in polling list. Can delete instantly.
+            close(fd);
+        } else {
+            // Handle is in polling list. Defer deletion.
+            it->second.close_on_remove = true;
+            Send_signal();
+        }
+    }
 }
 
 bool
