@@ -60,7 +60,7 @@ File_processor::Stream::Mode::Mode(const std::string &mode_str)
 File_processor::Stream::Stream(
     File_processor::Ptr processor, const std::string &path, Mode mode,
     bool maintain_pos, Native_handle::Unique_ptr&& native_handle):
-
+    Io_stream(Io_stream::Type::FILE),
     processor(processor), mode(mode), maintain_pos(maintain_pos),
     native_handle(std::move(native_handle))
 {

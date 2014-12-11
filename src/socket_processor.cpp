@@ -786,7 +786,15 @@ Socket_processor::Connect(
         int sock_type,
         Socket_address::Ptr src_addr)
 {
-    Stream::Ptr stream = Stream::Create(Shared_from_this());
+    Io_stream::Type type;
+    if (sock_type == SOCK_STREAM) {
+        type = Io_stream::Type::TCP;
+    } else if (sock_type == SOCK_DGRAM) {
+        type = Io_stream::Type::UDP;
+    } else {
+        type = Io_stream::Type::UNDEFINED;
+    }
+    Stream::Ptr stream = Stream::Create(Shared_from_this(), type);
     stream->Set_state(Io_stream::State::OPENING);
 
     Io_request::Ptr request = Io_request::Create(stream, Io_stream::OFFSET_NONE, completion_handler.Get_arg<1>());
@@ -944,7 +952,15 @@ Socket_processor::Listen(
         Request_completion_context::Ptr completion_context,
         int sock_type)
 {
-    Socket_listener::Ptr stream = Socket_listener::Create(Shared_from_this());
+    Io_stream::Type type;
+    if (sock_type == SOCK_STREAM) {
+        type = Io_stream::Type::TCP;
+    } else if (sock_type == SOCK_DGRAM) {
+        type = Io_stream::Type::UDP;
+    } else {
+        type = Io_stream::Type::UNDEFINED;
+    }
+    Socket_listener::Ptr stream = Socket_listener::Create(Shared_from_this(), type);
     stream->Set_socket_type(sock_type);
     completion_handler.Set_arg<0>(stream);
     Io_request::Ptr request = Io_request::Create(stream, Io_stream::OFFSET_NONE, completion_handler.Get_arg<1>());
@@ -1145,7 +1161,7 @@ Socket_processor::Accept_impl(Socket_listener::Ref listener,
 {
     // Do not call accept on udp socket.
     ASSERT(listener->Get_socket_type() == SOCK_STREAM);
-    Stream::Ptr stream = Stream::Create(Shared_from_this());
+    Stream::Ptr stream = Stream::Create(Shared_from_this(), Io_stream::Type::TCP);
     stream->Set_state(Io_stream::State::OPENING_PASSIVE);
     stream->Set_socket_type(SOCK_STREAM);
     stream_arg = Stream::Ref(stream);

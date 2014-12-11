@@ -58,7 +58,8 @@ ugcs::vsm::Initialize(const std::string &props_file,
     }
     properties->Load(*properties_stream);
 
-    if (properties->Exists("log.level")) {
+    if (    properties->Exists("log.level")
+        &&  properties->Get("log.level").length()) {
         Log::Set_level(properties->Get("log.level"));
     }
     if (properties->Exists("log.file_path")) {

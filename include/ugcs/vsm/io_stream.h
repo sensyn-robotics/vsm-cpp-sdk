@@ -92,6 +92,15 @@ public:
         OPENED
     };
 
+    /** Stream types. */
+    enum class Type {
+        FILE,
+        SERIAL,
+        TCP,
+        UDP,
+        UNDEFINED
+    };
+
     virtual
     ~Io_stream()
     {}
@@ -240,7 +249,8 @@ public:
     /**
      * Constructor.
      */
-    Io_stream()
+    Io_stream(Type type):
+        stream_type(type)
     {}
 
     /** Get current state of the stream. */
@@ -261,11 +271,19 @@ public:
     std::string
     Get_name() const;
 
+    Type
+    Get_type() const
+    {
+        return stream_type;
+    }
+
     /** Convert Io_result value to character string. */
     static const char*
     Io_result_as_char(const Io_result res);
 
 protected:
+    Type stream_type;
+
     /** Current state of the stream. */
     State state = State::CLOSED;
     /** Reference counter. */

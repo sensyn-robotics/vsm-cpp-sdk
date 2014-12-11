@@ -23,7 +23,7 @@ Serial_processor::Stream::Stream(Serial_processor::Ptr processor,
             File_processor::Stream::Mode("r+"), false, std::move(native_handle)),
     processor(processor), mode(mode)
 {
-
+    stream_type = Io_stream::Type::SERIAL;
 }
 
 Serial_processor::Stream::Ref

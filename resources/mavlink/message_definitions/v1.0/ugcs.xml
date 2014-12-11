@@ -48,12 +48,15 @@
 			<entry value="106" name="MAV_AUTOPILOT_UNAV">
 				<description>UNAV autopilot.</description>
 			</entry>
-            <entry value="107" name="MAV_AUTOPILOT_DJI_A2">
-                <description>Dji A2 autopilot.</description>
-            </entry>
-            <entry value="108" name="MAV_AUTOPILOT_DJI_WOOKONG">
-                <description>Dji Wookong autopilot.</description>
-            </entry>
+			<entry value="107" name="MAV_AUTOPILOT_DJI_A2">
+				<description>Dji A2 autopilot.</description>
+			</entry>
+			<entry value="108" name="MAV_AUTOPILOT_DJI_WOOKONG">
+				<description>Dji Wookong autopilot.</description>
+			</entry>
+			<entry value="109" name="MAV_AUTOPILOT_EMULATOR">
+				<description>Generic emulation autopilot.</description>
+			</entry>
 		</enum>
 		<enum name="MAV_CMD">
 			<entry name="MAV_CMD_DO_CAMERA_CONTROL" value="10001">
