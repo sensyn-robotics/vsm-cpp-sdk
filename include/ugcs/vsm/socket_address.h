@@ -48,7 +48,10 @@ public:
     Set(const sockaddr_in&);
 
     void
-    Set(const std::string&, const std::string&);
+    Set(const std::string&, const std::string& = "0");
+
+    void
+    Set_service(const std::string&);
 
     sockaddr_storage
     Get_as_sockaddr_storage();
@@ -59,6 +62,10 @@ public:
     /** Get string representation as "xxx.xxx.xxx.xxx:portnumber". */
     std::string
     Get_as_string();
+
+    /** Get string representation as "xxx.xxx.xxx.xxx". */
+    std::string
+    Get_address_as_string();
 
     /** Get address for use in socket calls, eg getaddrinfo(). */
     const char *
@@ -90,6 +97,11 @@ public:
     void
     Set_resolved(bool);
 
+    /** True if address is a valid multicast address.
+     */
+    bool
+    Is_multicast_address();
+
 private:
     sockaddr_in&
     As_sockaddr_in();
@@ -99,7 +111,7 @@ private:
     std::string name;
     std::string service;
 
-    bool is_resolved;
+    bool is_resolved = false;
 };
 
 } /* namespace vsm */

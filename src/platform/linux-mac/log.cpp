@@ -9,6 +9,14 @@
 
 #include <ugcs/vsm/log.h>
 
+#undef LOG_DEBUG
+#undef LOG_DBG
+#undef LOG_INFO
+#undef LOG_WARNING
+#undef LOG_WARN
+#undef LOG_ERROR
+#undef LOG_ERR
+
 #include <syslog.h>
 
 using namespace ugcs::vsm;

@@ -35,8 +35,8 @@ public:
     };
 
     /** Construct panorama action explicitly. */
-    Panorama_action(Trigger_state trigger_state, double angle,
-            double step, std::chrono::milliseconds delay, double speed) :
+    Panorama_action(Trigger_state trigger_state, double angle, double step,
+                    std::chrono::milliseconds delay, double speed):
         Action(Type::PANORAMA), trigger_state(trigger_state),
         angle(angle), step(step), delay(delay), speed(speed)
         {}

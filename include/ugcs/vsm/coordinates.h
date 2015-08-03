@@ -325,6 +325,9 @@ private:
 /** Position defined in WGS84 geodetic system. */
 typedef Position<Wgs84_datum> Wgs84_position;
 
+float
+Normalize_angle_0_2pi(float a);
+
 } /* namespace vsm */
 } /* namespace ugcs */
 

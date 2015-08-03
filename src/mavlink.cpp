@@ -274,24 +274,27 @@ Checksum::Get() const
     return accumulator;
 }
 
-Extra_byte_length_pair
-Checksum::Get_extra_byte_length_pair(MESSAGE_ID_TYPE message_id, const Extension &ext)
+bool
+Checksum::Get_extra_byte_length_pair(
+        MESSAGE_ID_TYPE message_id,
+        Extra_byte_length_pair& ret,
+        const Extension &ext)
 {
     const auto *base_map = Extension::Get().Get_crc_extra_byte_map();
     auto it = base_map->find(message_id);
-    if (it != base_map->end()) {
-        return it->second;
+    if (it == base_map->end()) {
+        /* Check extension. */
+        if (ext.Get_name().empty()) {
+            return false;
+        }
+        const auto *ext_map = ext.Get_crc_extra_byte_map();
+        it = ext_map->find(message_id);
+        if (it == ext_map->end()) {
+            return false;
+        }
     }
-    /* Check extension. */
-    if (ext.Get_name().empty()) {
-        VSM_EXCEPTION(Invalid_id_exception, "Unknown message ID: %d", message_id);
-    }
-    const auto *ext_map = ext.Get_crc_extra_byte_map();
-    it = ext_map->find(message_id);
-    if (it == ext_map->end()) {
-        VSM_EXCEPTION(Invalid_id_exception, "Unknown message ID: %d", message_id);
-    }
-    return it->second;
+    ret = it->second;
+    return true;
 }
 
 void

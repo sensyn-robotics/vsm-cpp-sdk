@@ -155,6 +155,7 @@ public:
     Class_ptr
     operator ->()
     {
+        ASSERT(ptr);
         return ptr;
     }
 
@@ -162,6 +163,7 @@ public:
     const Class_ptr
     operator ->() const
     {
+        ASSERT(ptr);
         return ptr;
     }
 

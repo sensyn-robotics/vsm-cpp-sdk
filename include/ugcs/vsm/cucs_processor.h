@@ -18,7 +18,9 @@
 #include <ugcs/vsm/ucs_vehicle_ctx.h>
 #include <ugcs/vsm/mavlink_stream.h>
 #include <ugcs/vsm/adsb_report.h>
+#include <ugcs/vsm/peripheral_device.h>
 #include <unordered_set>
+#include <map>
 
 namespace ugcs {
 namespace vsm {
@@ -51,6 +53,20 @@ public:
     /** Send ADS-B report to all currently connected UCS servers. */
     void
     Send_adsb_report(const Adsb_report&);
+
+
+    /** Send information about new peripherals to all currently connected UCS servers. */
+    void
+    Send_peripheral_register(const Peripheral_message::Peripheral_register&);
+
+    /** Send information about peripheral status change to all currently connected UCS servers. */
+    void
+    Send_peripheral_update(const Peripheral_message::Peripheral_update&);
+
+    /** Register a new callback to be called on new incoming connection. */
+    void
+    Register_on_new_ucs_connection(Callback_proxy<void>);
+
 
 private:
 
@@ -98,6 +114,9 @@ private:
      * avoid CUCS processor overload.
      */
     std::atomic_size_t pending_adsb_reports = { 0 };
+
+    /** Leave transport detector on when there are no server connections. */
+    bool transport_detector_on_when_diconnected = false;
 
     virtual void
     On_enable() override;
@@ -161,6 +180,12 @@ private:
 
     void
     On_send_adsb_report(Adsb_report, Request::Ptr);
+
+    void
+    On_send_peripheral_register(Peripheral_message::Peripheral_register, Request::Ptr);
+
+    void
+    On_send_peripheral_update(Peripheral_message::Peripheral_update, Request::Ptr);
 
     bool
     On_default_mavlink_message_handler(mavlink::MESSAGE_ID_TYPE, typename mavlink::Mavlink_kind_ugcs::System_id,
@@ -323,6 +348,10 @@ private:
      * vehicles to all connected Mavlink streams (UCS servers).
      */
     Timer_processor::Timer::Ptr heartbeat_timer;
+
+    /** Will store a new callback
+     * to be called on new incoming server connection*/
+    Callback_proxy<void> on_new_connection_callback_proxy;
 };
 
 } /* namespace vsm */

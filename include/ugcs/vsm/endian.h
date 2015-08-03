@@ -328,7 +328,7 @@ public:
      *
      * @param value Value in host byte order.
      */
-    Bo_value(T value):
+    Bo_value(T value = 0):
         value(Converter::Convert(value))
     {}
 

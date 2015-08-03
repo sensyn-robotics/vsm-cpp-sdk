@@ -33,7 +33,7 @@ void
 Request_container::Submit_request(
         Request::Ptr request)
 {
-    Submit_request_impl(request, std::move(waiter->Lock_notify()));
+    Submit_request_impl(request, waiter->Lock_notify());
 }
 
 void
@@ -96,7 +96,8 @@ void
 Request_container::Enable()
 {
     if (is_enabled.exchange(true)) {
-        VSM_EXCEPTION(Invalid_op_exception, "Container already enabled");
+        VSM_EXCEPTION(Invalid_op_exception, "Container already enabled: %s",
+                      name.c_str());
     }
     On_enable();
 }
@@ -108,7 +109,8 @@ Request_container::Disable()
     if (disable_ongoing.exchange(true)) {
         /* Already ongoing. Not a problem as such, but as per current design
          * this is not a usual situation, so throw a message at least. */
-        LOG_INFO("Repeated disable of the request container.");
+        LOG_INFO("Repeated disable of the request container: %s",
+                 name.c_str());
         return;
     }
     lock.Unlock();

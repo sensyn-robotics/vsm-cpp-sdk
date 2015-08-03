@@ -294,51 +294,50 @@ private:
 
             mavlink::Checksum sum(&header[1], header.size() - 1);
             sum.Accumulate(payload);
-            try {
-                auto crc_byte_len_pair =
-                        sum.Get_extra_byte_length_pair(header_ptr->message_id, extension);
-                uint16_t sum_calc = sum.Accumulate(crc_byte_len_pair.first);
-                /* Convert checksum in Mavlink byte order to a host byte order
-                 * compatible type. */
-                mavlink::Uint16* sum_recv = reinterpret_cast<mavlink::Uint16*>(checksum.data());
 
-                bool cksum_ok = sum_calc == *sum_recv;
-                bool length_ok = crc_byte_len_pair.second == header_ptr->payload_len;
-
-                if (cksum_ok && length_ok) {
-                    /*
-                     * Fully valid packet received, not interested in its segments
-                     * anymore.
-                     */
-                    segments.clear();
-                    mavlink::MESSAGE_ID_TYPE message_id = header_ptr->message_id.Get();
-                    if (handler) {
-                        handler(payload, message_id, header_ptr->system_id, header_ptr->component_id);
-                        stats.handled++;
-                    } else {
-                        stats.no_handler++;
-                        LOG_DEBUG("Mavlink message %d handler not registered.", message_id);
-                    }
-
-                } else {
-                    if (!cksum_ok) {
-                        stats.bad_checksum++;
-                        LOG_DEBUG("Mavlink checksum mismatch, recv=%x calc=%x.",
-                                sum_recv->Get(), sum_calc);
-                    } else {
-                        stats.bad_length++;
-                        LOG_DEBUG("Mavlink payload length mismatch, recv=%d wanted=%d.",
-                                header_ptr->payload_len.Get(), crc_byte_len_pair.second);
-                    }
-                    /* Save remaining bytes. */
-                    segments.push_back(buffer->Slice(buffer->Get_length() - len));
-                    /* And terminate the decoding of current buffer. */
-                    return Io_buffer::Create();
-                }
-
-            } catch (mavlink::Checksum::Invalid_id_exception &) {
+            mavlink::Extra_byte_length_pair crc_byte_len_pair;
+            if (!sum.Get_extra_byte_length_pair(header_ptr->message_id, crc_byte_len_pair, extension)) {
                 stats.unknown_id++;
                 LOG_DEBUG("Unknown Mavlink message id: %d", header_ptr->message_id.Get());
+                /* Save remaining bytes. */
+                segments.push_back(buffer->Slice(buffer->Get_length() - len));
+                /* And terminate the decoding of current buffer. */
+                return Io_buffer::Create();
+            }
+
+            uint16_t sum_calc = sum.Accumulate(crc_byte_len_pair.first);
+            /* Convert checksum in Mavlink byte order to a host byte order
+             * compatible type. */
+            mavlink::Uint16* sum_recv = reinterpret_cast<mavlink::Uint16*>(checksum.data());
+
+            bool cksum_ok = sum_calc == *sum_recv;
+            bool length_ok = crc_byte_len_pair.second == header_ptr->payload_len;
+
+            if (cksum_ok && length_ok) {
+                /*
+                 * Fully valid packet received, not interested in its segments
+                 * anymore.
+                 */
+                segments.clear();
+                mavlink::MESSAGE_ID_TYPE message_id = header_ptr->message_id.Get();
+                if (handler) {
+                    handler(payload, message_id, header_ptr->system_id, header_ptr->component_id);
+                    stats.handled++;
+                } else {
+                    stats.no_handler++;
+                    LOG_DEBUG("Mavlink message %d handler not registered.", message_id);
+                }
+
+            } else {
+                if (!cksum_ok) {
+                    stats.bad_checksum++;
+                    LOG_DEBUG("Mavlink checksum mismatch, recv=%x calc=%x.",
+                            sum_recv->Get(), sum_calc);
+                } else {
+                    stats.bad_length++;
+                    LOG_DEBUG("Mavlink payload length mismatch, recv=%d wanted=%d.",
+                            header_ptr->payload_len.Get(), crc_byte_len_pair.second);
+                }
                 /* Save remaining bytes. */
                 segments.push_back(buffer->Slice(buffer->Get_length() - len));
                 /* And terminate the decoding of current buffer. */

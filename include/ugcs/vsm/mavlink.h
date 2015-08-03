@@ -718,11 +718,15 @@ public:
      * @throws Invalid_id_exception for unknown Mavlink messages.
      *
      * @param message_id Mavlink message id.
+     * @param ret [out] CRC extra byte and length pair mavlink::Extra_byte_length_pair.
      * @param ext Extension the message belongs to.
-     * @return CRC extra byte and length pair mavlink::Extra_byte_length_pair.
+     * @return false if message_id is not recognized.
      */
-    static Extra_byte_length_pair
-    Get_extra_byte_length_pair(MESSAGE_ID_TYPE message_id, const Extension &ext = Extension::Get());
+    static bool
+    Get_extra_byte_length_pair(
+            MESSAGE_ID_TYPE message_id,
+            Extra_byte_length_pair& ret,
+            const Extension &ext = Extension::Get());
 
     /** Reset checksum to initial seed value for zero-length buffer. */
     void

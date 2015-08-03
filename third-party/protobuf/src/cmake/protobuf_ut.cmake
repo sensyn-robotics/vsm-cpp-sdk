@@ -173,6 +173,6 @@ set_target_properties(protobuf_lazy_descriptor_test
 add_executable(protobuf_lite_test ${PROTOBUF_LITE_TEST_SOURCES}
     $<TARGET_OBJECTS:protobuf_objlib> ${PROTOBUF_AUTO_SRCS})
 
-add_dependencies(protobuf_test protoc test_plugin PROTOBUF_RESOURCES)
-add_dependencies(protobuf_lazy_descriptor_test protoc)
-add_dependencies(protobuf_lite_test protoc)
+add_dependencies(protobuf_test protobuf_compiler test_plugin PROTOBUF_RESOURCES)
+add_dependencies(protobuf_lazy_descriptor_test protobuf_compiler)
+add_dependencies(protobuf_lite_test protobuf_compiler)

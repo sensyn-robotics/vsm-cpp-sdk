@@ -20,7 +20,7 @@ class Test_case_wrapper
 {
 public:
     Test_case_wrapper() {
-        ugcs::vsm::Initialize("vsm.conf", std::ios_base::in);
+        ugcs::vsm::Initialize("vsm.conf");
     }
 
     ~Test_case_wrapper() {

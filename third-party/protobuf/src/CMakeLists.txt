@@ -111,10 +111,13 @@ set(PROTOC_SOURCES google/protobuf/compiler/main.cc)
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 include_directories(".")
 
+# strip the binaries to reduce size.
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
+
 # Reused by protoc, sdk and UT
 add_library(protobuf_objlib OBJECT ${LIBPROTOC_SOURCES} ${LIBPROTOBUF_SOURCES} ${LIBPROTOBUF_LITE_SOURCES})
 
-add_executable(protoc ${PROTOC_SOURCES} $<TARGET_OBJECTS:protobuf_objlib>)
+add_executable(protobuf_compiler ${PROTOC_SOURCES} $<TARGET_OBJECTS:protobuf_objlib>)
 
 if (PROTOBUF_UT_ENABLED)
     add_subdirectory(../gtest gtest)

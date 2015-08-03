@@ -1,0 +1,14 @@
+# Template for Application.mk for SDK and VSM android target.
+
+APP_ABI := @ANDROID_ABI_LIST@
+APP_PLATFORM := @ANDROID_PLATFORM@
+
+APP_CPPFLAGS += -std=c++11
+APP_CPPFLAGS += -frtti
+APP_CPPFLAGS += -fexceptions
+APP_CPPFLAGS += -fpermissive
+
+APP_CFLAGS += -D__STDC_FORMAT_MACROS=1 -D__STDC_LIMIT_MACROS=1
+
+# SDK requires c++ STL
+APP_STL:=c++_static

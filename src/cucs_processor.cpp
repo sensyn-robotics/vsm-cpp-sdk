@@ -5,7 +5,9 @@
 #include <ugcs/vsm/log.h>
 #include <ugcs/vsm/debug.h>
 #include <ugcs/vsm/cucs_processor.h>
+#include <ugcs/vsm/request_context.h>
 #include <ugcs/vsm/timer_processor.h>
+#include <ugcs/vsm/transport_detector.h>
 #include <ugcs/vsm/properties.h>
 
 using namespace ugcs::vsm;
@@ -87,6 +89,33 @@ Cucs_processor::Send_adsb_report(const Adsb_report& report)
         LOG_DEBUG("%zu pending ADS-B reports after waiting.",
                 pending_adsb_reports.load());
     }
+}
+
+void
+Cucs_processor::Send_peripheral_register(const Peripheral_message::Peripheral_register& report) {
+    auto request = Request::Create();
+    request->Set_processing_handler(
+            Make_callback(
+                    &Cucs_processor::On_send_peripheral_register,
+                    Shared_from_this(),
+                    report, request));
+    Operation_waiter waiter(request);
+    Submit_request(request);
+    waiter.Wait(false);
+}
+
+
+void
+Cucs_processor::Send_peripheral_update(const Peripheral_message::Peripheral_update& update) {
+    auto request = Request::Create();
+    request->Set_processing_handler(
+            Make_callback(
+                    &Cucs_processor::On_send_peripheral_update,
+                    Shared_from_this(),
+                    update, request));
+    Operation_waiter waiter(request);
+    Submit_request(request);
+    waiter.Wait(false);
 }
 
 void
@@ -186,10 +215,19 @@ Cucs_processor::On_incoming_connection(Socket_processor::Stream::Ref stream, Io_
 
         Register_mavlink_handlers(mav_stream);
 
+        if (ucs_connections.size() == 0) {
+            Transport_detector::Get_instance()->Activate(true);
+        }
+
         Operation_waiter& op_waiter = ucs_connections.emplace(
                 mav_stream,
                 Operation_waiter()).first->second;
         Schedule_next_read(mav_stream, op_waiter);
+
+        if(on_new_connection_callback_proxy) {
+        	on_new_connection_callback_proxy();
+        }
+
     } else {
         LOG_WARN("Incoming connection accept failed %d", result);
     }
@@ -230,6 +268,11 @@ Cucs_processor::Read_completed(Io_buffer::Ptr buffer, Io_result result,
         }
         mav_stream->Disable();
         ucs_connections.erase(iter);
+        if (ucs_connections.size() == 0) {
+            if (!transport_detector_on_when_diconnected) {
+                Transport_detector::Get_instance()->Activate(false);
+            }
+        }
     }
 }
 
@@ -269,6 +312,15 @@ Cucs_processor::Start_listening()
     if (props->Exists("ucs.disable")) {
         return;
     }
+
+    if (Properties::Get_instance()->Exists("ucs.transport_detector_on_when_diconnected")) {
+        transport_detector_on_when_diconnected = true;
+        Transport_detector::Get_instance()->Activate(true);
+    } else {
+        transport_detector_on_when_diconnected = false;
+        Transport_detector::Get_instance()->Activate(false);
+    }
+
     cucs_listener_op = Socket_processor::Get_instance()->Listen(
             Socket_address::Create(
                     props->Get("ucs.local_listening_address"),
@@ -367,6 +419,42 @@ Cucs_processor::On_send_adsb_report(
     request->Complete();
     ASSERT(pending_adsb_reports.load() > 0);
     pending_adsb_reports.fetch_sub(1);
+}
+
+void
+Cucs_processor::On_send_peripheral_register(
+		Peripheral_message::Peripheral_register report,
+        Request::Ptr request)
+{
+    mavlink::ugcs::Pld_peripheral_device_register msg;
+
+    msg->device_id = report.Get_id();
+    msg->device_type = static_cast<uint8_t>(report.Get_dev_type());
+    msg->device_name = report.Get_name().c_str();
+    msg->port_name = report.Get_port().c_str();
+#if 0
+    LOG_DEBUG("Sending device report for [%s]",
+            report.Get_name().c_str());
+#endif
+    Broadcast_mavlink_message(msg, DEFAULT_SYSTEM_ID, DEFAULT_COMPONENT_ID);
+    request->Complete();
+}
+
+void
+Cucs_processor::On_send_peripheral_update(
+		Peripheral_message::Peripheral_update update,
+        Request::Ptr request)
+{
+    mavlink::ugcs::Pld_peripheral_device_update msg;
+
+    msg->device_id = update.Get_id();
+    msg->device_state = static_cast<uint8_t>(update.Get_state());;
+#if 0
+    LOG_DEBUG("Sending device update for #[%d]",
+            update.Get_id());
+#endif
+    Broadcast_mavlink_message(msg, DEFAULT_SYSTEM_ID, DEFAULT_COMPONENT_ID);
+    request->Complete();
 }
 
 bool
@@ -553,6 +641,7 @@ Cucs_processor::Register_vehicle_telemetry(Ucs_vehicle_ctx::Ptr ctx)
     __REGISTER_TELEMETRY_LOCAL(Pld_scaled_pressure, scaled_pressure);
     __REGISTER_TELEMETRY_LOCAL(Pld_vfr_hud, vfr_hud);
     __REGISTER_TELEMETRY_LOCAL(Pld_sys_status, sys_status);
+    __REGISTER_TELEMETRY_LOCAL(ugcs::Pld_camera_attitude, camera_attitude);
 
 #undef __REGISTER_TELEMETRY_LOCAL
 
@@ -641,4 +730,10 @@ Cucs_processor::Write_to_ucs_timed_out(
     if (stream) {
         stream->Close();
     }
+}
+
+void
+Cucs_processor::Register_on_new_ucs_connection(Callback_proxy<void> On_new_connection_handler) {
+	LOG_DEBUG("Registering new callback proxy for 'On new CUCS connection' event.");
+	on_new_connection_callback_proxy = On_new_connection_handler;
 }

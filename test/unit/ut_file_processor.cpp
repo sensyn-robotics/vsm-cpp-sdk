@@ -103,7 +103,7 @@ TEST_FIXTURE(File_deleter, basic_functionality)
     file->Seek(5);
     file->Read(6, 6, Make_setter(buf, result));
     CHECK(result == Io_result::OK);
-    CHECK_EQUAL(6, buf->Get_length());
+    CHECK_EQUAL(static_cast<size_t>(6), buf->Get_length());
     std::string s3(reinterpret_cast<const char *>(buf->Get_data()), buf->Get_length());
     CHECK_EQUAL("012345", s3);
 
@@ -135,19 +135,19 @@ TEST_FIXTURE(File_deleter, end_of_file)
     Io_buffer::Ptr buf;
     Io_result result;
     file->Read(16, 1, Make_setter(buf, result));
-    CHECK_EQUAL(0, buf->Get_length());
+    CHECK_EQUAL(static_cast<size_t>(0), buf->Get_length());
     CHECK(Io_result::END_OF_FILE == result);
 
     file = proc->Open(test_path, "w");
     file->Write(Io_buffer::Create("0123"));
     file = proc->Open(test_path, "r");
     file->Read(16, 16, Make_setter(buf, result));
-    CHECK_EQUAL(4, buf->Get_length());
+    CHECK_EQUAL(static_cast<size_t>(4), buf->Get_length());
     CHECK(Io_result::END_OF_FILE == result);
 
     file = proc->Open(test_path, "r");
     file->Read(16, 1, Make_setter(buf, result));
-    CHECK_EQUAL(4, buf->Get_length());
+    CHECK_EQUAL(static_cast<size_t>(4), buf->Get_length());
     CHECK(Io_result::OK == result);
     }
 

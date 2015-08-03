@@ -29,88 +29,115 @@ include("sdk_common")
 # Protobuf support
 add_subdirectory(third-party/protobuf/src ${CMAKE_BINARY_DIR}/protobuf)
 
-Find_platform_sources("." PLATFORM_INCLUDES PLATFORM_SOURCES)
-
-# Shared includes
-include_directories(include)
-
-# Platform includes
-include_directories(${PLATFORM_INCLUDES})
-
 # Add all source files
 file(GLOB SOURCES "src/*.cpp")
-file(GLOB HEADERS "src/include/vsm/*.h")
-set(SOURCES ${SOURCES} ${HEADERS} ${PLATFORM_SOURCES})
+file(GLOB HEADERS "include/ugcs/vsm/*.h")
+
+# Setup platform specific sources
+Find_platform_sources(${CMAKE_SOURCE_DIR}
+                      PLATFORM_INCLUDES PLATFORM_SOURCES PLATFORM_HEADERS)
+
+# Setup MavLink compilation
+Build_mavlink(${CMAKE_SOURCE_DIR} MAVLINK_INCLUDES MAVLINK_SOURCES MAVLINK_HEADERS MAVLINK_LUA)
+
+# Platform includes and shared includes
+set (SDK_INCLUDES "${CMAKE_SOURCE_DIR}/include" ${PLATFORM_INCLUDES} ${MAVLINK_INCLUDES})
+
+set (SDK_SOURCES ${SOURCES} ${PLATFORM_SOURCES} ${MAVLINK_SOURCES})
+
+set (SDK_HEADERS ${HEADERS} ${PLATFORM_HEADERS} ${MAVLINK_HEADERS})
 
 # Process DLL module definitions on Windows
 Process_dll_defs("src/platform/win")
 
-# Setup MavLink compilation
-Build_mavlink(${CMAKE_SOURCE_DIR})
-set(SOURCES ${SOURCES} ${MAV_AUTO_SRCS})
-set(SOURCES ${SOURCES} ${MAV_AUTO_LUA})
+include_directories(${SDK_INCLUDES})
 
-file(GLOB PROTOBUF_SDK_SOURCES RELATIVE ${CMAKE_SOURCE_DIR}/resources/protobuf
-    ${CMAKE_SOURCE_DIR}/resources/protobuf/*.proto)
-Compile_protobuf_definitions("${PROTOBUF_SDK_SOURCES}"
-    ${CMAKE_SOURCE_DIR}/resources/protobuf
-    ${CMAKE_BINARY_DIR}/protobuf
-    protobuf.h)
-set(SOURCES ${SOURCES} ${PROTOBUF_AUTO_SRCS})
+if (ANDROID)
+    # Add target "android"
+    Create_android_build("armeabi-v7a;x86" "android-19" "${SDK_SOURCES}" "${SDK_INCLUDES}")
+    add_custom_target(${CMAKE_PROJECT_NAME} ALL)
+    add_dependencies(${CMAKE_PROJECT_NAME} android)
+else()
+    # Build the (static) sdk library
+    add_library(${CMAKE_PROJECT_NAME} STATIC
+        ${SDK_SOURCES} ${SDK_HEADERS} ${DLL_IMPORT_LIBS}
+        $<TARGET_OBJECTS:protobuf_objlib>
+        )
+    # Install vsm-sdk library
+    install(TARGETS ${CMAKE_PROJECT_NAME}
+            RUNTIME DESTINATION "${UGCS_INSTALL_DIR}/bin"
+            LIBRARY DESTINATION "${UGCS_INSTALL_DIR}/lib"
+            ARCHIVE DESTINATION "${UGCS_INSTALL_DIR}/lib")
+endif()
+add_dependencies(${CMAKE_PROJECT_NAME} mavlink_lua)
 
-# add (static) library
-add_library(${CMAKE_PROJECT_NAME} STATIC ${SOURCES} ${DLL_IMPORT_LIBS}
-    $<TARGET_OBJECTS:protobuf_objlib>)
-
-add_dependencies(${CMAKE_PROJECT_NAME} protoc)
-        
-install(TARGETS ${CMAKE_PROJECT_NAME}
-        RUNTIME DESTINATION "${UGCS_INSTALL_DIR}/bin"
-        LIBRARY DESTINATION "${UGCS_INSTALL_DIR}/lib"
-        ARCHIVE DESTINATION "${UGCS_INSTALL_DIR}/lib")
-
-install(DIRECTORY include/ugcs  
+add_dependencies (${CMAKE_PROJECT_NAME} protobuf_compiler)
+      
+# Install common includes
+install (DIRECTORY include/ugcs  
         DESTINATION "${UGCS_INSTALL_DIR}/include")
-install(DIRECTORY ${MAV_AUTO_INCLUDE_DIR}/ugcs  
+
+# Install mavlink includes
+install (DIRECTORY ${MAVLINK_INCLUDES}/ugcs  
         DESTINATION "${UGCS_INSTALL_DIR}/include")
 
 # Install platform specific header for sockets.
-if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-    set(PLATFORM_SOCKETS_H "include/platform/linux/ugcs/vsm/platform_sockets.h")
+#XXX eliminate this
+if (ANDROID OR CMAKE_SYSTEM_NAME MATCHES "Linux")
+    set (PLATFORM_SOCKETS_H "include/platform/android-linux/ugcs/vsm/platform_sockets.h")
 elseif(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    set(PLATFORM_SOCKETS_H "include/platform/mac/ugcs/vsm/platform_sockets.h")
+    set (PLATFORM_SOCKETS_H "include/platform/mac/ugcs/vsm/platform_sockets.h")
 elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
-    set(PLATFORM_SOCKETS_H "include/platform/win/ugcs/vsm/platform_sockets.h")
+    set (PLATFORM_SOCKETS_H "include/platform/win/ugcs/vsm/platform_sockets.h")
 endif()
 
 install(FILES ${PLATFORM_SOCKETS_H}
         DESTINATION "${UGCS_INSTALL_DIR}/include/ugcs/vsm")
 
+# Install sample vsm.conf
 install(FILES resources/configuration/vsm.conf 
         DESTINATION "${UGCS_INSTALL_DIR}/share")
-install(FILES ${MAV_AUTO_LUA}       
+
+# Install wireshark mavlink dissector plugin
+install(FILES ${MAVLINK_LUA}
         DESTINATION "${UGCS_INSTALL_DIR}/share")
 
-install(DIRECTORY tools  
+# Install tools
+install(DIRECTORY tools
         DESTINATION "${UGCS_INSTALL_DIR}/share")
 
+# Install docs
 if(VSM_BUILD_DOC)
-    file(GLOB EXAMPLES
+    file (GLOB EXAMPLES
          doc/examples/*.cpp doc/examples/*.h doc/examples/CMakeLists.txt)
-    install(FILES ${EXAMPLES} 
+    install (FILES ${EXAMPLES} 
             DESTINATION "${UGCS_INSTALL_DIR}/share/examples")
-    install(DIRECTORY ${CMAKE_BINARY_DIR}/doc-default/html/ 
+    install (DIRECTORY ${CMAKE_BINARY_DIR}/doc-default/html/ 
             DESTINATION "${UGCS_INSTALL_DIR}/share/doc")
 endif()
 
+# Install cmake helper scripts
 install(FILES   "cmake/ugcs/vsm.cmake"
                 "cmake/ugcs/common.cmake"
                 "cmake/ugcs/ut.cmake"
                 "cmake/ugcs/unittestpp.cmake"
         DESTINATION "${UGCS_INSTALL_DIR}/share/cmake/ugcs")
 
-install(FILES ${DLL_IMPORT_LIBS} 
+# Install google headers
+install (DIRECTORY third-party/protobuf/src/google
+        DESTINATION "${UGCS_INSTALL_DIR}/include"
+        FILES_MATCHING PATTERN "*.h")
+
+get_target_property (PROTOC_PATH protobuf_compiler LOCATION)
+
+# Install google protobuf compiler
+install (FILES ${PROTOC_PATH}
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+        DESTINATION "${UGCS_INSTALL_DIR}/share/tools")
+
+# Install import dlls
+install (FILES ${DLL_IMPORT_LIBS} 
         DESTINATION "${UGCS_INSTALL_DIR}/lib")
 
 #Add package target.
-include(CPack)
+include (CPack)

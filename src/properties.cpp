@@ -23,7 +23,8 @@ using namespace ugcs::vsm;
 /* Properties::Property class. */
 
 Properties::Property::Property(std::string &&value):
-    str_repr(std::move(value))
+    str_repr(std::move(value)),
+    description(LINE_TERMINATOR)
 {
     std::string trimmed = str_repr;
     trimmed.erase(trimmed.begin(),
@@ -67,12 +68,14 @@ Properties::Property::Property(std::string &&value):
 
 Properties::Property::Property(long value):
     str_repr(std::to_string(value)), int_repr(value), float_repr(value),
-    int_valid(true), float_valid(true)
+    int_valid(true), float_valid(true),
+    description(LINE_TERMINATOR)
 {
 }
 
 Properties::Property::Property(double value):
-    str_repr(std::to_string(value)), float_repr(value), float_valid(true)
+    str_repr(std::to_string(value)), float_repr(value), float_valid(true),
+    description(LINE_TERMINATOR)
 {
     if (value >= LLONG_MIN && value <= LLONG_MAX) {
         int_repr = std::lrint(value);
@@ -625,19 +628,21 @@ Properties::Load(std::istream &stream)
     };
 
     State::Ptr cur_state;
-    int c;
+    int original_c, pocessed_c;
     Position_tracker pos_tracker;
+    std::string cur_description;
 
-    do {
-        c = stream.get();
-        pos_tracker.Feed(c);
+    while (true) {
+        original_c = stream.get();
+        pocessed_c = original_c;
+        pos_tracker.Feed(original_c);
         State::Ptr next_state;
         try {
             do {
                 if (!cur_state) {
                     cur_state = State::Ptr(new Initial_state());
                 }
-                if (cur_state->Feed(c, next_state)) {
+                if (cur_state->Feed(pocessed_c, next_state)) {
                     Token token;
                     cur_state->Get_token(token);
                     if (token.type == Token::Type::PROPERTY) {
@@ -646,28 +651,45 @@ Properties::Load(std::istream &stream)
                             VSM_EXCEPTION(Parse_exception, "Duplicated entry: %s",
                                           token.v_property.key.c_str());
                         }
-                        table.insert(std::pair<std::string, Property>(
+                        auto result = table.insert(std::pair<std::string, Property>(
                                 std::move(token.v_property.key),
                                 Property(std::move(token.v_property.value))));
+                        result.first->second.seq_number = last_sequence_number++;
+                        result.first->second.description = cur_description;
+                        cur_description.clear();
                     }
                     cur_state = std::move(next_state);
                 }
                 /* End-of-file encountered. */
-                if (c == std::istream::traits_type::eof()) {
+                if (pocessed_c == std::istream::traits_type::eof()) {
                     if (cur_state) {
                         VSM_EXCEPTION(Parse_exception, "Unexpected end of stream");
                     } else {
                         break;
                     }
                 }
-            } while (c != CHAR_CONSUMED);
+            } while (pocessed_c != CHAR_CONSUMED);
         } catch(Parse_exception &e) {
             while (pos_tracker.Feed(stream.get(), true));
             LOG_WARNING("Exception thrown during properties parsing:\n%s\n%s",
                         e.what(), pos_tracker.Get_position().c_str());
             throw;
         }
-    } while (c != std::istream::traits_type::eof());
+        if (original_c == std::istream::traits_type::eof()) {
+            break;
+        } else {
+            if (cur_state) {
+                Token token;
+                cur_state->Get_token(token);
+                if (token.type != Token::Type::PROPERTY) {
+                    cur_description += original_c;
+                }
+            } else {
+                cur_description += original_c;
+            }
+        }
+    }
+    trailer = cur_description;
 }
 
 const Properties::Property &
@@ -740,6 +762,35 @@ Properties::Delete(const std::string &key)
     table.erase(it);
 }
 
+namespace {
+// do not make this public.
+void
+String_replace(std::string& str, const std::string& search, const std::string& replace)
+{
+    for (size_t pos = 0; ; pos += replace.length()) {
+        pos = str.find(search, pos);
+        if (pos == std::string::npos) {
+            break;
+        }
+        str.erase(pos, search.length());
+        str.insert(pos, replace);
+    }
+}
+}
+
+void
+Properties::Set_description(const std::string &key, const std::string &desc)
+{
+    Property *prop = Find_property(key);
+    if (prop == nullptr) {
+        prop = &table.insert(std::pair<std::string, Property>(key, std::string(""))).first->second;
+        prop->seq_number = last_sequence_number++;
+    }
+    prop->description = LINE_TERMINATOR + desc;
+    String_replace(prop->description, LINE_TERMINATOR, LINE_TERMINATOR "# ");
+    prop->description += LINE_TERMINATOR;
+}
+
 void
 Properties::Set(const std::string &key, const std::string &value)
 {
@@ -747,7 +798,8 @@ Properties::Set(const std::string &key, const std::string &value)
     if (prop) {
         *prop = Property(std::string(value));
     } else {
-        table.insert(std::pair<std::string, Property>(key, std::string(value)));
+        auto result = table.insert(std::pair<std::string, Property>(key, std::string(value)));
+        result.first->second.seq_number = last_sequence_number++;
     }
 }
 
@@ -758,7 +810,8 @@ Properties::Set(const std::string &key, int value)
     if (prop) {
         *prop = Property(static_cast<long>(value));
     } else {
-        table.insert(std::pair<std::string, Property>(key, static_cast<long>(value)));
+        auto result = table.insert(std::pair<std::string, Property>(key, static_cast<long>(value)));
+        result.first->second.seq_number = last_sequence_number++;
     }
 }
 
@@ -769,7 +822,8 @@ Properties::Set(const std::string &key, double value)
     if (prop) {
         *prop = Property(value);
     } else {
-        table.insert(std::pair<std::string, Property>(key, value));
+        auto result = table.insert(std::pair<std::string, Property>(key, value));
+        result.first->second.seq_number = last_sequence_number++;
     }
 }
 
@@ -819,12 +873,20 @@ Properties::Escape(const std::string &str, bool is_key)
 void
 Properties::Store(std::ostream &stream)
 {
-    /* Want sorted by keys. */
-    std::map<std::string, Property> map(table.begin(), table.end());
-    for (auto pair: map) {
-        stream << Escape(pair.first, true) << " = " <<
-                  Escape(pair.second.str_repr) << LINE_TERMINATOR;
+    /* Want sorted by seq_ids. */
+    std::map<int, std::string> map;
+    for (auto pair: table) {
+        map.insert({pair.second.seq_number, pair.first});
     }
+    for (auto pair: map) {
+        auto item = table.find(pair.second);
+        stream << item->second.description;
+        stream << Escape(item->first, true);
+        if (item->second.str_repr.size()) {
+            stream << " = " << Escape(item->second.str_repr);
+        }
+    }
+    stream << trailer;
 }
 
 void
@@ -853,6 +915,20 @@ Properties::Iterator::operator ++()
     }
     table_iterator++;
     _NextProp();
+}
+
+int
+Properties::Iterator::Get_count()
+{
+    int ret = 0;
+    if (table_iterator != table_end) {
+        const std::string &s = table_iterator->first;
+        for (size_t cur_idx = 0; cur_idx != std::string::npos; cur_idx = s.find(separator, cur_idx)) {
+            cur_idx++;
+            ret++;
+        }
+    }
+    return ret;
 }
 
 std::string

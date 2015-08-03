@@ -15,9 +15,12 @@
 #ifndef PLATFORM_SOCKETS_H_
 #define PLATFORM_SOCKETS_H_
 
+#include <sys/select.h> // Android build needs this. Others include it implicitly.
+#include <linux/stat.h> // Android build needs this. Others include it implicitly.
 #include <sys/socket.h>
 #include <arpa/inet.h>  // inet_ntoa
 #include <netdb.h>      // addrinfo
+
 #define INVALID_SOCKET (-1)
 #define SOCKET_ERROR (-1)
 

@@ -360,6 +360,14 @@ Log::Do_cleanup(int thread_id)
     fclose(custom_log_file);
     custom_log_file = nullptr;
 
+    //XXX temporal workaround for Android until normal rotation is implemented
+#ifdef ANDROID
+    File_processor::Rename_utf8(custom_log_file_name,
+                                custom_log_file_name + ".old");
+    Reopen_custom_log_file(custom_log_file_name);
+
+#else
+
     char ts_buf[128];
     auto now = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(now);
@@ -404,4 +412,6 @@ Log::Do_cleanup(int thread_id)
         /* Don't throw exception in the middle of work if reopen fails. */
         Reopen_custom_log_file(custom_log_file_name);
     }
+
+#endif
 }

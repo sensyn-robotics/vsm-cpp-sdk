@@ -102,6 +102,7 @@ private:
             RAW_IMU,
             SCALED_PRESSURE,
             VFR_HUD,
+            CAMERA_ATTITUDE,
 
             NUM_PAYLOAD_TYPES
         };
@@ -113,6 +114,7 @@ private:
         mavlink::Pld_raw_imu raw_imu;
         mavlink::Pld_scaled_pressure scaled_pressure;
         mavlink::Pld_vfr_hud vfr_hud;
+        mavlink::ugcs::Pld_camera_attitude camera_attitude;
 
         int payload_generation[NUM_PAYLOAD_TYPES];
 
@@ -190,6 +192,9 @@ private:
     Commit(const tm::Ground_speed::Base &value);
 
     void
+    Commit(const tm::Air_speed::Base &value);
+
+    void
     Commit(const tm::Climb_rate::Base &value);
 
     void
@@ -197,6 +202,9 @@ private:
 
     void
     Commit(const tm::Rclink_quality::Base &value);
+
+    void
+    Commit(const tm::Camera_attitude::Base &value);
 };
 
 } /* namespace vsm */

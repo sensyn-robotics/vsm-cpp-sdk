@@ -159,6 +159,31 @@ Socket_processor::Stream::Get_peer_address()
     return Socket_address::Create(peer_address);
 };
 
+Socket_address::Ptr
+Socket_processor::Stream::Get_local_address()
+{
+    return Socket_address::Create(local_address);
+};
+
+bool
+Socket_processor::Stream::Add_multicast_group(Socket_address::Ptr interface, Socket_address::Ptr multicast)
+{
+    struct ip_mreq mreq;
+    memset(&mreq, 0, sizeof(struct ip_mreq));
+    mreq.imr_interface.s_addr = inet_addr(interface->Get_name_as_c_str());
+    mreq.imr_multiaddr.s_addr = inet_addr(multicast->Get_name_as_c_str());
+    auto ret = setsockopt(
+            s,
+            IPPROTO_IP, IP_ADD_MEMBERSHIP,
+            reinterpret_cast<const char*>(&mreq),   // Win requires cast as it needs char* instead of void*
+            sizeof(struct ip_mreq));
+    if (ret) {
+        LOG("Add_multicast_group failed: %s", Log::Get_system_error().c_str());
+        return false;
+    }
+    return true;
+};
+
 void
 Socket_processor::Stream::Set_peer_address(Socket_address::Ptr addr)
 {
@@ -498,6 +523,11 @@ Socket_processor::Handle_select_connect(Stream::Ptr stream)
     request->Set_result_arg(result, locker);
     if (result == Io_result::OK && request->Is_processing())
     {
+        struct sockaddr_storage addr;
+        socklen_t addr_len = sizeof(addr);
+        if (getsockname(stream->Get_socket(), reinterpret_cast<sockaddr*>(&addr), &addr_len) == 0) {
+            stream->local_address = Socket_address::Create(addr);
+        }
         stream->Set_state(Io_stream::State::OPENED);
         stream->is_connected = true;
     }
@@ -554,6 +584,11 @@ Socket_processor::Handle_select_accept(Stream::Ptr listen_stream)
                     ASSERT(stream->Get_state() == Io_stream::State::OPENING_PASSIVE);
                     stream->peer_address = Socket_address::Create(peer_addr);
                     stream->Update_name();
+                    struct sockaddr_storage addr;
+                    socklen_t addr_len = sizeof(addr);
+                    if (getsockname(s1, reinterpret_cast<sockaddr*>(&addr), &addr_len) == 0) {
+                        stream->local_address = Socket_address::Create(addr);
+                    }
                     stream->Set_socket(s1);
                     stream->Set_state(Io_stream::State::OPENED);
                     request->Set_result_arg(Io_result::OK, locker);
@@ -950,13 +985,18 @@ Socket_processor::Listen(
         Socket_address::Ptr addr,
         Listen_handler completion_handler,
         Request_completion_context::Ptr completion_context,
-        int sock_type)
+        int sock_type,
+        bool multicast)
 {
     Io_stream::Type type;
     if (sock_type == SOCK_STREAM) {
         type = Io_stream::Type::TCP;
     } else if (sock_type == SOCK_DGRAM) {
-        type = Io_stream::Type::UDP;
+        if (multicast) {
+            type = Io_stream::Type::UDP_MULTICAST;
+        } else {
+            type = Io_stream::Type::UDP;
+        }
     } else {
         type = Io_stream::Type::UNDEFINED;
     }
@@ -1020,7 +1060,7 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
                 sockets::Close_socket(s);
                 VSM_SYS_EXCEPTION("Socket %d failed to set Nonblocking", s);
             }
-            if (sockets::Prepare_for_listen(s) != 0)
+            if (sockets::Prepare_for_listen(s, stream->Get_type() == Io_stream::Type::UDP_MULTICAST) != 0)
             {// failed to set SO_REUSEADDR, but let's not die because of that
                 LOG_ERR("Prepare_for_listen failed: %s", Log::Get_system_error().c_str());
             }
@@ -1034,6 +1074,8 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
                     if (request->Is_processing())
                     {// request status is still OK
                         streams[stream] = stream;
+                        stream->local_address = Socket_address::Create(addr);
+
                         stream->Set_socket(s);
                         stream->Set_state(Io_stream::State::OPENED);
                         request->Set_result_arg(Io_result::OK, locker);
@@ -1379,4 +1421,9 @@ Socket_processor::Lookup_stream(Io_stream::Ptr io_stream)
         stream = iter->second;
     }
     return stream;
+}
+
+Local_interface::Local_interface(const std::string& name, bool m)
+:name(name),is_multicast(m)
+{
 }

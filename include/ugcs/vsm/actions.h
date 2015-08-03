@@ -20,3 +20,5 @@
 #include <ugcs/vsm/camera_trigger_action.h>
 #include <ugcs/vsm/task_attributes_action.h>
 #include <ugcs/vsm/panorama_action.h>
+#include <ugcs/vsm/camera_series_by_time_action.h>
+#include <ugcs/vsm/camera_series_by_distance_action.h>

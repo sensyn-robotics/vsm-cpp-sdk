@@ -42,7 +42,7 @@ int
 Disable_sigpipe(Socket_handle);
 
 int
-Prepare_for_listen(Socket_handle);
+Prepare_for_listen(Socket_handle, bool is_multicast);
 
 }// namespace platform
 }

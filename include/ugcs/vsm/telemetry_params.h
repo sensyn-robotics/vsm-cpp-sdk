@@ -192,6 +192,42 @@ struct Attitude {
     };
 };
 
+/** Rotation angles and zoom of camera */
+struct Camera_attitude_struct {
+    bool relative;
+    float pitch;
+    float roll;
+    float yaw;
+    float focal_length;
+    float fov_angle_h;
+    float fov_angle_v;
+};
+
+class Camera_attitude: public internal::Param_base<Camera_attitude, Camera_attitude_struct> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Attitude roll angle between vehicle lateral axis and horizon, rad [-pi;+pi].
+ * Positive - right roll (right wing is lower than left wing). */
+class Roll: public internal::Param_base<Roll, double> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Attitude yaw angle between vehicle longitudinal axis and true North, rad [-pi;+pi].
+ * Positive is clock-wise. */
+class Yaw: public internal::Param_base<Yaw, double> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
 /** Course, which is an angle between true North and horizontal movement vector, rad.
  * Positive is clock-wise. */
 class Course: public internal::Param_base<Course, double> {
@@ -203,6 +239,14 @@ public:
 
 /** Ground speed module, m/s. */
 class Ground_speed: public internal::Param_base<Ground_speed, double> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Air speed module, m/s. */
+class Air_speed: public internal::Param_base<Air_speed, double> {
 public:
     using Param_base::Param_base;
     /** Base class type. */

@@ -10,12 +10,16 @@
 #include <ugcs/vsm/serial_processor.h>
 #include <linux/serial.h>
 #include <dirent.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
 using namespace ugcs::vsm;
+
+/** Maximum possible value for termios VMIN parameter. */
+const uint8_t ugcs::vsm::Serial_processor::MAX_VMIN = 255;
 
 std::list<std::string>
 Serial_processor::Enumerate_port_names()

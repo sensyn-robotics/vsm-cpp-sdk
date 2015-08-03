@@ -1,6 +1,19 @@
 # Common things for sdk and all projects depending on this sdk.
 # (vsms, unittests, ...)
 
+
+# Convert list to space-separated string.
+# @param LIST List to convert.
+# @param STRING_VAR Variable to store string in.
+function(List_to_string LIST STRING_VAR)
+    set(result "")
+    foreach(item IN LISTS LIST)
+        set(result "${result} ${item}")
+    endforeach()
+    set(${STRING_VAR} "${result}" PARENT_SCOPE)
+endfunction()
+
+
 # Enable C++11 standard, extended warnings, multithreading.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmessage-length=0 -std=c++11 -Werror -Wall -Wextra -Wold-style-cast -pthread")
 
@@ -24,7 +37,27 @@ endif()
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     set(VSM_PLAT_LIBS rt)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Windows")
-    set(VSM_PLAT_LIBS ws2_32 Userenv bfd iberty dbghelp z)
+    set(VSM_PLAT_LIBS ws2_32 Userenv bfd iberty dbghelp z iphlpapi)
+endif()
+
+
+# Prepare Android build.
+if (ANDROID)
+    # Test if Android NDK is available
+    if (NOT DEFINED ANDROID_NDK)
+        if (DEFINED ENV{ANDROID_NDK})
+            set(ANDROID_NDK "$ENV{ANDROID_NDK}")
+        else()
+            message(FATAL_ERROR "Android NDK path is not specified")
+        endif()
+    endif()
+    if (EXISTS "${ANDROID_NDK}/")
+        message("Using Android NDK from ${ANDROID_NDK}")
+    else()
+        message(FATAL_ERROR "Not a valid Android NDK path: ${ANDROID_NDK}")
+    endif()
+    
+    set(ANDROID_BINARY_DIR "${CMAKE_BINARY_DIR}/android")
 endif()
 
 # Enable packaging script automatically if vsm is compiled from ugcs source tree.
@@ -136,6 +169,62 @@ if (PDF_DOC_NAME_OVERRIDE)
 else()
   set(PDF_DOC_NAME manual-${CMAKE_PROJECT_NAME}.pdf)
 endif()
+
+# Compile protobuf declarations into C++ code.
+# PROTO_INPUT_FILES - should be paths relative to absolute path PROTO_ROOT
+# Set some variables in parent scope:
+# PROTOBUF_AUTO_SRCS - list of automatically generated source files which needs
+# to be compiled.
+function(Compile_protobuf_definitions PROTO_INPUT_FILES PROTO_ROOT
+    PROTO_OUTPUT_DIR PROTO_COMMON_INCLUDE_NAME)
+    
+    # Take protoc binary generated during build process.
+    # If this build did not generate it, assume it is installed in SDK dir.  
+    get_target_property(PROTOBUF_PROTOC_BINARY protobuf_compiler LOCATION)
+    if (PROTOBUF_PROTOC_BINARY)
+        # Includes used by the generated headers itself
+        include_directories(${CMAKE_SOURCE_DIR}/third-party/protobuf/src)
+    else()
+        set (PROTOBUF_PROTOC_BINARY "${VSM_SDK_DIR}/share/tools/protobuf_compiler")
+    endif()
+    
+    set(ALL_DEFS_INCLUDE_FILE
+        ${CMAKE_BINARY_DIR}/_all_protobuf_includes_generated_for_${PROTO_COMMON_INCLUDE_NAME})
+    file(WRITE ${ALL_DEFS_INCLUDE_FILE} "// DO NOT EDIT! Generated automatically\n\n")
+    
+    file (MAKE_DIRECTORY ${PROTO_OUTPUT_DIR})
+    
+    # A rule for each proto file
+    # Auto include is generated during configure phase, not build time.
+    # Consider it "enough" for now.
+    foreach(DEF ${PROTO_INPUT_FILES})
+        string(REPLACE .proto .pb.h OUT_H ${DEF})
+        set(OUT_H_FULL ${PROTO_OUTPUT_DIR}/${OUT_H})
+        string(REPLACE .proto .pb.cc OUT_CC ${DEF})
+        set(OUT_CC_FULL ${PROTO_OUTPUT_DIR}/${OUT_CC})
+        set(PROTOBUF_AUTO_SRCS ${PROTOBUF_AUTO_SRCS} ${OUT_CC_FULL} ${OUT_H_FULL})
+        file(APPEND ${ALL_DEFS_INCLUDE_FILE} "#include \"${OUT_H}\"\n")
+        add_custom_command(OUTPUT ${OUT_CC_FULL} ${OUT_H_FULL}
+            COMMAND "${PROTOBUF_PROTOC_BINARY}" --cpp_out=${PROTO_OUTPUT_DIR} ${DEF}
+            DEPENDS ${PROTO_ROOT}/${DEF}
+            WORKING_DIRECTORY ${PROTO_ROOT}
+            COMMENT "Protobuf: ${DEF}")
+    endforeach()
+
+    # A rule for building (copying) auto generated include file
+    add_custom_command(OUTPUT ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME}
+        COMMAND ${CMAKE_COMMAND} -E copy ${ALL_DEFS_INCLUDE_FILE} 
+            ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME}
+        DEPENDS ${ALL_DEFS_INCLUDE_FILE}
+        COMMENT "Protobuf common include: ${PROTO_COMMON_INCLUDE_NAME}")
+    
+    set(PROTOBUF_AUTO_SRCS ${PROTOBUF_AUTO_SRCS}
+        ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME})
+    
+    set(PROTOBUF_AUTO_SRCS ${PROTOBUF_AUTO_SRCS} PARENT_SCOPE)
+    # Includes for the generated headers
+    include_directories(${PROTO_OUTPUT_DIR}) 
+endfunction()
 
 add_custom_command(TARGET pdf POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy ${DOC_DIR}/latex/refman.pdf ${PDF_DOC_NAME})

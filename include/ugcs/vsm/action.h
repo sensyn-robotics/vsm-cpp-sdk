@@ -53,6 +53,10 @@ public:
         PANORAMA,
         /** Task attributes action ugcs::vsm::Task_attributes_action. */
         TASK_ATTRIBUTES,
+        /** Continuously shot camera in regular time intervals. */
+        CAMERA_SERIES_BY_TIME,
+        /** Continuously shot camera in regular distance intervals. */
+        CAMERA_SERIES_BY_DISTANCE
     };
 
     /** Construct action of specific type. */
@@ -86,6 +90,8 @@ public:
         case Type::CAMERA_TRIGGER: return "CAMERA TRIGGER";
         case Type::PANORAMA: return "PANORAMA";
         case Type::TASK_ATTRIBUTES: return "TASK ATTRIBUTES";
+        case Type::CAMERA_SERIES_BY_TIME: return "CAMERA SERIES BY TIME";
+        case Type::CAMERA_SERIES_BY_DISTANCE: return "CAMERA SERIES BY DISTANCE";
         }
         VSM_EXCEPTION(Internal_error_exception, "Action type %d unknown.",
                 type);

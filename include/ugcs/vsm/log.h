@@ -13,6 +13,8 @@
 
 #include <ugcs/vsm/exception.h>
 
+#include <stdlib.h>
+
 #include <cstdio>
 #include <cstdarg>
 #include <string>

@@ -47,8 +47,7 @@ public:
     Camera_trigger_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
         Action(Type::CAMERA_TRIGGER),
         state(Mavlink_to_state(item->param1)),
-        interval(std::chrono::milliseconds(item->param2))
-
+        interval(1000) /* Currently not supported by protocol. */
     {
         ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_TRIGGER);
     }

@@ -48,6 +48,10 @@ public:
     Callback_proxy<void, const mavlink::Pld_vfr_hud*>
         vfr_hud;
 
+    /** VFR HUD. */
+    Callback_proxy<void, const mavlink::ugcs::Pld_camera_attitude*>
+        camera_attitude;
+
     /** System status updated. */
     Callback_proxy<void> sys_status_update;
 };

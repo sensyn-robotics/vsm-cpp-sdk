@@ -27,6 +27,12 @@ Transport_detector::Transport_detector() :
 }
 
 void
+Transport_detector::Activate(bool activate)
+{
+    detector_active = activate;
+}
+
+void
 Transport_detector::On_enable()
 {
     Request_processor::On_enable();
@@ -115,7 +121,7 @@ Transport_detector::Add_detector(
                 request->Set_processing_handler(proc_handler);
                 Submit_request(request);
             } else {
-                auto vpref = prefix + "." + it[token_index];
+                auto vpref = prefix + tokenizer + it[token_index];
                 token_index++;
                 if (it[token_index] == "name") {
                     auto name = properties->Get(*it);
@@ -137,7 +143,7 @@ Transport_detector::Add_detector(
                     }
                 } else if (it[token_index] == "address") {
                     auto address = properties->Get(*it);
-                    auto port = properties->Get(vpref + ".tcp_port");
+                    auto port = properties->Get(vpref + tokenizer + "tcp_port");
                     Request::Ptr request = Request::Create();
                     auto proc_handler = Make_callback(
                             &Transport_detector::Add_ip_detector,
@@ -157,12 +163,12 @@ Transport_detector::Add_detector(
                     auto local_port = properties->Get(*it);
                     std::string local_address("0.0.0.0");
                     Socket_address::Ptr remote = nullptr;
-                    if (properties->Exists(vpref + ".udp_local_address")) {
-                        local_address = properties->Get(vpref + ".udp_local_address");
+                    if (properties->Exists(vpref + tokenizer + "udp_local_address")) {
+                        local_address = properties->Get(vpref + tokenizer + "udp_local_address");
                     }
                     remote = Socket_address::Create(
-                            properties->Get(vpref + ".udp_address"),
-                            properties->Get(vpref + ".udp_port"));
+                            properties->Get(vpref + tokenizer + "udp_address"),
+                            properties->Get(vpref + tokenizer + "udp_port"));
                     Request::Ptr request = Request::Create();
                     auto proc_handler = Make_callback(
                             &Transport_detector::Add_ip_detector,
@@ -339,8 +345,10 @@ Transport_detector::On_timer()
         }
     }
 
-    for (auto &entry: active_config) {
-        entry.second.On_timer();
+    if (detector_active) {
+        for (auto &entry: active_config) {
+            entry.second.On_timer();
+        }
     }
 
     return true;

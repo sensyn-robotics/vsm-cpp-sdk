@@ -47,6 +47,7 @@ Telemetry_manager::Raw_data::Reset()
     raw_imu.Reset();
     scaled_pressure.Reset();
     vfr_hud.Reset();
+    camera_attitude.Reset();
 }
 
 void
@@ -78,6 +79,8 @@ Telemetry_manager::Raw_data::Is_dirty(Payload_type type, const Raw_data &prev_da
         return scaled_pressure != prev_data.scaled_pressure;
     case Payload_type::VFR_HUD:
         return vfr_hud != prev_data.vfr_hud;
+    case Payload_type::CAMERA_ATTITUDE:
+        return camera_attitude != prev_data.camera_attitude;
 
     /* Prevent from compilation warning and still allow compiler to control that
      * all values are handled.
@@ -137,6 +140,12 @@ Telemetry_manager::Raw_data::Commit(const Telemetry_interface &iface,
     if (Is_dirty(Payload_type::VFR_HUD, prev_data)) {
         if (iface.vfr_hud) {
             iface.vfr_hud(&vfr_hud);
+        }
+    }
+
+    if (Is_dirty(Payload_type::CAMERA_ATTITUDE, prev_data)) {
+        if (iface.camera_attitude) {
+            iface.camera_attitude(&camera_attitude);
         }
     }
 }
@@ -405,6 +414,16 @@ Telemetry_manager::Commit(const tm::Ground_speed::Base &value)
 }
 
 void
+Telemetry_manager::Commit(const tm::Air_speed::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::VFR_HUD);
+    last_data.vfr_hud->airspeed = value.value;
+}
+
+void
 Telemetry_manager::Commit(const tm::Climb_rate::Base &value)
 {
     if (!value) {
@@ -454,4 +473,21 @@ Telemetry_manager::Commit(const tm::Rclink_quality::Base &value)
     }
     rate = 1.0 - rate;
     last_data.sys_status->errors_comm = 10000 * rate;
+}
+
+void
+Telemetry_manager::Commit(const tm::Camera_attitude::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::CAMERA_ATTITUDE);
+    tm::Camera_attitude_struct att = value.value;
+    last_data.camera_attitude->focal_length = att.focal_length;
+    last_data.camera_attitude->fov_angle_h = att.fov_angle_h;
+    last_data.camera_attitude->fov_angle_v = att.fov_angle_v;
+    last_data.camera_attitude->pitch = att.pitch;
+    last_data.camera_attitude->roll = att.roll;
+    last_data.camera_attitude->yaw = att.yaw;
+    last_data.camera_attitude->relative = att.relative;
 }

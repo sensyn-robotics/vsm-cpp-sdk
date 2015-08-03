@@ -22,6 +22,15 @@
 namespace ugcs {
 namespace vsm {
 
+class Local_interface {
+public:
+    Local_interface(const std::string&, bool);
+public:
+    std::string name;
+    bool is_multicast;
+    std::vector<Socket_address::Ptr> adresses;
+};
+
 /** Socket processor. */
 class Socket_processor: public Request_processor
 {
@@ -116,6 +125,9 @@ public:
         /* Returns a newly created Socket_address::Ptr with local address. */
         Socket_address::Ptr
         Get_local_address();
+
+        bool
+        Add_multicast_group(Socket_address::Ptr interface, Socket_address::Ptr multicast);
 
     private:
 
@@ -272,7 +284,7 @@ public:
             Socket_address::Ptr addr,
             Listen_handler completion_handler,
             Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create(),
-            int sock_type = SOCK_STREAM);
+            int sock_type = SOCK_STREAM, bool multicast = false);
 
     /** create local UDP endpoint socket and associate stream with it.
      * See Listen_handler for completion handler parameters.
@@ -285,15 +297,22 @@ public:
      * For simple Write() user must first call Set_peer_address() on stream.
      *
      * @param addr local ip address/port for listener socket. Should be numeric.
+     * @param multicast true : bind as multicast listener.
+     *                         On windows it uses SO_REUSEADDR.
+     *                         On Mac it uses SO_REUSEPORT.
      */
     Operation_waiter
     Bind_udp(
             Socket_address::Ptr addr,
             Listen_handler completion_handler,
-            Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create())
+            Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create(),
+            bool multicast = false)
     {
-        return Listen(addr, completion_handler, completion_context, SOCK_DGRAM);
+        return Listen(addr, completion_handler, completion_context, SOCK_DGRAM, multicast);
     }
+
+    static std::list<Local_interface>
+    Enumerate_local_interfaces();
 
 protected:
 

@@ -9,7 +9,7 @@
 #include <ugcs/vsm/vsm.h>
 #include <ugcs/vsm/cucs_processor.h>
 #include <ugcs/vsm/crash_handler.h>
-#include <ugcs/vsm/protobuf.h>
+#include <ugcs/vsm/service_discovery_processor.h>
 
 #include <fstream>
 
@@ -18,7 +18,6 @@ using namespace ugcs::vsm;
 namespace {
 
 Properties::Ptr properties;
-std::unique_ptr<std::fstream> properties_stream;
 
 Timer_processor::Ptr timer_proc;
 Cucs_processor::Ptr cucs_processor;
@@ -26,9 +25,12 @@ Socket_processor::Ptr socket_processor;
 File_processor::Ptr file_processor;
 Serial_processor::Ptr serial_processor;
 Transport_detector::Ptr transport_detector;
+Service_discovery_processor::Ptr discoverer;
 #ifndef VSM_DISABLE_HID
 Hid_processor::Ptr hid_processor;
 #endif /* VSM_DISABLE_HID */
+
+std::string properties_file;
 
 } /* anonymous namespace */
 
@@ -46,17 +48,17 @@ ugcs::vsm::Initialize(int argc, char *argv[], const std::string &default_conf_fi
 }
 
 void
-ugcs::vsm::Initialize(const std::string &props_file,
-                std::ios_base::openmode props_open_mode)
+ugcs::vsm::Initialize(const std::string &props_file)
 {
+    properties_file = props_file;
     properties = Properties::Get_instance();
-    properties_stream = std::unique_ptr<std::fstream>
-        (new std::fstream(props_file, props_open_mode));
-    if (!properties_stream->is_open()) {
+    auto prop_stream = std::unique_ptr<std::fstream>
+        (new std::fstream(properties_file, std::ios_base::in));
+    if (!prop_stream->is_open()) {
         VSM_EXCEPTION(Invalid_param_exception, "Cannot open configuration file: %s",
-                      props_file.c_str());
+                properties_file.c_str());
     }
-    properties->Load(*properties_stream);
+    properties->Load(*prop_stream);
 
     if (    properties->Exists("log.level")
         &&  properties->Get("log.level").length()) {
@@ -76,6 +78,11 @@ ugcs::vsm::Initialize(const std::string &props_file,
     socket_processor = Socket_processor::Get_instance();
     socket_processor->Enable();
 
+    // transport_detector must initialize before cucs_processor because
+    // cucs_processor calls transport_detector->Activate().
+    transport_detector = Transport_detector::Get_instance();
+    transport_detector->Enable();
+
     cucs_processor = Cucs_processor::Get_instance();
     cucs_processor->Enable();
 
@@ -85,18 +92,75 @@ ugcs::vsm::Initialize(const std::string &props_file,
     serial_processor = Serial_processor::Get_instance();
     serial_processor->Enable();
 
+    // Start service discovery protocol
+    if (    properties->Exists("service_discovery.address")
+        &&  properties->Exists("service_discovery.port")) {
+        auto dicovery_listener = Socket_address::Create(
+                properties->Get("service_discovery.address"),
+                properties->Get("service_discovery.port"));
+        if (!dicovery_listener->Is_multicast_address()) {
+            VSM_EXCEPTION(
+                    Invalid_param_exception,
+                    "service_discovery.address '%s' is not a valid multicast address",
+                    dicovery_listener->Get_address_as_string().c_str());
+        }
+        discoverer = Service_discovery_processor::Get_instance(dicovery_listener);
+    } else {
+        discoverer = Service_discovery_processor::Get_instance();
+    }
+    discoverer->Enable();
+
+    /** Service discovery support.
+     *
+     * Support two syntaxes:
+     * 1) single service: "service_discovery.advertise.name"
+     * 2) multiple services: "service_discovery.advertise.<service_id>.name"
+     * The value of service_id is ignored it is used only
+     * for grouping name, type and location together.
+     *
+     * Example config entries:
+     * service_discovery.advertise.1.name = Ardupilot VSM
+     * service_discovery.advertise.1.type = ugcs:vsm:ardupilot
+     * service_discovery.advertise.1.location = {local_address}:5556
+     *
+     */
+
+    // Advertise configured services
+    static std::string prefix = "service_discovery.advertise";
+    for (auto base_it = properties->begin(prefix); base_it != properties->end(); base_it++) {
+        try {
+            std::string service_base(prefix + ".");
+            if (base_it.Get_count() == 4) {
+                service_base += base_it[2] + ".";
+            }
+            if (    *base_it == service_base + "name"
+                &&  properties->Exists(service_base + "type")
+                &&  properties->Exists(service_base + "location"))
+            {
+                discoverer->Advertise_service(
+                        properties->Get(service_base + "type"),
+                        properties->Get(service_base + "name"),
+                        properties->Get(service_base + "location")
+                        );
+            }
+        } catch (Exception&) {
+            // ignore parsing errors.
+        }
+    }
+
 #   ifndef VSM_DISABLE_HID
     hid_processor = Hid_processor::Get_instance();
     hid_processor->Enable();
 #   endif /* VSM_DISABLE_HID */
 
-    transport_detector = Transport_detector::Get_instance();
-    transport_detector->Enable();
 }
 
 void
 ugcs::vsm::Terminate(bool save_config)
 {
+    discoverer->Disable();
+    discoverer = nullptr;
+
     transport_detector->Disable();
     transport_detector = nullptr;
 
@@ -120,11 +184,14 @@ ugcs::vsm::Terminate(bool save_config)
     timer_proc->Disable();
     timer_proc = nullptr;
 
-    if (save_config) {
-        properties->Store(*properties_stream);
+    if (save_config && properties_file.size()) {
+        auto prop_stream = std::unique_ptr<std::fstream>
+            (new std::fstream(properties_file, std::ios_base::out | std::ios_base::trunc ));
+        if (!prop_stream->is_open()) {
+            VSM_EXCEPTION(Invalid_param_exception, "Cannot open configuration file for writing: %s",
+                    properties_file.c_str());
+        }
+        properties->Store(*prop_stream);
     }
-    properties_stream = nullptr;
     properties = nullptr;
-
-    google::protobuf::ShutdownProtobufLibrary();
 }

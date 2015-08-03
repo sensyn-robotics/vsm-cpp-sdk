@@ -31,3 +31,10 @@ TEST(distance_somewhere_in_Georgia)
     Geodetic_tuple t2(42.1 / 180 * M_PI, 42. / 180 * M_PI, 0);
     CHECK_CLOSE(13860.5, Wgs84_position(t1).Distance(t2), 0.5);
 }
+
+TEST(bearing)
+{
+    Geodetic_tuple t1(42. / 180 * M_PI, 42. / 180 * M_PI, 0);
+    Geodetic_tuple t2(42.1 / 180 * M_PI, 42.1 / 180 * M_PI, 0);
+    CHECK_CLOSE(36.7, Wgs84_position(t1).Bearing(t2) * 180 / M_PI, 0.1);
+}

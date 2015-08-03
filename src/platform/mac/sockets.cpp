@@ -36,3 +36,15 @@ ugcs::vsm::sockets::Create_socketpair(sockets::Socket_handle& sock1, sockets::So
     }
     return ret;
 }
+
+int
+ugcs::vsm::sockets::Prepare_for_listen(sockets::Socket_handle handle, bool is_multicast)
+{
+    int optval = 1;
+    int ret = setsockopt(handle, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
+    if (is_multicast && ret == 0) {
+        // Required on OSX.
+        ret = setsockopt(handle, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+    }
+    return ret;
+}

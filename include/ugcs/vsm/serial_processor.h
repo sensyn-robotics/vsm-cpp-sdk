@@ -109,6 +109,36 @@ public:
                 return *this;
             }
 
+            int
+            Get_baud() const
+            {
+                return baud;
+            }
+
+            int
+            Get_char_size() const
+            {
+                return char_size;
+            }
+
+            bool
+            Get_stop_bit() const
+            {
+                return stop_bit;
+            }
+
+            bool
+            Get_parity_check() const
+            {
+                return parity_check;
+            }
+
+            bool
+            Get_parity() const
+            {
+                return parity;
+            }
+
         protected:
 
             /** Serial port operating parameters. */
@@ -129,9 +159,9 @@ public:
          * @param native_handle Native handle to be used for stream operations.
          */
         Stream(Serial_processor::Ptr processor,
-                const std::string& port_name,
-                const Stream::Mode &mode,
-                Native_handle::Unique_ptr&& native_handle);
+               const std::string& port_name,
+               const Stream::Mode &mode,
+               Native_handle::Unique_ptr&& native_handle);
 
     private:
         /** Associated processor. */
@@ -179,7 +209,11 @@ public:
     static std::list<std::string>
     Enumerate_port_names();
 
+    // Used in mac and linux.
+    static const uint8_t MAX_VMIN;
+
 private:
+
     /** Singleton object. */
     static Singleton<Serial_processor> singleton;
 

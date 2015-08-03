@@ -96,7 +96,19 @@ public:
     double
     Get_float(const std::string &key) const;
 
-    /** Set string value of the property. If the key was not existing the new
+    /** Set the description of the property. If the key does not exist the new
+     * entry is added with no value.
+     *
+     * @param key Key for the new property.
+     * @param description Description string of the property.
+     *      Can be multi-line (separated by \n).
+     *      Blank lines are allowed.
+     *      All lines will be prepended by '#' on Store.
+     */
+    void
+    Set_description(const std::string &key, const std::string &description);
+
+    /** Set string value of the property. If the key does not exist the new
      * entry is added.
      *
      * @param key Key for the new property.
@@ -105,7 +117,7 @@ public:
     void
     Set(const std::string &key, const std::string &value);
 
-    /** Set integer value of the property. If the key was not existing the new
+    /** Set integer value of the property. If the key does not exist the new
      * entry is added.
      *
      * @param key Key for the new property.
@@ -114,8 +126,8 @@ public:
     void
     Set(const std::string &key, int value);
 
-    /** Set floating point number value of the property. If the key was not
-     * existing the new entry is added.
+    /** Set floating point number value of the property. If the key does not
+     * exist the new entry is added.
      *
      * @param key Key for the new property.
      * @param value Floating point number representation for the property.
@@ -149,6 +161,10 @@ private:
         bool int_valid:1,
         /** Flag indicates that floating point number representation is valid. */
              float_valid:1;
+        /** User description of the property. */
+        std::string description;
+        /** place in properties file */
+        int seq_number;
 
         /** Construct property from string value. */
         Property(std::string &&value);
@@ -247,6 +263,9 @@ public:
         std::string
         operator[](size_t comp_idx);
 
+        int
+        Get_count();
+
     private:
         Table_type::const_iterator table_iterator, table_end;
         std::string prefix;
@@ -279,6 +298,12 @@ public:
 private:
     /** Singleton object. */
     static Singleton<Properties> singleton;
+
+    int last_sequence_number = 0;
+
+    /** Hold everything what was below the last property in props file
+     * this gets appended to the props file on Store() */
+    std::string trailer;
 
     /** Find property in a table, throw Not_found_exception if not found. */
     const Property &

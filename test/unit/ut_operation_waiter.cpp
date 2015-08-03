@@ -22,7 +22,7 @@ class Fixture {
 public:
     Fixture()
     {
-        Initialize("vsm.conf", std::ios_base::in);
+        Initialize("vsm.conf");
     }
 
     ~Fixture()

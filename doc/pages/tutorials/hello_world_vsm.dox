@@ -173,24 +173,6 @@ according to @ref building_page. In the example, it is assumed that source and
 make file reside in the same directory and _VSM_SDK_DIR_ <i>environment variable</i> 
 points to the SDK installation folder.
 
-@subsection hello_world_vsm_compilation_makefiles Generation of native makefiles
-
-Native makefiles should be generated using CMake framework. It is recommended 
-to use _lib/make/create_builds.cmake_ script which is located under the 
-_VSM_SDK_DIR_ folder:
-- On Linux:
-
-      cmake -P $VSM_SDK_DIR/lib/make/create_builds.cmake
-  
-
-- On Windows:
-
-      cmake -P %VSM_SDK_DIR%\lib\make\create_builds.cmake
-
-
-The same script is used to generate native makefiles for the SDK itself (see 
-@ref building_cmd_line).
-
 @subsection hello_world_vsm_compilation_build Building
 Now VSM application can be compiled and built in the same way as SDK using a 
 single command with a build folder argument, for example:

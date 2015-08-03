@@ -337,12 +337,10 @@ TEST(construct_from_mavlink_camera_trigger)
 {
     mavlink::ugcs::Pld_mission_item_ex item;
     item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_TRIGGER;
-    item->param1 = mavlink::ugcs::MAV_CAMERA_TRIGGER_STATE::CAMERA_TRIGGER_STATE_OFF;
-    item->param2 = 420; /* ms */
+    item->param1 = mavlink::ugcs::MAV_CAMERA_TRIGGER_STATE::CAMERA_TRIGGER_STATE_STOP_RECORDING;
 
     Camera_trigger_action ct(item);
     CHECK_EQUAL(Camera_trigger_action::State::OFF, ct.state);
-    CHECK_EQUAL(420, ct.interval.count());
 
     item->param1 = 666666; /* Some unknown value */
 
@@ -375,7 +373,7 @@ TEST(construct_from_mavlink_panorama)
 {
     mavlink::ugcs::Pld_mission_item_ex item;
     item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_PANORAMA;
-    item->param1 = mavlink::ugcs::MAV_CAMERA_TRIGGER_STATE::CAMERA_TRIGGER_STATE_ON;
+    item->param1 = mavlink::ugcs::MAV_CAMERA_TRIGGER_STATE::CAMERA_TRIGGER_STATE_START_RECORDING;
     item->param2 = 180; /* Angle. */
     item->param3 = 180 / 10.0; /* Step. */
     item->param4 = 500; /* Delay. */
@@ -390,4 +388,46 @@ TEST(construct_from_mavlink_panorama)
 
     item->param1 = 666666; /* Some unknown value. */
     CHECK_THROW(Panorama_action pa(item), Action::Format_exception);
+}
+
+TEST(construct_from_camera_series_by_time)
+{
+    mavlink::ugcs::Pld_mission_item_ex item;
+    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_TIME;
+    item->param1 = 42; /* interval */
+    item->param2 = 10; /* count */
+    item->param3 = 20; /* initialDelay */
+
+    Camera_series_by_time_action a(item);
+    CHECK(a.interval == std::chrono::milliseconds(42));
+    CHECK_EQUAL(*a.count, 10);
+    CHECK(a.initial_delay == std::chrono::milliseconds(20));
+}
+
+TEST(construct_from_camera_series_by_time_no_count)
+{
+    mavlink::ugcs::Pld_mission_item_ex item;
+    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_TIME;
+    item->param1 = 42; /* interval */
+    item->param2 = UINT32_MAX; /* count */
+    item->param3 = 20; /* initialDelay */
+
+    Camera_series_by_time_action a(item);
+    CHECK(a.interval == std::chrono::milliseconds(42));
+    CHECK(!a.count);
+    CHECK(a.initial_delay == std::chrono::milliseconds(20));
+}
+
+TEST(construct_from_camera_series_by_distance)
+{
+    mavlink::ugcs::Pld_mission_item_ex item;
+    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_DISTANCE;
+    item->param1 = 42; /* interval */
+    item->param2 = 10; /* count */
+    item->param3 = 20; /* initialDelay */
+
+    Camera_series_by_distance_action a(item);
+    CHECK_EQUAL(a.interval, 42);
+    CHECK_EQUAL(*a.count, 10);
+    CHECK(a.initial_delay == std::chrono::milliseconds(20));
 }

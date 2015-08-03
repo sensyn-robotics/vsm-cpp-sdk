@@ -11,11 +11,11 @@
 #ifndef TIMER_PROCESSOR_H_
 #define TIMER_PROCESSOR_H_
 
-#include <ugcs/vsm/request_context.h>
-#include <ugcs/vsm/singleton.h>
-
 #include <thread>
 #include <map>
+
+#include <ugcs/vsm/request_context.h>
+#include <ugcs/vsm/singleton.h>
 
 namespace ugcs {
 namespace vsm {

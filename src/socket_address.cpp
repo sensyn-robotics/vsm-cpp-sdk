@@ -54,6 +54,10 @@ void
 Socket_address::Set(addrinfo* source)
 {
     std::memcpy(&storage, source->ai_addr, sizeof(sockaddr));
+    if (!is_resolved) {
+        name = std::string(inet_ntoa(As_sockaddr_in().sin_addr));
+        service = std::to_string(ntohs(As_sockaddr_in().sin_port));
+    }
     is_resolved = true;
 }
 
@@ -61,8 +65,10 @@ void
 Socket_address::Set(const sockaddr_storage& data)
 {
     storage = data;
-    name = std::string();
-    service = std::string();
+    if (!is_resolved) {
+        name = std::string(inet_ntoa(As_sockaddr_in().sin_addr));
+        service = std::to_string(ntohs(As_sockaddr_in().sin_port));
+    }
     is_resolved = true;
 }
 
@@ -70,9 +76,11 @@ void
 Socket_address::Set(const sockaddr_in& source)
 {
     std::memcpy(&storage, &source, sizeof(sockaddr_in));
+    if (!is_resolved) {
+        name = std::string(inet_ntoa(As_sockaddr_in().sin_addr));
+        service = std::to_string(ntohs(As_sockaddr_in().sin_port));
+    }
     is_resolved = true;
-    name = std::string();
-    service = std::string();
 }
 
 void
@@ -83,12 +91,18 @@ Socket_address::Set(const std::string& address, const std::string& port)
     addrinfo* result;
     addrinfo hint = {AI_NUMERICHOST, AF_INET, 0, 0, 0, nullptr, nullptr, nullptr};
     if (getaddrinfo(address.c_str(), port.c_str(), &hint, &result) == 0) {
-        Set(result);
         is_resolved = true;
+        Set(result);
         freeaddrinfo(result);
     } else {
         is_resolved = false;
     }
+}
+
+void
+Socket_address::Set_service(const std::string& port)
+{
+    service = port;
 }
 
 sockaddr_storage
@@ -107,6 +121,19 @@ sockaddr_in
 Socket_address::Get_as_sockaddr_in()
 {
     return *reinterpret_cast<sockaddr_in*>(&storage);
+}
+
+std::string
+Socket_address::Get_address_as_string()
+{
+    if (is_resolved)
+    {
+        auto addr = inet_ntoa(As_sockaddr_in().sin_addr);
+        if (addr) {
+            return std::string(addr);
+        }
+    }
+    return std::string();
 }
 
 std::string
@@ -151,3 +178,21 @@ Socket_address::Get_service_as_c_str()
 {
     return service.c_str();
 }
+
+bool
+Socket_address::Is_multicast_address()
+{
+    if (!is_resolved) {
+        return false;
+    }
+    if ((As_sockaddr_in().sin_addr.s_addr & 0xF0) != 0xE0) {
+        return false;
+    }
+
+    if (As_sockaddr_in().sin_addr.s_addr == 0x000000E0) {
+        return false;
+    }
+
+    return true;
+}
+

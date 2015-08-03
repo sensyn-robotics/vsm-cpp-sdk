@@ -16,6 +16,9 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
+/** Maximum possible value for termios VMIN parameter. */
+const uint8_t ugcs::vsm::Serial_processor::MAX_VMIN = 1;
+
 std::list<std::string>
 ugcs::vsm::Serial_processor::Enumerate_port_names()
 {

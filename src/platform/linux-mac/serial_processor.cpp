@@ -23,9 +23,6 @@ class Linux_serial_mode: public Serial_processor::Stream::Mode {
 
 public:
 
-    /** Maximum possible value for termios VMIN parameter. */
-    static constexpr uint8_t MAX_VMIN = 255;
-
     /** Constructor. */
     Linux_serial_mode(const Mode& mode);
 
@@ -179,7 +176,7 @@ Serial_file_handle::Configure()
     }
     flags |= O_NONBLOCK;
     /* FNDELAY should be unset for VMIN/VTIME to work. */
-    flags &= ~FNDELAY;
+    flags &= ~O_NDELAY;
     if (fcntl(fd, F_SETFL, flags) == -1) {
         VSM_SYS_EXCEPTION("Failed to set flags");
     }
@@ -191,8 +188,10 @@ Serial_file_handle::Configure()
     /* Set max possible VMIN. During actual reading, the lesser of VMIN and
      * requested size takes precedence. It is impossible to set VMIN greater
      * then MAX_VMIN anyway.
+     * Unfortunately the above is not tru in case of OSX.
+     * Therefore we set MAX_VMIN to 1 on Mac.
      */
-    mode.Set_serial_config(fd, Linux_serial_mode::MAX_VMIN);
+    mode.Set_serial_config(fd, Serial_processor::MAX_VMIN);
 }
 
 } /* anonymous namespace */

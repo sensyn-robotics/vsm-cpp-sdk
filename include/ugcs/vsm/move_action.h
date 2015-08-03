@@ -24,6 +24,16 @@ class Move_action: public Action {
 
 public:
 
+    /**
+     * Turn type at waypoint.
+     */
+    typedef enum {
+        TURN_TYPE_STOP_AND_TURN = 0,
+        TURN_TYPE_STRAIGHT = 1,
+        TURN_TYPE_SPLINE = 2,
+        TURN_TYPE_BANK_TURN = 3,
+    } Turn_type;
+
     /** Construct move action explicitly. */
     Move_action(Wgs84_position position, double wait_time, double acceptance_radius,
             double loiter_orbit, double heading, double elevation) :
@@ -33,7 +43,8 @@ public:
                 acceptance_radius(acceptance_radius),
                 loiter_orbit(loiter_orbit),
                 heading(heading),
-                elevation(elevation)
+                elevation(elevation),
+                turn_type(TURN_TYPE_STRAIGHT)
             {}
 
     /**
@@ -58,6 +69,7 @@ public:
         } else {
             takeoff_altitude = item->altitude_origin;
         }
+        turn_type = static_cast<Turn_type>(item->turn_type.Get());
     }
 
     /**
@@ -94,6 +106,8 @@ public:
      * Elevation in meters (i.e. terrain height) underneath the position.
      */
     double elevation;
+
+    Turn_type turn_type;
 };
 
 /** Type mapper from move action. */

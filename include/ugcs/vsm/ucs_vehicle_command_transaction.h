@@ -7,6 +7,7 @@
  */
 #ifndef _UCS_VEHICLE_COMMAND_TRANSACTION_H
 #define _UCS_VEHICLE_COMMAND_TRANSACTION_H
+
 #include <ugcs/vsm/ucs_transaction.h>
 
 namespace ugcs {

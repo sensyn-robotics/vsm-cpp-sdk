@@ -119,6 +119,10 @@ public:
 
     Transport_detector();
 
+    /** Enable/disable port polling */
+    void
+    Activate(bool activate);
+
 private:
     class Detector_entry : public std::tuple<int, Connect_handler, Request_processor::Ptr>
     {
@@ -305,6 +309,8 @@ private:
     Request_worker::Ptr worker;
 
     bool use_serial_arbiter = true;
+
+    bool detector_active = true;
 
     static std::string SERIAL_PORT_ARBITER_NAME_PREFIX;
 

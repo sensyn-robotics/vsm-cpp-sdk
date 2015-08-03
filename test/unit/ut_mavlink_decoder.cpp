@@ -73,9 +73,9 @@ TEST(mavlink_decoder_basic_tests)
         msg_tmp = msg_tmp->Slice(size);
     }
 
-    CHECK_EQUAL(2, decoder.Get_stats().no_handler);
-    CHECK_EQUAL(1, decoder.Get_stats().handled);
-    CHECK_EQUAL(0, decoder.Get_stats().bad_checksum);
+    CHECK_EQUAL(2ul, decoder.Get_stats().no_handler);
+    CHECK_EQUAL(1ul, decoder.Get_stats().handled);
+    CHECK_EQUAL(0ul, decoder.Get_stats().bad_checksum);
     CHECK_EQUAL(1, received);
     CHECK_EQUAL(1, sys_id);
     CHECK_EQUAL(2, comp_id);
@@ -83,7 +83,7 @@ TEST(mavlink_decoder_basic_tests)
 
     decoder.Reset();
     decoder.Decode(message);
-    CHECK_EQUAL(1, decoder.Get_stats().handled);
+    CHECK_EQUAL(1ul, decoder.Get_stats().handled);
     CHECK_EQUAL(2, received);
 
     /* Spoil the checksum .*/
@@ -91,8 +91,8 @@ TEST(mavlink_decoder_basic_tests)
     mavlink_cksum = mavlink_cksum + 1;
     message = message->Concatenate(Io_buffer::Create(&mavlink_cksum, sizeof(mavlink_cksum)));
     decoder.Decode(message);
-    CHECK_EQUAL(1, decoder.Get_stats().handled);
-    CHECK_EQUAL(1, decoder.Get_stats().bad_checksum);
+    CHECK_EQUAL(1ul, decoder.Get_stats().handled);
+    CHECK_EQUAL(1ul, decoder.Get_stats().bad_checksum);
     CHECK_EQUAL(2, received);
 
     /* There is no 0xff message id yet. */
@@ -106,7 +106,7 @@ TEST(mavlink_decoder_basic_tests)
     message = message->Concatenate(Io_buffer::Create(&mavlink_cksum, sizeof(mavlink_cksum)));
 
     decoder.Decode(message);
-    CHECK_EQUAL(1, decoder.Get_stats().unknown_id);
+    CHECK_EQUAL(1ul, decoder.Get_stats().unknown_id);
 }
 
 /* Test for false start signs. Decoder should be able to dig out exactly
@@ -156,14 +156,12 @@ TEST(mavlink_decoder_wrong_stx)
         buf = buf->Concatenate(Io_buffer::Create(dummy_padding, sizeof(dummy_padding)));
         decoder.Decode(buf);
         /* 2 + 2 messages in total should be dig out. */
-        CHECK_EQUAL(4, decoder.Get_stats().no_handler);
+        CHECK_EQUAL(4ul, decoder.Get_stats().no_handler);
         CHECK_EQUAL((sizeof(padding) / 2) * 5 + 4, decoder.Get_stats().stx_syncs);
-        try {
-            /* Check for message id validness. */
-            mavlink::Checksum sum;
-            sum.Get_extra_byte_length_pair(filler);
+        mavlink::Extra_byte_length_pair pair;
+        if (mavlink::Checksum::Get_extra_byte_length_pair(filler, pair)) {
             CHECK(decoder.Get_stats().bad_checksum > 100);
-        } catch (...) {
+        } else {
             CHECK(decoder.Get_stats().unknown_id > 100);
         }
     }

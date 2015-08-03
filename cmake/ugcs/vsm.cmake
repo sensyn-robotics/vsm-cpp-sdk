@@ -87,3 +87,57 @@ function(Add_install_target)
     install(TARGETS ${VSM_EXECUTABLE_NAME} 
             RUNTIME DESTINATION "${UGCS_INSTALL_BIN_DIR}")
 endfunction()
+
+# Generate Android shared library form given sources.
+# Script uses Application.mk.in and Android_app.mk.in templates.
+# ANDROID_ABI - Semicolon separated list of target ABIs (Eg. "armeabi-v7a;x86" )
+# ANDROID_PLATFORM - target platform, Eg. "android-21"
+# SOURCES - Semicolon separated list of source files. Absolute paths required.
+# INCLUDE_DIRS - Semicolon separated list of include directories. Absolute paths required.
+function (Create_android_build ANDROID_ABI ANDROID_PLATFORM SOURCES INCLUDE_DIRS)
+    set (ANDROID_APPLICATION_MK "${ANDROID_BINARY_DIR}/jni/Application.mk")
+    set (ANDROID_ANDROID_MK "${ANDROID_BINARY_DIR}/jni/Android.mk")
+    
+    set(ANDROID_CFLAGS "")
+    set(NDK_BUILD_PARAMS "")
+    if(CMAKE_BUILD_TYPE MATCHES "RELEASE")
+        set(ANDROID_CFLAGS "${ANDROID_CFLAGS} -O2")
+    else()
+        set(ANDROID_CFLAGS "${ANDROID_CFLAGS} -O0 -g -DDEBUG")
+        set(NDK_BUILD_PARAMS "${NDK_BUILD_PARAMS} NDK_DEBUG=1")
+    endif()
+
+    # Variables substituted in Android makefiles templates.
+    List_to_string("${SOURCES}" ANDROID_SOURCES)
+    List_to_string("${INCLUDE_DIRS}" ANDROID_INCLUDE_DIRS)
+    List_to_string("${ANDROID_ABI}" ANDROID_ABI_LIST)
+    
+    configure_file("${VSM_SDK_DIR}/android/Application.mk.in" ${ANDROID_APPLICATION_MK} @ONLY)
+    configure_file("${VSM_SDK_DIR}/android/Android_app.mk.in" ${ANDROID_ANDROID_MK} @ONLY)
+
+    add_custom_target(
+        android
+        COMMAND ${ANDROID_NDK}/ndk-build ${NDK_BUILD_PARAMS} -C ${ANDROID_BINARY_DIR} -j4
+        DEPENDS ${ANDROID_ANDROID_MK} ${ANDROID_APPLICATION_MK} ${SOURCES})
+    
+    message ("Added target android with abi=${ANDROID_ABI}, platform=${ANDROID_PLATFORM}")
+endfunction()
+
+function(Build_vsm)
+    if (ANDROID)
+        get_directory_property(INCLUDE_DIRS INCLUDE_DIRECTORIES)
+        Create_android_build("armeabi-v7a;x86" "android-19" "${SOURCES}" "${INCLUDE_DIRS}")
+        add_custom_target(${CMAKE_PROJECT_NAME} ALL)
+        add_dependencies(${CMAKE_PROJECT_NAME} android)
+    else()
+        # Add the executable
+        add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
+        
+        target_link_libraries(${CMAKE_PROJECT_NAME} ${VSM_LIBS})
+        
+        Add_install_target()
+        
+        #Add package target.
+        include(CPack)
+    endif()
+endfunction()

@@ -101,8 +101,8 @@ TEST(basic_test)
      */
     CHECK(hb_handler_called);
     CHECK(mavlink::MESSAGE_ID::HEARTBEAT == def_msg_id);
-    CHECK_EQUAL(2, def_sys_id);
-    CHECK_EQUAL(3, def_com_id);
+    CHECK_EQUAL(2u, def_sys_id);
+    CHECK_EQUAL(3u, def_com_id);
 
     /* Unregister 00 and 10. */
     demuxer.Unregister_handler(hb00);

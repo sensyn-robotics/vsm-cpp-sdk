@@ -655,15 +655,15 @@ TEST(callback_proxy_container)
 
     std::unordered_set<Handler, Handler::Hasher > hmap;
     hmap.insert(h1);
-    CHECK_EQUAL(hmap.size(), 1);
+    CHECK_EQUAL(hmap.size(), static_cast<size_t>(1));
     CHECK(hmap.find(h2) != hmap.end());
     CHECK(hmap.find(h3) == hmap.end());
 
     hmap.insert(h2);
     CHECK(hmap.find(h1) != hmap.end());
-    CHECK_EQUAL(hmap.size(), 1);
+    CHECK_EQUAL(hmap.size(), static_cast<size_t>(1));
 
     hmap.erase(h2);
     CHECK(hmap.find(h2) == hmap.end());
-    CHECK_EQUAL(hmap.size(), 0);
+    CHECK_EQUAL(hmap.size(), static_cast<size_t>(0));
 }

@@ -263,7 +263,7 @@ Text_stream_filter::Match_entry(const std::string &line)
         if (lines_history.size() < e.ctx_lines_before + 1) {
             continue;
         }
-        if (regex::regex_match(line, e.match, e.re)) {
+        if (regex::regex_search(line, e.match, e.re)) {
             return &e;
         }
     }

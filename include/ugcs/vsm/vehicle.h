@@ -141,6 +141,9 @@ public:
     const std::string&
     Get_model_name() const;
 
+    ugcs::vsm::mavlink::MAV_AUTOPILOT
+    Get_autopilot() const;
+
     /** Get default completion context of the vehicle. */
     Request_completion_context::Ptr
     Get_completion_ctx();

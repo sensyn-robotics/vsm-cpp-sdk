@@ -20,13 +20,13 @@ Currently supported build toolchains/compilers and their respective versions are
 
 Windows: 
 - Python @b 2.7
-- CMake @b 2.8+
+- CMake @b 2.8.8 or higher
 - MinGW-w64 with GCC @b 4.8.2 and @b 4.8.3 are recommended, 4.9.x are known to
 crash during SDK compilation. 
 
 Linux:
 - Python @b 2.7
-- CMake @b 2.8+
+- CMake @b 2.8.8 or higher
 - GCC @b 4.8.1+
 
 _____
@@ -69,22 +69,35 @@ Get the latest Python 2.7 from http://www.python.org/download/
 
 Make sure python is added to PATH (E.g. C:\\Python27)
 
-@subsection building_linux Linux (Ubuntu 12.04)
+@subsection building_linux Linux
 
-@subsubsection building_gcc gcc 4.8.1 compiler suite
+@subsubsection building_gcc gcc 4.8 compiler suite
 
-Ubuntu does not have gcc4.8 in default repositories. Add the test toolchain repo 
+Ubuntu 12.04 does not have gcc4.8 in default repositories. Add the test toolchain repo 
 and install the compilers.
     
     $ sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+    $ sudo apt-get update
     $ sudo apt-get install gcc-4.8
     $ sudo apt-get install g++-4.8
     $ sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 10
     $ sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 10
 
+Ubuntu 14.04 has gcc 4.8 in default repositories.
+
+    $ sudo apt-get install gcc
+    $ sudo apt-get install g++
+
 @subsubsection building_linux_cmake CMake
 
-    $ sudo apt-get cmake
+    $ sudo apt-get install cmake
+
+Ubuntu 12.04 has only CMake 2.8.7, so you have to install higher version manually.
+
+    $ sudo add-apt-repository ppa:kalakris/cmake
+    $ sudo apt-get update
+    $ sudo apt-get install cmake
+
 
 @subsubsection building_linux_python Python
 
@@ -101,8 +114,6 @@ You should have the latest Java for eclipse to run.
 
 Some plugins are recommended for the development of VSM SDK itself. They are not 
 required for standalone VSM development.
-
-TFS plugin: http://marketplace.eclipse.org/content/tfs-plug-eclipse
 
 CMake editor plugin: http://sourceforge.net/projects/cmakeed/
 
@@ -130,19 +141,16 @@ so source code is provided for them (https://github.com/UgCS/vsm-cpp-sdk),
 however they are not supposed to modify the SDK sources. If some functionality
 is missing, it is always worth to contact UgCS and suggest a proposal. Good
 proposals have a chance to be officially added to the SDK, so everybody can
-benefit from it. SDK is also accessible as pre-compiled libraries and C++11 header
-files for popular platforms (Linux, Windows, MacOS soon) and popular compilers
-(GCC, MinGW). There is no support for Microsoft MSVC compiler due to poor support
+benefit from it. There is no support for Microsoft MSVC compiler due to poor support
 of C++11 language standard by Microsoft.
 
 CMAKE (http://www.cmake.org/) cross-platform build system is used by VSM C++ 
-SDK. Currently, there are following configurable options for make file 
-generation:
+SDK. You can use standard CMake variables to change the build process:
 
- - CMAKE_BUILD_TYPE - CMAKE variable, possible values are "DEBUG" for debug 
+ - CMAKE_BUILD_TYPE - possible values are "DEBUG" for debug 
 builds and "RELEASE" for release build.
- - VSM_SDK_DIR - environment variable which defines a location for VSM C++ SDK 
-installation.
+ - CMAKE_INSTALL_PREFIX - change the installation directory of "make install" target.
+(Default is "/usr/local/" which installs the SDK in directory "/usr/local/opt/vsm-sdk".)
 
 Python 2.6 (or later from branch 2.x) is needed for make file generation.
 
@@ -150,21 +158,14 @@ Python 2.6 (or later from branch 2.x) is needed for make file generation.
 
 For example (assuming current directory is location of your vsm-cpp-sdk source),
 typical compilation and installation steps of VSM SDK
-on both Linux and Windows are the following:
+on Linux are the following:
 
-  -# Create build directories and makefiles:
+  -# Create build directory and makefiles:
 
-         cmake -DVSM_BUILD_DOC=NO -P make/create_builds.cmake
-    This CMake script creates 2 build directories depending on current OS:
-
-    Windows: 
-    - build-debug-win
-    - build-release-win
-
-    Linux: 
-    - build-debug-linux
-    - build-release-linux
-    
+         mkdir build-release-linux
+         cd build-release-linux
+         cmake -DCMAKE_BUILD_TYPE=RELEASE -G"Unix Makefiles" ..
+         
     To generate Doxygen SDK documentation <i>-DVSM_BUILD_DOC=YES</i> should be
     passed to cmake and additional prerequisites met:
          - Doxygen installed (http://www.stack.nl/~dimitri/doxygen/download.html).
@@ -177,7 +178,9 @@ on both Linux and Windows are the following:
   -# Create build directories and makefiles for unittests:
 
          cd test/unit
-         cmake -DUTPP_DIR=/path/to/UnitTest++ -P ../../make/create_builds.cmake
+         mkdir build-release-linux
+         cd build-release-linux
+         cmake  -DCMAKE_BUILD_TYPE=RELEASE -DUTPP_DIR=/path/to/UnitTest++ -G"Unix Makefiles" ..
      
      You should get a copy of UnitTest++ framework
      from http://unittest-cpp.sourceforge.net/, copy sources to any
@@ -185,25 +188,20 @@ on both Linux and Windows are the following:
      example above.
 
   -# Perform the build:
-   - Windows debug build using 4 CPU cores:
 
-         cmake --build build-debug-windows -- -j4
+   - Linux release build using 4 CPU cores:
 
-   - Linux debug build using 4 CPU cores:
+         cmake --build build-release-linux -- -j4
 
-         cmake --build build-debug-linux -- -j4
+  -# Install the release version of SDK on Linux:
 
-  -# Install the debug version of SDK on Linux:
-
-         cmake --build build-debug-linux --target install
+         cmake --build build-release-linux --target install
          
      Make sure there is a _write_ permission for an installation folder, which 
-     is <i>C:\\Program files\\vsm_sdk</i> for Windows and <i>/opt/vsm_sdk</i> 
+     is <i>C:\\Program files\\vsm_sdk</i> for Windows and <i>/usr/local/opt/vsm-sdk</i> 
      for Linux by default. Default installation path can be overridden by
-     passing a CMake variable <i>VSM_SDK_DIR</i> to the configuration
-     phase, for example:
-     
-         cmake -DVSM_BUILD_DOC=NO -DVSM_SDK_DIR=C:\My Location\VSM C++ SDK\ -P make/create_builds.cmake
+     passing a CMake variable <i>CMAKE_INSTALL_PREFIX</i> to the configuration
+     phase.
 
 (These steps can be automated via build targets in eclipse workspace)
 
@@ -212,6 +210,13 @@ on both Linux and Windows are the following:
 
 After SDK is installed, cmake can be used to build VSMs, too
 (see @ref hello_world_vsm_page).
+
+  - Create build directories and makefiles for vsm (if CMake toolchain is used, make sure to specify VSM_SDK_DIR variable):
+
+         cd your/vsm/source
+         mkdir build-release-linux
+         cd build-release-linux
+         cmake  -DCMAKE_BUILD_TYPE=RELEASE -DVSM_SDK_DIR=/usr/local/opt/vsm-sdk -G"Unix Makefiles" ..
 
 Any other build system of user choice can be used to
 compile VSM with the following settings:

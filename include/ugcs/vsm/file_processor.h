@@ -15,6 +15,7 @@
 #include <ugcs/vsm/request_worker.h>
 
 #include <thread>
+#include <unistd.h>
 
 namespace ugcs {
 namespace vsm {

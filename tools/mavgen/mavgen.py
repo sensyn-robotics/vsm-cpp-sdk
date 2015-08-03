@@ -752,7 +752,7 @@ def generate_payload_dissector(outf, msg):
 
     outf.write("""
 -- dissect payload of message type {1}
-function dissect_payload_{0}(buffer, tree, msgid, offset, len)
+function myfuncs.dissect_payload_{0}(buffer, tree, msgid, offset, len)
 
     if (len ~= {2}) then
         tree:add_le("Payload length mismatch: dissector needs: {2}, packet has " .. len, buffer(offset, len))
@@ -784,7 +784,7 @@ def GenerateLuaOutput():
 
 mavlink_proto = Proto("mavlink_proto", "MAVLink protocol")
 f = mavlink_proto.fields
-
+local myfuncs = {}
 ''')
         
     f.write("messageName = {\n")
@@ -881,7 +881,11 @@ function mavlink_proto.dissector(buffer,pinfo,tree)
             local compid = buffer(offset + 4, 1)
             msgid = buffer(offset + 5, 1)
 
-            subtree = tree:add(mavlink_proto, buffer(), "mavlink " .. messageName[msgid:uint()] .." ("..(payload_size + 2 + 6)..")")
+            if (messageName[msgid:uint()]) then
+                subtree = tree:add(mavlink_proto, buffer(), "mavlink " .. messageName[msgid:uint()] .." ("..(payload_size + 2 + 6)..")")
+            else
+                subtree = tree:add(mavlink_proto, buffer(), "mavlink msg " .. msgid:uint() .." ("..(payload_size + 2 + 6)..")")
+            end
     
             local header = subtree:add("Header")
             header:add(f.magic,version)
@@ -899,8 +903,8 @@ function mavlink_proto.dissector(buffer,pinfo,tree)
         
         -- dynamically call the type-specific payload dissector    
         local msgnr = msgid:uint()
-        local dissect_payload_fn = "dissect_payload_"..tostring(msgnr)
-        local fn = _G[dissect_payload_fn]
+        local dissect_payload_fn = "dissect_payload_"..tostring(msgnr) 
+        local fn = myfuncs[dissect_payload_fn]
         
         -- do not stumble into exceptions while trying to parse junk
         if (fn == nil) then

@@ -139,6 +139,12 @@ Vehicle::Get_model_name() const
     return model_name;
 }
 
+ugcs::vsm::mavlink::MAV_AUTOPILOT
+Vehicle::Get_autopilot() const
+{
+    return autopilot;
+}
+
 Request_completion_context::Ptr
 Vehicle::Get_completion_ctx()
 {

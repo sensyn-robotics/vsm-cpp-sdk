@@ -19,17 +19,23 @@
 		</enum>
 		<enum name="MAV_CAMERA_TRIGGER_STATE">
 			<description>Camera trigger state.</description>
-			<entry value="0" name="CAMERA_TRIGGER_STATE_ON">
-				<description>Start recording.</description>
-			</entry>
-			<entry value="1" name="CAMERA_TRIGGER_STATE_OFF">
-				<description>Stop recording or serial shooting.</description>
-			</entry>
-			<entry value="2" name="CAMERA_TRIGGER_STATE_SINGLE_PHOTO">
+			<entry value="0" name="CAMERA_TRIGGER_STATE_SINGLE_SHOT">
 				<description>Take a single photo.</description>
 			</entry>
-			<entry value="3" name="CAMERA_TRIGGER_STATE_SERIAL_PHOTO">
-				<description>Take a series of photos.</description>
+			<entry value="1" name="CAMERA_TRIGGER_STATE_START_RECORDING">
+				<description>Start recording.</description>
+			</entry>
+			<entry value="2" name="CAMERA_TRIGGER_STATE_STOP_RECORDING">
+				<description>Stop recording.</description>
+			</entry>
+		</enum>
+		<enum name="MAV_CAMERA_PANORAMA_MODE">
+			<description>Camera panorama mode.</description>
+			<entry value="0" name="CAMERA_PANORAMA_MODE_PHOTO">
+				<description>Discrete exposure (shooting once per step).</description>
+			</entry>
+			<entry value="1" name="CAMERA_PANORAMA_MODE_VIDEO">
+				<description>Continuous exposure (video recording).</description>
 			</entry>
 		</enum>
 		<enum name="MAV_AUTOPILOT">
@@ -54,9 +60,12 @@
 			<entry value="108" name="MAV_AUTOPILOT_DJI_WOOKONG">
 				<description>Dji Wookong autopilot.</description>
 			</entry>
-			<entry value="109" name="MAV_AUTOPILOT_EMULATOR">
-				<description>Generic emulation autopilot.</description>
-			</entry>
+            <entry value="109" name="MAV_AUTOPILOT_EMULATOR">
+                <description>Generic emulation autopilot.</description>
+            </entry>
+            <entry value="110" name="MAV_AUTOPILOT_MICROPILOT">
+                <description>MicroPilot autopilot.</description>
+            </entry>
 		</enum>
 		<enum name="MAV_CMD">
 			<entry name="MAV_CMD_DO_CAMERA_CONTROL" value="10001">
@@ -73,8 +82,7 @@
 			<entry name="MAV_CMD_DO_CAMERA_TRIGGER" value="10002">
 				<description>Changes on-board camera trigger state or triggering mode.</description>
 				<param index="1">Camera trigger state. See MAV_CAMERA_TRIGGER_STATE enum.</param>
-				<param index="2">Interval between two consequent camera shots in case of serial triggering (CAMERA_TRIGGER_STATE_SERIAL_PHOTO). 
-					Value is set in milliseconds.</param>
+				<param index="2">Empty</param>
 				<param index="3">Empty</param>
 				<param index="4">Empty</param>
 				<param index="5">Empty</param>
@@ -97,9 +105,8 @@
 				<description>Makes a panoramic shot. Target system rotates about its yaw axis in order to reach the target angle.
 					Shooting is performed either in continuous (permanent exposure) or discrete (shoot per step) mode. Continuous shooting
 					rotation can still be performed in serial steps with delays.</description>
-				<param index="1">Camera trigger state. Defines panorama mode: continuous exposure (CAMERA_TRIGGER_STATE_ON), or discrete,
-					once per step, shooting (CAMERA_TRIGGER_STATE_SERIAL_PHOTO). Modes for the rest of the MAV_CAMERA_TRIGGER_STATE enum constants 
-					are not defined.</param>
+				<param index="1">Camera panorama mode: continuous exposure (CAMERA_PANORAMA_MODE_VIDEO), or discrete,
+					once per step, shooting (CAMERA_PANORAMA_MODE_PHOTO).</param>
 				<param index="2">Target panorama angle in a range [-360, 360]. If positive the rotation direction should be clockwise, 
 					if negative the rotation direction should be counter-clockwise. Set in degrees.</param>
 				<param index="3">Absolute value of a step angle in case of a discrete shooting. Zero stands for a continuous rotation. 
@@ -162,6 +169,28 @@
 				<param index="5">Latitude as defined by MISSION_ITEM.</param>
 				<param index="6">Longitude as defined by MISSION_ITEM.</param>
 				<param index="7">Altitude as defined by MISSION_ITEM.</param>
+			</entry>
+			<entry name="MAV_CMD_DO_CAMERA_SERIES_BY_TIME" value="10010">
+				<description>Performs a series of consequent camera shots in a fixed time intervals.</description>
+				<param index="1">Delay interval between two consequent shots in milliseconds.</param>
+				<param index="2">Total number of shots to perform. UINT32_MAX for unbound series.</param>
+				<param index="3">Initial delay in milliseconds. Time interval between the command has been accepted 
+					by the system and shooting the first picture.</param>
+				<param index="4">Empty</param>
+				<param index="5">Empty</param>
+				<param index="6">Empty</param>
+				<param index="7">Empty</param>
+			</entry>
+			<entry name="MAV_CMD_DO_CAMERA_SERIES_BY_DISTANCE" value="10011">
+				<description>Performs a series of consequent camera shots in a fixed distances.</description>
+				<param index="1">Distance between two consequent shots in meters.</param>
+				<param index="2">Total number of shots to perform. UINT32_MAX for unbound series.</param>
+				<param index="3">Initial delay in milliseconds. Time interval between the command has been accepted 
+					by the system and shooting the first picture.</param>
+				<param index="4">Empty</param>
+				<param index="5">Empty</param>
+				<param index="6">Empty</param>
+				<param index="7">Empty</param>
 			</entry>
 		</enum>
 		<enum name="MAV_CUSTOM_MODE_FLAG">
@@ -257,6 +286,48 @@
 				<description>Anonymous ICAO address.</description>
 			</entry>
 		</enum>
+        <enum name="MAV_PERIPHERAL_DEVICE_TYPE">
+            <description>Type of peripheral being reported</description>
+            <entry value="0" name="MAV_PERIPHERAL_DEVICE_UNKNOWN">
+                <description>Unknown device</description>
+            </entry>
+            <entry value="1" name="MAV_PERIPHERAL_DEVICE_ADSB">
+                <description>For ADS-B devices</description>
+            </entry>
+        </enum>
+        <enum name="MAV_PERIPHERAL_DEVICE_STATE">
+            <description>State of peripheral being reported</description>
+            <entry value="0" name="MAV_PERIPHERAL_STATE_DISCONNECTED">
+                <description>Device just disconnected</description>
+            </entry>
+            <entry value="1" name="MAV_PERIPHERAL_STATE_HEARTBEAT_OK">
+                <description>Device is actively sending heartbeat</description>
+            </entry>
+            <entry value="2" name="MAV_PERIPHERAL_STATE_HEARTBEAT_NOK">
+                <description>Device has stopped sending heartbeat</description>
+            </entry>
+        </enum>
+        <enum name="MAV_WAYPOINT_TURN_TYPE">
+            <description>Waypoint type.</description>
+            <entry value="0" name="MAV_WAYPOINT_TURN_TYPE_STOP_AND_TURN">
+                <description>Stop and go</description>
+            </entry>
+            <entry value="1" name="MAV_WAYPOINT_TURN_TYPE_STRAIGHT">
+                <description>Do not stop</description>
+            </entry>
+            <entry value="2" name="MAV_WAYPOINT_TURN_TYPE_SPLINE">
+                <description>Spline</description>
+            </entry>
+            <entry value="3" name="MAV_WAYPOINT_TURN_TYPE_BANK_TURN">
+                <description>Bank</description>
+            </entry>
+        </enum>
+        <enum name="MAV_TYPE">
+            <description>Frame type</description>
+            <entry value="101" name="MAV_TYPE_IRIS">
+                <description>Iris type frame</description>
+            </entry>
+        </enum>
 	</enums>
 	<messages>
 		<message id="150" name="MISSION_ITEM_EX">
@@ -281,6 +352,7 @@
 			<field type="float" name="z">Parameter 7. Local frame: z position, global frame: altitude in meters.</field>
 			<field type="float" name="elevation">Parameter 8. Elevation in meters. Present in all positioning commands.</field>
 			<field type="float" name="altitude_origin">Parameter 9. Altitude origin: MSL height value of the 'zero' relative altitude.</field>
+			<field type="uint8_t" name="turn_type">Waypoint turn type. See MAV_WAYPOINT_TURN_TYPE enum.</field>
 		</message>
 		<message id="151" name="COMMAND_LONG_EX">
 			<description>Send a command.</description>
@@ -344,5 +416,25 @@
 			<field type="char[64]" name="tail_number">Tail number of the vehicle.</field>
 			<field type="uint8_t" name="result">See MAV_RESULT enum</field>
 		</message>
+		<message id="158" name="PERIPHERAL_DEVICE_REGISTER">
+			<description>Information about non-drone device plug and unplug event</description>
+			<field type="uint16_t" name="device_id">Unique device ID, made from device type enum and next free device id slot</field>
+			<field type="uint8_t" name="device_type">Device type enum (presently UNKNOWN, RESERVED, ADSB)</field>
+			<field type="char[32]" name="device_name">Friendly device name, reported by adsb-receiver</field>
+			<field type="char[32]" name="port_name">Friendly port name, reported by adsb-receiver</field></message>
+		<message id="159" name="PERIPHERAL_DEVICE_UPDATE">
+			<field type="uint16_t" name="device_id">Unique device ID</field>
+			<field type="uint8_t" name="device_state">State enum (presently CONNECTED, DISCONNECTED, HEARTBEAT_OK, HEARTBEAT_NOK), uses all except first</field>
+        </message>
+        <message id="160" name="CAMERA_ATTITUDE">
+            <description>VSM uses this to send camera attitude and current zoom as part of telemetry</description>
+            <field type="uint8_t" name="relative">Non-zero means the 3 angles are relative to the vehicle.</field>
+            <field type="float" name="pitch">Camera pitch. Radians from horizon (or in relative case from vehicle roll axis). + is up</field>
+            <field type="float" name="roll">Camera roll. Radians from horizon (or in relative case from vehicle pitch axis). + is to the right</field>
+            <field type="float" name="yaw">Camera yaw. Radians from north (or in relative case from vehicle roll axis) + is to the east (right)</field>
+            <field type="float" name="focal_length">Focal length in mm. NaN means not available, use fov_angles if present.</field>
+            <field type="float" name="fov_angle_h">Horizontal "field of view" angle in radians (Use this field if focal_length == NaN). NaN means unknown. Use camera default.</field>
+            <field type="float" name="fov_angle_v">Vertical "field of view" angle in radians. NaN means no value. Use camera default aspect ratio</field>
+        </message>
 	</messages>
 </mavlink>

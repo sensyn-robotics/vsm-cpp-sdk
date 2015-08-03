@@ -200,9 +200,12 @@ public:
     }
 
 private:
-
-    /** Storage for the value. */
-    uint8_t storage[sizeof(T)];
+    union {
+        /** Storage for the value. */
+        uint8_t storage[sizeof(T)];
+        /** Keep the value aligned. */
+        long align;
+    };
     bool is_valid;
 };
 

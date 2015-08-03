@@ -33,7 +33,6 @@ namespace vsm {
 /** Initialize VSM SDK. This function should be called before using any API.
  *
  * @param props_file Name of the configuration file, 'vsm.conf' is the default.
- * @param props_open_mode Mode for configuration file opening.
  *
  * @throws Invalid_param_exception if configuration file cannot be opened.
  * @throws Properties::Parse_exception if the configuration file has invalid format.
@@ -43,8 +42,7 @@ namespace vsm {
  *      invalid format (e.g. invalid string where integer value is required).
  */
 void
-Initialize(const std::string &props_file = "vsm.conf",
-           std::ios_base::openmode props_open_mode = std::ios_base::in);
+Initialize(const std::string &props_file = "vsm.conf");
 
 /** Initialize VSM SDK. This function should be called before using any API.
  * This function parses the argument list and initializes vsm according to them.

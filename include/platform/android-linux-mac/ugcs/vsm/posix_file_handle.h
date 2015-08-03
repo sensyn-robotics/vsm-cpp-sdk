@@ -9,6 +9,7 @@
 #define _POSIX_FILE_HANDLE_H_
 
 #include <ugcs/vsm/poll_io_controller.h>
+#include <ugcs/vsm/platform_sockets.h>
 
 namespace ugcs {
 namespace vsm {

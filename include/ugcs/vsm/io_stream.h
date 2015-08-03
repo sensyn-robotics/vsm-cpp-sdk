@@ -76,7 +76,7 @@ public:
     typedef Callback_proxy<void, Io_buffer::Ptr, Io_result> Read_handler;
 
     /** Default prototype for close operation completion handler. */
-    typedef Callback_proxy< void> Close_handler;
+    typedef Callback_proxy<void> Close_handler;
 
     /** Stream states. */
     enum class State {
@@ -96,8 +96,10 @@ public:
     enum class Type {
         FILE,
         SERIAL,
+        ANDROID_SERIAL,
         TCP,
         UDP,
+        UDP_MULTICAST,
         UNDEFINED
     };
 

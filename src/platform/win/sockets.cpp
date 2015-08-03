@@ -110,10 +110,14 @@ ugcs::vsm::sockets::Make_nonblocking(Socket_handle handle)
 }
 
 int
-ugcs::vsm::sockets::Prepare_for_listen(Socket_handle)
+ugcs::vsm::sockets::Prepare_for_listen(Socket_handle h, bool is_multicast)
 {
-    // do not try to set SO_REUSEADDR on windows.
-    return 0;
+    char arg = 1;
+    if (is_multicast) {
+        return setsockopt(h, SOL_SOCKET, SO_REUSEADDR, &arg, sizeof(arg));
+    } else {
+        return setsockopt(h, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, &arg, sizeof(arg));
+    }
 }
 
 int

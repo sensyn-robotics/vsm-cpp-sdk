@@ -19,6 +19,7 @@ namespace regex {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
+
 #ifdef __APPLE__
 /*
  * Some OSX portability stuff...
@@ -33,6 +34,18 @@ namespace regex {
  */
 #define _DONT_USE_CTYPE_INLINE_
 #endif
+
+#ifdef ANDROID
+// Android NDK does not have bsearch, so we are providing our own. Defined in utils.cpp
+void
+*bsearch (
+        const void *key,
+        const void *base,
+        size_t n,
+        size_t size,
+        int (* cmp)(const void *, const void *));
+#endif
+
 #include <ugcs/vsm/deelx.h>
 #pragma GCC diagnostic pop
 
@@ -62,6 +75,7 @@ public:
 
 private:
     friend bool regex_match(const std::string &s, smatch &m, regex &re);
+    friend bool regex_search(const std::string &s, smatch &m, regex &re);
 
     std::string pattern;
     CRegexpT<char> re;
@@ -143,6 +157,7 @@ public:
 
 private:
     friend bool regex_match(const std::string &s, smatch &m, regex &re);
+    friend bool regex_search(const std::string &s, smatch &m, regex &re);
 
     bool is_ready = false;
 
@@ -184,7 +199,7 @@ private:
 inline bool
 regex_match(const std::string &s, smatch &m, regex &re)
 {
-    MatchResult result = re.re.Match(s.c_str());
+    MatchResult result = re.re.MatchExact(s.c_str());
     if (!result.IsMatched()) {
         m.Set_result(s, std::list<smatch::Match_entry>());
         return false;
@@ -203,6 +218,28 @@ regex_match(const std::string &s, smatch &m, regex &re)
     return true;
 }
 
+/** See std::regex_search. */
+inline bool
+regex_search(const std::string &s, smatch &m, regex &re)
+{
+    MatchResult result = re.re.Match(s.c_str());
+    if (!result.IsMatched()) {
+        m.Set_result(s, std::list<smatch::Match_entry>());
+        return false;
+    }
+    std::list<smatch::Match_entry> groups;
+    groups.push_back(smatch::Match_entry(result.GetStart(), result.GetEnd()));
+    for (int i = 1; i <= result.MaxGroupNumber(); i++) {
+        int start = result.GetGroupStart(i);
+        if (start < 0) {
+            groups.push_back(smatch::Match_entry());
+        } else {
+            groups.push_back(smatch::Match_entry(start, result.GetGroupEnd(i)));
+        }
+    }
+    m.Set_result(s, std::move(groups));
+    return true;
+}
 
 } /* namespace regex */
 

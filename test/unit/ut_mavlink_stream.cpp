@@ -36,7 +36,7 @@ TEST(disable_in_handler)
     CHECK(mav_stream->Get_stream());
     mav_stream->Get_decoder().Decode(msgs);
     /* First message disables the stream, so second should be ignored. */
-    CHECK_EQUAL(1, mav_stream->Get_decoder().Get_stats().handled);
+    CHECK_EQUAL(1ul, mav_stream->Get_decoder().Get_stats().handled);
     CHECK(!mav_stream->Get_stream());
 
     stream->Close();
