@@ -1,0 +1,123 @@
+package ugcs.vsm.proto;
+
+option java_package = "com.ugcs.ucs.vsm.proto";
+option java_outer_classname = "VSMMessagesProto";
+
+enum Gps_fix_type {
+    GPS_FIX_TYPE_NONE = 0;
+    GPS_FIX_TYPE_2D = 1;
+    GPS_FIX_TYPE_3D = 2;
+}
+
+enum Control_mode {
+    CONTROL_MODE_MANUAL = 0;
+    CONTROL_MODE_AUTO = 1;
+    CONTROL_MODE_CLICK_GO = 2;
+    CONTROL_MODE_JOYSTICK = 3;
+}
+
+enum Adsb_mode {
+    ADSB_MODE_OFF = 1;
+    ADSB_MODE_STBY = 2;
+    ADSB_MODE_ON = 3;
+    ADSB_MODE_ALT = 4;
+}
+
+// Field/parameter type (semantic)
+enum Field_semantic {
+
+    // Description, Units, Data type, Range, Origin, Positive direction
+
+    // Geodetic latitude, radians, double, -Pi/2..Pi/2, equator, north
+    FIELD_SEMANTIC_LATITUDE = 1;
+
+    // Geodetic longitude, radians, double, -Pi..Pi, Greenwich meridian, East
+    FIELD_SEMANTIC_LONGITUDE = 2;
+
+    // WGS84 altitude, meters, numeric
+    FIELD_SEMANTIC_ALTITUDE_AMSL = 3;
+
+    // Altitude AGL, meters, numeric
+    FIELD_SEMANTIC_ALTITUDE_AGL = 4;
+
+    // Raw altitude reading from vehicle. Typically above home location., meters, numeric
+    FIELD_SEMANTIC_ALTITUDE_RAW = 5;
+
+    // Vehicle nose angle, radians, numeric, 0..2Pi, North, East
+    FIELD_SEMANTIC_HEADING = 6;
+
+    // Vehicle speed vector angle, radians, numeric, 0..2Pi, North, East
+    FIELD_SEMANTIC_COURSE = 7;
+
+    // Main battery voltage, volts, numeric
+    FIELD_SEMANTIC_MAIN_VOLTAGE = 8;
+
+    // Air speed, m/s, numeric
+    FIELD_SEMANTIC_AIR_SPEED = 9;
+
+    // Ground speed, m/s, numeric
+    FIELD_SEMANTIC_GROUND_SPEED = 10;
+
+    // Climb speed, m/s, numeric
+    FIELD_SEMANTIC_VERTICAL_SPEED = 11;
+
+    // GNSS satellite count, numeric
+    FIELD_SEMANTIC_SATELLITE_COUNT = 12;
+
+    // Fix type, numeric, enum Gps_fix_type
+    FIELD_SEMANTIC_GPS_FIX_TYPE = 13;
+
+    // Roll angle, radians, numeric, -Pi..Pi, Horizon, right
+    FIELD_SEMANTIC_ROLL = 14;
+
+    // Pitch angle, radians, numeric, -Pi..Pi, Horizon, up
+    FIELD_SEMANTIC_PITCH = 15;
+
+    // Yaw angle, radians, numeric, 0..2Pi, North, East
+    FIELD_SEMANTIC_YAW = 16;
+
+    // RC link quality, , numeric, [0..1]
+    FIELD_SEMANTIC_LINK_QUALITY = 17;
+
+    // Camera Field-of-view horizontal angle, radians, numeric, 0..Pi
+    FIELD_SEMANTIC_FOV_H = 23;
+
+    // Camera Field-of-view veritcal angle, radians, numeric, 0..Pi
+    FIELD_SEMANTIC_FOV_V = 24;
+
+    // Current control mode, int, enum Control_mode
+    FIELD_SEMANTIC_CONTROL_MODE = 26;
+    
+    // Terrain elevation AMSL, meters, numeric
+    FIELD_SEMANTIC_GROUND_ELEVATION = 27;
+    
+    // Waypoint acceptance radius, meters, numeric
+    FIELD_SEMANTIC_ACCEPTANCE_RADIUS = 28;
+    
+    // Waypoint loiter radius, meters, numeric
+    FIELD_SEMANTIC_LOITER_RADIUS = 29;
+
+    // ADSB icao code, 24 bits, numeric, represented as hex
+    FIELD_SEMANTIC_ICAO = 30;
+
+    // ADSB transponder mode, enum, Adsb_mode, numeric
+    FIELD_SEMANTIC_ADSB_MODE = 31;
+
+    // ADSB squawk code, 12 bits, numeric, represented as octal
+    FIELD_SEMANTIC_SQUAWK = 32;
+
+    // Generic types used for user-defined telemetry fields.
+
+    // Generic number type. Exact type (float, int, etc...) will be detected automatically
+    FIELD_SEMANTIC_NUMERIC = 101;
+
+    // boolean
+    FIELD_SEMANTIC_BOOL = 104;
+
+    // utf8 string
+    FIELD_SEMANTIC_STRING = 105;
+
+    // enum. Possible values defined via Register_enumeration message.
+    FIELD_SEMANTIC_ENUM = 106;
+}
+

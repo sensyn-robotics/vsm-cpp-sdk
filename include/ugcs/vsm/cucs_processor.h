@@ -93,9 +93,9 @@ private:
     /** Cucs processor completion context. */
     Request_completion_context::Ptr completion_ctx;
 
-    /** Currently established UCS server connections and their read operation. */
+    /** Currently established UCS server connection, corresponding UCS ID and their read operation. */
     std::unordered_map<Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr,
-        Operation_waiter> ucs_connections;
+        std::pair<Optional<uint32_t>,Operation_waiter>> ucs_connections;
 
     /** System ids of registered vehicles and their contexts. */
     std::unordered_map<typename mavlink::Mavlink_kind_ugcs::System_id, Ucs_vehicle_ctx::Ptr> vehicles;
@@ -189,7 +189,7 @@ private:
 
     bool
     On_default_mavlink_message_handler(mavlink::MESSAGE_ID_TYPE, typename mavlink::Mavlink_kind_ugcs::System_id,
-            uint8_t, Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr);
+            uint8_t, uint32_t, Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr);
 
     bool
     On_heartbeat_timer();
@@ -243,6 +243,20 @@ private:
         }
     };
 
+    /** Build adsb response negative ACK message. */
+    class Adsb_response_nack_builder {
+    public:
+        /** Build negative ack based on source message. */
+        template<typename Message_ptr>
+        static mavlink::ugcs::Pld_adsb_transponder_response
+        Build(const Message_ptr&)
+        {
+            mavlink::ugcs::Pld_adsb_transponder_response ack;
+            ack->result = mavlink::MAV_RESULT::MAV_RESULT_DENIED;
+            return ack;
+        }
+    };
+
     /** Default handler for Mavlink messages which have target_system field
      * which is mapped to vehicle system id. Nack_builder is a factory class
      * which builds negative ack response messages if target vehicle is not
@@ -265,10 +279,12 @@ private:
             LOG_DEBUG("Vehicle with system id %u not registered (message %d).",
                     vehicle_system_id, message->payload.Get_id());
             /* Respond nack to server. */
-            Send_message(mav_stream, Nack_builder::Build(message), vehicle_system_id,
-                    message->payload->target_component);
+            Send_response_message(mav_stream, Nack_builder::Build(message), vehicle_system_id,
+                    message->payload->target_component,
+                    message->Get_sender_request_id());
         } else {
             /* Pass the message to the vehicle context for further processing. */
+            iter->second->Set_current_request_id(message->Get_sender_request_id());
             iter->second->Process(message, mav_stream);
         }
     }
@@ -326,6 +342,15 @@ private:
             const mavlink::Payload_base& payload,
             typename mavlink::Mavlink_kind_ugcs::System_id system_id,
             uint8_t component_id);
+
+    /** Send Mavlink response message. */
+    void
+    Send_response_message(
+            const Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream,
+            const mavlink::Payload_base& payload,
+            typename mavlink::Mavlink_kind_ugcs::System_id system_id,
+            uint8_t component_id,
+            uint32_t request_id);
 
     /** Invoked when write operation to the UCS server has timed out. This
      * is quite bad, so close the connection completely.

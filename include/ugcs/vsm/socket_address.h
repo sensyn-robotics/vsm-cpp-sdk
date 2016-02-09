@@ -102,6 +102,11 @@ public:
     bool
     Is_multicast_address();
 
+    /** True if address is loopback address
+     */
+    bool
+    Is_loopback_address();
+
 private:
     sockaddr_in&
     As_sockaddr_in();

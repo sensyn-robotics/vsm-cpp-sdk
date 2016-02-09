@@ -41,6 +41,8 @@ Ucs_to_vsm_transformations::Parse_mission_item_ex(
          return Camera_series_by_time_action::Create(item);
     case mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_DISTANCE:
          return Camera_series_by_distance_action::Create(item);
+    case mavlink::MAV_CMD::MAV_CMD_DO_SET_PARAMETER:
+         return Set_parameter_action::Create(item);
     default:
         VSM_EXCEPTION(Unsupported_exception, "Mission item %u unsupported",
                       item->command.Get());

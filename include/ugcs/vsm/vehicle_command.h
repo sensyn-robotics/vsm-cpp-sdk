@@ -11,6 +11,7 @@
 #define _VEHICLE_COMMAND_H_
 
 #include <ugcs/vsm/mavlink.h>
+#include <ugcs/vsm/coordinates.h>
 
 namespace ugcs {
 namespace vsm {
@@ -28,6 +29,8 @@ public:
         AUTO_MODE,
         /** Enable manual mode. */
         MANUAL_MODE,
+        /** Enable guided mode. */
+        GUIDED_MODE,
         /** Return to home. */
         RETURN_HOME,
         /** Do takeoff. */
@@ -44,19 +47,23 @@ public:
         PAUSE_MISSION,
         /** Resume the mission. */
         RESUME_MISSION,
+        /** Set transponder ICAO and registration ID */
+        ADSB_INSTALL,
+        /** Set transponder flight ID */
+        ADSB_PREFLIGHT,
+        /** Set transponder mode */
+        ADSB_OPERATING,
     };
 
-    /** Construct command of a specific type. */
-    Vehicle_command(Type type) : type(type)
-    {
-        ASSERT(type != Type::WAYPOINT);
-    }
 
-    /** Construct WAYPOINT. */
-    Vehicle_command(const mavlink::ugcs::Pld_command_long_ex& cmd) : type(Type::WAYPOINT)
-    {
-        this->waypoint = Waypoint::Create(cmd);
-    }
+    /** Construct command of a specific type. */
+    Vehicle_command(Type type, const mavlink::ugcs::Pld_command_long_ex& cmd);
+
+    /** Construct install message. */
+    Vehicle_command(const mavlink::ugcs::Pld_adsb_transponder_install&);
+
+    /** Construct preflight message. */
+    Vehicle_command(const mavlink::ugcs::Pld_adsb_transponder_preflight& );
 
     /** Get type of the command. */
     Type
@@ -65,47 +72,91 @@ public:
         return type;
     }
 
-    /** Data for a waypoint command. */
-    class Waypoint : public std::enable_shared_from_this<Waypoint> {
-        DEFINE_COMMON_CLASS(Waypoint, Waypoint)
-    public:
-        /** Construct waypoint command from the Mavlink. */
-        Waypoint(const mavlink::ugcs::Pld_command_long_ex& cmd) :
-            position(Geodetic_tuple(cmd->param5 * M_PI / 180.0,
-                            cmd->param6 * M_PI / 180.0,
-                            cmd->param7)),
-            acceptance_radius(cmd->param1),
-            speed(cmd->param3),
-            takeoff_altitude(cmd->param2)
-        {
-        }
-
-        /**
-         * Target global position of the movement.
-         */
-        Wgs84_position position;
-
-        /**
-         * Acceptance radius of the target position in meters.
-         * When the sphere with the radius centered at the target position is hit
-         * by the vehicle the target position is considered reached.
-         */
-        double acceptance_radius;
-
-        /**
-         * Speed towards the waypoint.
-         */
-        double speed;
-
-        /** Take-off point altitude from where the vehicle was launched. */
-        double takeoff_altitude;
-    };
-
-    Waypoint
-    Get_waypoint() const
+    // meters
+    float
+    Get_acceptance_radius() const
     {
-        ASSERT(type == Type::WAYPOINT && waypoint);
-        return *waypoint;
+        return acceptance_radius;
+    }
+
+    // m/s
+    float
+    Get_speed() const
+    {
+        return speed;
+    }
+
+    // clockwise radians from North
+    float
+    Get_heading() const
+    {
+        return heading;
+    }
+
+    // Takeoff altitude AMSL.
+    float
+    Get_takeoff_altitude() const
+    {
+        return takeoff_altitude;
+    }
+
+    // WP latitude.
+    float
+    Get_latitude() const
+    {
+        return position.Get_geodetic().latitude;
+    }
+
+    // WP longitude.
+    float
+    Get_longitude() const
+    {
+        return position.Get_geodetic().longitude;
+    }
+
+    // WP altitude AMSL.
+    float
+    Get_altitude() const
+    {
+        return position.Get_geodetic().altitude;
+    }
+
+    // ADSB flight number
+    std::string
+    Get_adsb_flight_id() const
+    {
+        return string1;
+    }
+
+    // ADSB registration number
+    std::string
+    Get_adsb_registration() const
+    {
+        return string1;
+    }
+
+    uint32_t
+    Get_adsb_icao_code() const
+    {
+        return integer1;
+    }
+
+    mavlink::Int32
+    Get_adsb_operating_mode() const
+    {
+        return integer1;
+    }
+
+    mavlink::Int32
+    Get_adsb_ident_on() const
+    {
+        return integer2;
+    }
+
+    mavlink::Int32
+    Get_adsb_squawk() const
+    {
+        return integer3;
     }
 
 private:
@@ -113,8 +164,31 @@ private:
     /** Type of the command. */
     const Type type;
 
-    /** If type is WAYPOINT. */
-    Waypoint::Ptr waypoint;
+    Wgs84_position position;
+
+    /**
+     * Acceptance radius of the target position in meters.
+     * When the sphere with the radius centered at the target position is hit
+     * by the vehicle the target position is considered reached.
+     */
+    float acceptance_radius;
+
+    /**
+     * Speed towards the waypoint.
+     */
+    float speed;
+
+    /** Heading. radians from North*/
+    float heading;
+
+    /** Take-off point altitude AMSL from where the vehicle was launched. */
+    float takeoff_altitude;
+
+    std::string string1;
+
+    mavlink::Int32 integer1;
+    mavlink::Int32 integer2;
+    mavlink::Int32 integer3;
 };
 
 } /* namespace vsm */

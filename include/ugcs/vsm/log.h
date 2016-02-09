@@ -188,12 +188,25 @@ public:
     static void
     Set_max_custom_log_size(const std::string& size_str);
 
+    /** Set maximum number of log files to keep.
+     * Older log files will be deleted.
+     *
+     * @param count Number of old log files to keep. Default is 1.
+     */
+    static void
+    Set_max_custom_log_count(size_t count);
+
     /** The same as Set_max_custom_log_size, but for the instance.
      *
      * @param size Max size in bytes.
      */
     void
     Set_max_custom_log_size_inst(ssize_t size);
+
+    /** @param size Max number of log files to keep.
+    */
+    void
+    Set_max_custom_log_count_inst(size_t count);
 
 private:
     friend class Platform_logger;
@@ -203,6 +216,14 @@ private:
 
     /** Default maximum size of custom log file. */
     constexpr static ssize_t DEFAULT_MAX_CUSTOM_LOG_FILE_SIZE = 100 * 1024 * 1024;
+
+    /** Format to rename old log files when rotating. */
+    constexpr static const char* const LOG_FILE_ROTATOR_SUFFIX_FORMAT = "_%Y%m%d-%H%M%S";
+
+    /** Pattern used to fing old log files for deletion. This must match the suffix format above.
+     * It is a fixed format date plus optional " (idx)"
+     * Escaped ? because of trigraphs.*/
+    constexpr static const char* const LOG_FILE_ROTATOR_FIND_PATTERN  = "_\?\?\?\?\?\?\?\?-\?\?\?\?\?\?*";
 
     /** Current log level, messages with lower level will be suppressed. */
     Level cur_level =
@@ -228,6 +249,9 @@ private:
     ssize_t max_custom_log = DEFAULT_MAX_CUSTOM_LOG_FILE_SIZE;
     /** Current size of custom log file. */
     ssize_t custom_log_size;
+
+    /** How many old log files to keep. */
+    size_t custom_log_count = 1;
 
     /** Get singleton instance of the log object. */
     static Log *
@@ -286,6 +310,10 @@ private:
     /** Do custom log file cleanup. */
     void
     Do_cleanup(int thread_id);
+
+    /** Log file rotator. Removes old logs. */
+    void
+    Remove_old_log_files();
 };
 
 /** Write message to log. For internal usage only. */

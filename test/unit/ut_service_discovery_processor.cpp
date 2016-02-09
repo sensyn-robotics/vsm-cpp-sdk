@@ -31,9 +31,9 @@ TEST_FIXTURE(Test_case_wrapper, ssdp_processor)
 {
     auto sp = ugcs::vsm::Socket_processor::Get_instance();
     auto discoverer1 = ugcs::vsm::Service_discovery_processor::Create(
-            Socket_address::Create("239.198.1.1","11113"));
+            Socket_address::Create("239.198.46.46","11111"));
     auto discoverer2 = ugcs::vsm::Service_discovery_processor::Create(
-            Socket_address::Create("239.198.1.1","11113"));
+            Socket_address::Create("239.198.46.46","11111"));
     auto tp = ugcs::vsm::Timer_processor::Get_instance();
     tp->Enable();
 
@@ -56,17 +56,17 @@ TEST_FIXTURE(Test_case_wrapper, ssdp_processor)
     bool got_result1 = false;
     bool got_result2 = false;
 
-    auto detector = [&](std::string type, std::string, std::string loc, bool)
+    auto detector = [&](std::string type, std::string, std::string loc, std::string id, bool)
     {
         if (type == service_type1) {
-            LOG("Discovered service %s, loc=%s", type.c_str(), loc.c_str());
+            LOG("Discovered service %s, loc=%s id=%s", type.c_str(), loc.c_str(), id.c_str());
             if (!got_result1) {
                 detected1.set_value();
                 got_result1 = true;
             }
         }
         if (type == service_type2) {
-            LOG("Discovered service %s, loc=%s", type.c_str(), loc.c_str());
+            LOG("Discovered service %s, loc=%s id=%s", type.c_str(), loc.c_str(), id.c_str());
             if (!got_result2) {
                 detected2.set_value();
                 got_result2 = true;
@@ -76,19 +76,31 @@ TEST_FIXTURE(Test_case_wrapper, ssdp_processor)
 
     // Test Deactivate functionality.
     discoverer1->Advertise_service(service_type1, "n", "l");
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
     discoverer1->Unadvertise_service(service_type1, "n", "l");
+
+    discoverer1->Subscribe_for_service(service_type1, Service_discovery_processor::Make_detection_handler(detector), proc_context);
+
+    // Make sure subscriber1 get response from noify, not from m-search.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     //  Test subscribe and advertise.
     discoverer1->Advertise_service(service_type1, "name1", "tcp://{local_address}/path");
     discoverer2->Advertise_service(service_type2, "name2", "tcp://location1");
 
-    discoverer1->Subscribe_for_service(service_type1, Service_discovery_processor::Make_detection_handler(detector), proc_context);
+    // Make sure subscriber2 get response from m-search, not from notify.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
     discoverer2->Subscribe_for_service(service_type2, Service_discovery_processor::Make_detection_handler(detector), proc_context);
 
-    auto ret = detected1.get_future().wait_for(std::chrono::seconds(2));
+    // Wait for 5 seconds to discover the services.
+    // Normally it happnens much faster, but on our buildserver under valgrind it takes ~3 seconds.
+    auto ret = detected1.get_future().wait_for(std::chrono::seconds(5));
     CHECK (ret == std::future_status::ready);
     if (ret == std::future_status::ready) {
-        ret = detected2.get_future().wait_for(std::chrono::seconds(2));
+        ret = detected2.get_future().wait_for(std::chrono::seconds(5));
         CHECK (ret == std::future_status::ready);
     }
     discoverer2->Disable();

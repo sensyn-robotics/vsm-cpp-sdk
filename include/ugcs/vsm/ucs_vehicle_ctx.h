@@ -80,7 +80,23 @@ public:
     Process(mavlink::Message<mavlink::ugcs::MESSAGE_ID::TAIL_NUMBER_REQUEST,
             mavlink::ugcs::Extension>::Ptr message,
             Ugcs_mavlink_stream::Ptr mav_stream);
+
+    void
+    Process(mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_INSTALL,
+            mavlink::ugcs::Extension>::Ptr message,
+            Ugcs_mavlink_stream::Ptr mav_stream);
+
+    void
+    Process(mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_PREFLIGHT,
+            mavlink::ugcs::Extension>::Ptr message,
+            Ugcs_mavlink_stream::Ptr mav_stream);
     // @}
+
+    void
+    Set_current_request_id(uint32_t id)
+    {
+        current_request_id = id;
+    }
 
 private:
 
@@ -121,7 +137,7 @@ private:
                             Shared_from_this()));
             active_transaction->Enable();
         }
-
+        active_transaction->Set_current_request_id(current_request_id);
         active_transaction->Process(message);
     }
 
@@ -135,6 +151,7 @@ private:
             Ugcs_mavlink_stream::Ptr mav_stream)
     {
         if (active_transaction && !Is_foreign_message(mav_stream, message)) {
+            active_transaction->Set_current_request_id(current_request_id);
             active_transaction->Process(message);
         } else {
             if (active_transaction) {
@@ -174,7 +191,7 @@ private:
         ack->target_system = source_message->Get_sender_system_id();
         ack->target_component = source_message->Get_sender_component_id();
 
-        Send_message(mav_stream, ack, source_message->payload->target_component);
+        Send_response_message(mav_stream, ack, source_message->payload->target_component);
     }
 
     /** Send Mavlink message from the vehicle.
@@ -192,6 +209,30 @@ private:
         mav_stream->Send_message(
                 msg, vehicle->system_id,
                 component_id,
+                WRITE_TIMEOUT,
+                Make_timeout_callback(
+                        &Ucs_vehicle_ctx::Write_to_ucs_timed_out,
+                        Shared_from_this(),
+                        mav_stream),
+                        completion_context);
+    }
+
+    /** Send Mavlink message from the vehicle.
+     * @param mav_stream Stream to use.
+     * @param msg Message to send.
+     * @param component_id Source component id.
+     */
+    template<class Mavlink_message>
+    void
+    Send_response_message(
+            Ugcs_mavlink_stream::Ptr mav_stream,
+            const Mavlink_message& msg,
+            uint8_t component_id)
+    {
+        mav_stream->Send_response_message(
+                msg, vehicle->system_id,
+                component_id,
+                current_request_id,
                 WRITE_TIMEOUT,
                 Make_timeout_callback(
                         &Ucs_vehicle_ctx::Write_to_ucs_timed_out,
@@ -232,6 +273,8 @@ private:
     Request_completion_context::Ptr completion_context;
 
     Ucs_transaction::Ptr active_transaction;
+
+    uint32_t current_request_id;
 };
 
 } /* namespace vsm */

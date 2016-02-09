@@ -121,6 +121,15 @@ public:
  */
 extern regex::regex_constants::syntax_option_type platform_independent_filename_regex_matching_flag;
 
+/** Return instance id which is randomly generated on the first call.
+ */
+uint32_t Get_application_instance_id();
+
+/** Return a random number on each call. Can be used to seed PRNG.
+ */
+uint64_t
+Get_random_seed();
+
 } /* namespace vsm */
 } /* namespace ugcs */
 

@@ -68,7 +68,10 @@ ugcs::vsm::Socket_processor::Enumerate_local_interfaces()
         }
         if (iface == ret.end()) {
             // Windows does not have special flag for multicast capable interface.
-            iface = ret.emplace(ret.end(), std::string(ifname), true);
+            iface = ret.emplace(ret.end(), std::string(ifname));
+            iface->is_multicast = true;
+            // There is no loopback interface on windows.
+            iface->is_loopback = false;
         }
 
         unsigned int ifindex = i_info->Adapter[ifnum].Index;

@@ -46,7 +46,7 @@ public:
      * - Sending component id
      */
     typedef Callback_proxy<void, Io_buffer::Ptr, mavlink::MESSAGE_ID_TYPE,
-            typename Mavlink_kind::System_id, uint8_t> Handler;
+            typename Mavlink_kind::System_id, uint8_t, uint32_t> Handler;
 
     /** Handler for the raw data going through the decoder. */
     typedef Callback_proxy<void, Io_buffer::Ptr> Raw_data_handler;
@@ -54,8 +54,8 @@ public:
     /** Convenience builder for Mavlink decoder handlers. */
     DEFINE_CALLBACK_BUILDER(
             Make_decoder_handler,
-            (Io_buffer::Ptr, mavlink::MESSAGE_ID_TYPE, typename Mavlink_kind::System_id, uint8_t),
-            (nullptr, mavlink::MESSAGE_ID::DEBUG_VALUE, mavlink::SYSTEM_ID_NONE, 0))
+            (Io_buffer::Ptr, mavlink::MESSAGE_ID_TYPE, typename Mavlink_kind::System_id, uint8_t, uint32_t),
+            (nullptr, mavlink::MESSAGE_ID::DEBUG_VALUE, mavlink::SYSTEM_ID_NONE, 0, 0))
 
     /** Convenience builder for raw data handlers. */
     DEFINE_CALLBACK_BUILDER(Make_raw_data_handler, (Io_buffer::Ptr), (nullptr))
@@ -177,7 +177,8 @@ public:
         case State::CHECKSUM: return sizeof(uint16_t) - checksum.size();
         default:
             ASSERT(false);
-            VSM_EXCEPTION(Internal_error_exception, "Unexpected state %d", state);
+            VSM_EXCEPTION(Internal_error_exception, "Unexpected state %d",
+                          static_cast<int>(state));
         }
     }
 
@@ -321,7 +322,7 @@ private:
                 segments.clear();
                 mavlink::MESSAGE_ID_TYPE message_id = header_ptr->message_id.Get();
                 if (handler) {
-                    handler(payload, message_id, header_ptr->system_id, header_ptr->component_id);
+                    handler(payload, message_id, header_ptr->system_id, header_ptr->component_id, header_ptr->seq);
                     stats.handled++;
                 } else {
                     stats.no_handler++;

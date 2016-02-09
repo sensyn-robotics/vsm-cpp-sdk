@@ -84,6 +84,12 @@ public:
      * \<prefix\>.\<port_id\>.udp_address = \<ip address\>|\<dns name\>
      * \<prefix\>.\<port_id\>.udp_port = \<1..65535\>|\<common tcp port name\>
      *
+     * # for outgoing tcp proxy connections:
+     * \<prefix\>.\<port_id\>.proxy = \<ip address\>|\<dns name\>
+     * \<prefix\>.\<port_id\>.port = \<1..65535\>|\<common tcp port name\>
+     *
+     * # for CAN bus connections:
+     * \<prefix\>.\<port_id\>.can_interface = \<can interface name\>
      *
      *
      * Example ardupilot config file for linux:
@@ -164,19 +170,18 @@ public:
         typedef enum{
             SERIAL,
             TCP_OUT,
-            UDP_IN
+            UDP_IN,
+            PROXY,  // outgoing TCP connection to a vehicle proxy.
+            CAN     // can bus
         } Type;
 
         // construtor for serial port
-        Port(const std::string &serial_port_name);
+        Port(const std::string &serial_port_name, Type, Request_worker::Ptr w = nullptr);
 
         // construtor for incoming ip transports
         Port(Socket_address::Ptr local_addr, Socket_address::Ptr peer_addr, Type, Request_worker::Ptr worker);
 
         ~Port();
-
-        Io_stream::Ref
-        Get_stream();
 
         Type
         Get_type(){return type;};
@@ -194,12 +199,26 @@ public:
         Reopen_and_call_next_handler();
 
         void
+        Protocol_not_detected(Io_stream::Ref str);
+
+        void
         Open_serial(bool ok_to_open);
 
         void
         Ip_connected(
                 Socket_stream::Ref str,
                 Io_result res);
+
+        void
+        Proxy_connected(
+                Socket_stream::Ref str,
+                Io_result res);
+
+        void
+        On_proxy_data_received(
+                ugcs::vsm::Io_buffer::Ptr buf,
+                ugcs::vsm::Io_result result,
+                Socket_stream::Ref str);
 
         typedef std::list<Detector_entry> Detector_list;
         /** preconfigured detectors for each baud. */
@@ -229,8 +248,14 @@ public:
         /** Opened stream if the port available. */
         Io_stream::Ref stream;
 
+        /** Currently connected and handed off proxy streams. */
+        std::list<Io_stream::Ref> proxy_streams;
+
         /** Ongoing socket connecting (including udp) operation. */
         Operation_waiter socket_connecting_op;
+
+        /** Ongoing proxy socket reading operation. */
+        Operation_waiter proxy_stream_reader_op;
 
         /** Regular expression for this entry. */
         regex::regex re;
@@ -253,6 +278,13 @@ public:
     void
     On_serial_acquired(Io_result r, const std::string& name);
 
+    static std::vector<uint8_t> PROXY_SIGNATURE;
+    static constexpr uint8_t PROXY_COMMAND_HELLO = 0;
+    static constexpr uint8_t PROXY_COMMAND_WAIT = 1;
+    static constexpr uint8_t PROXY_COMMAND_READY = 2;
+    static constexpr uint8_t PROXY_COMMAND_NOTREADY = 3;
+    static constexpr uint8_t PROXY_RESPONSE_LEN = 5;
+
 private:
 
     void
@@ -268,6 +300,13 @@ private:
             Socket_address::Ptr local_addr,
             Socket_address::Ptr remote_addr,
             Port::Type type,
+            Connect_handler,
+            Request_processor::Ptr,
+            Request::Ptr);
+
+    void
+    Add_can_detector(
+            const std::string can_interface,
             Connect_handler,
             Request_processor::Ptr,
             Request::Ptr);
@@ -302,6 +341,9 @@ private:
 
     /** TCP connect timeout. */
     constexpr static std::chrono::seconds TCP_CONNECT_TIMEOUT = std::chrono::seconds(10);
+
+    /** Proxy connection timeout. Close connection if no wait packet received from proxy during this time. */
+    constexpr static std::chrono::seconds PROXY_TIMEOUT = std::chrono::seconds(4);
 
     /** Watchdog timer for detection. */
     Timer_processor::Timer::Ptr watchdog_timer;

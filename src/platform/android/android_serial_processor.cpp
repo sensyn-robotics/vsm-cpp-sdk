@@ -6,18 +6,18 @@
 
 using namespace ugcs::vsm;
 
+Singleton<Android_serial_processor> Android_serial_processor::singleton;
+
 JNIEXPORT void JNICALL
 ugcs::vsm::Java_com_ugcs_vsm_Vsm_StreamReady(JNIEnv *env, jobject _this, jint streamId)
 {
-    ASSERT(Android_serial_processor::instance);
-    Android_serial_processor::instance->Stream_ready(streamId);
+    Android_serial_processor::Get_instance()->Stream_ready(streamId);
 }
 
 JNIEXPORT void JNICALL
 ugcs::vsm::Java_com_ugcs_vsm_Vsm_StreamClosed(JNIEnv *env, jobject _this, jint streamId)
 {
-    ASSERT(Android_serial_processor::instance);
-    Android_serial_processor::instance->Stream_closed(streamId);
+    Android_serial_processor::Get_instance()->Stream_closed(streamId);
 }
 
 JNIEXPORT void JNICALL
@@ -25,15 +25,13 @@ ugcs::vsm::Java_com_ugcs_vsm_Vsm_StreamWriteComplete(JNIEnv *env, jobject _this,
                                                      jint streamId,
                                                      jboolean succeeded)
 {
-    ASSERT(Android_serial_processor::instance);
-    Android_serial_processor::instance->On_write_complete(streamId, succeeded);
+    Android_serial_processor::Get_instance()->On_write_complete(streamId, succeeded);
 }
 
 JNIEXPORT void JNICALL
 ugcs::vsm::Java_com_ugcs_vsm_Vsm_StreamReadComplete(JNIEnv *env, jobject _this,
                                                     jint streamId, jobject buf)
 {
-    ASSERT(Android_serial_processor::instance);
     Io_buffer::Ptr io_buf;
     if (buf) {
         Java::Env env = Java::Get_env();
@@ -43,10 +41,8 @@ ugcs::vsm::Java_com_ugcs_vsm_Vsm_StreamReadComplete(JNIEnv *env, jobject _this,
     } else {
         io_buf = nullptr;
     }
-    Android_serial_processor::instance->On_read_complete(streamId, io_buf);
+    Android_serial_processor::Get_instance()->On_read_complete(streamId, io_buf);
 }
-
-Android_serial_processor *Android_serial_processor::instance;
 
 Android_serial_processor::Stream::Stream(
     Android_serial_processor::Weak_ptr processor, const std::string &name,
@@ -78,9 +74,7 @@ Android_serial_processor::Stream_entry::Complete_open(bool succeeded)
 
 Android_serial_processor::Android_serial_processor():
     Request_processor("Android serial processor")
-{
-    instance = this;
-}
+{}
 
 Operation_waiter
 Android_serial_processor::Open(const std::string &port_name,

@@ -13,7 +13,6 @@ function(List_to_string LIST STRING_VAR)
     set(${STRING_VAR} "${result}" PARENT_SCOPE)
 endfunction()
 
-
 # Enable C++11 standard, extended warnings, multithreading.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmessage-length=0 -std=c++11 -Werror -Wall -Wextra -Wold-style-cast -pthread")
 
@@ -21,6 +20,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmessage-length=0 -std=c++11 -Werror -W
 if (CMAKE_SYSTEM MATCHES "Windows-6\\.[0-9]+")
     set(OBSOLETE_WINDOWS OFF)
     set(ENABLE_DLL_IMPORT ON)
+    # Disabling HID support because latest mingw does not have HIDAPI defined. 
+    add_definitions(-DVSM_DISABLE_HID)
 elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
     set(OBSOLETE_WINDOWS ON)
     message("Obsolete windows version detected, some features will be disabled")
@@ -51,6 +52,12 @@ if (ANDROID)
             message(FATAL_ERROR "Android NDK path is not specified")
         endif()
     endif()
+    if (NOT DEFINED ANDROID_ABI_LIST)
+        set(ANDROID_ABI_LIST "armeabi;armeabi-v7a;x86;mips;arm64-v8a;x86_64;mips64")
+    endif()
+    if (NOT DEFINED ANDROID_PLATFORM)
+        set(ANDROID_PLATFORM "android-19")
+    endif()
     if (EXISTS "${ANDROID_NDK}/")
         message("Using Android NDK from ${ANDROID_NDK}")
     else()
@@ -66,7 +73,7 @@ if (NOT DEFINED UGCS_PACKAGING_ENABLED)
     find_file(PACKAGING_SCRIPT
         "configure_packaging.cmake"
         PATHS "../../../build-scripts/cmake"
-        "../..build-scripts/cmake" 
+        "../../build-scripts/cmake" 
         "../build-scripts/cmake"
         NO_DEFAULT_PATH)
     
@@ -162,25 +169,28 @@ else()
                       UGCS_VSM_USER_GUIDE_LATEX_TITLE=${UGCS_VSM_USER_GUIDE_LATEX_TITLE}
                       make -C doc-${DOC_CONFIG_NAME}/latex pdf
                       DEPENDS doc)
-endif()
 
-if (PDF_DOC_NAME_OVERRIDE)
-  set(PDF_DOC_NAME ${PDF_DOC_NAME_OVERRIDE})
-else()
-  set(PDF_DOC_NAME manual-${CMAKE_PROJECT_NAME}.pdf)
+    if (PDF_DOC_NAME_OVERRIDE)
+        set(PDF_DOC_NAME ${PDF_DOC_NAME_OVERRIDE})
+    else()
+        set(PDF_DOC_NAME manual-${CMAKE_PROJECT_NAME}.pdf)
+    endif()
+
+    add_custom_command(TARGET pdf POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy ${DOC_DIR}/latex/refman.pdf ${PDF_DOC_NAME})
+
 endif()
 
 # Compile protobuf declarations into C++ code.
 # PROTO_INPUT_FILES - should be paths relative to absolute path PROTO_ROOT
 # Set some variables in parent scope:
-# PROTOBUF_AUTO_SRCS - list of automatically generated source files which needs
+# PROTOBUF_AUTO_SOURCES - list of automatically generated source files which needs
 # to be compiled.
-function(Compile_protobuf_definitions PROTO_INPUT_FILES PROTO_ROOT
-    PROTO_OUTPUT_DIR PROTO_COMMON_INCLUDE_NAME)
+# PROTOBUF_AUTO_HEADERS - list of automatically generated header files
+function(Compile_protobuf_definitions PROTO_INPUT_FILES PROTO_ROOT PROTO_COMMON_INCLUDE_NAME)
     
     # Take protoc binary generated during build process.
     # If this build did not generate it, assume it is installed in SDK dir.  
-    get_target_property(PROTOBUF_PROTOC_BINARY protobuf_compiler LOCATION)
     if (PROTOBUF_PROTOC_BINARY)
         # Includes used by the generated headers itself
         include_directories(${CMAKE_SOURCE_DIR}/third-party/protobuf/src)
@@ -188,43 +198,38 @@ function(Compile_protobuf_definitions PROTO_INPUT_FILES PROTO_ROOT
         set (PROTOBUF_PROTOC_BINARY "${VSM_SDK_DIR}/share/tools/protobuf_compiler")
     endif()
     
-    set(ALL_DEFS_INCLUDE_FILE
-        ${CMAKE_BINARY_DIR}/_all_protobuf_includes_generated_for_${PROTO_COMMON_INCLUDE_NAME})
-    file(WRITE ${ALL_DEFS_INCLUDE_FILE} "// DO NOT EDIT! Generated automatically\n\n")
+    set(PROTO_OUTPUT_DIR "${CMAKE_BINARY_DIR}/protobuf")
+    
+    # Auto include is generated during configure phase, not build time.
+    # Consider it "enough" for now.
+    file(WRITE ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME} "// DO NOT EDIT! Generated automatically\n\n")
     
     file (MAKE_DIRECTORY ${PROTO_OUTPUT_DIR})
     
     # A rule for each proto file
-    # Auto include is generated during configure phase, not build time.
-    # Consider it "enough" for now.
     foreach(DEF ${PROTO_INPUT_FILES})
         string(REPLACE .proto .pb.h OUT_H ${DEF})
         set(OUT_H_FULL ${PROTO_OUTPUT_DIR}/${OUT_H})
         string(REPLACE .proto .pb.cc OUT_CC ${DEF})
         set(OUT_CC_FULL ${PROTO_OUTPUT_DIR}/${OUT_CC})
-        set(PROTOBUF_AUTO_SRCS ${PROTOBUF_AUTO_SRCS} ${OUT_CC_FULL} ${OUT_H_FULL})
-        file(APPEND ${ALL_DEFS_INCLUDE_FILE} "#include \"${OUT_H}\"\n")
-        add_custom_command(OUTPUT ${OUT_CC_FULL} ${OUT_H_FULL}
+        set(PROTOBUF_AUTO_SOURCES ${PROTOBUF_AUTO_SOURCES} ${OUT_CC_FULL})
+        set(PROTOBUF_AUTO_HEADERS ${PROTOBUF_AUTO_HEADERS} ${OUT_H_FULL})
+        file(APPEND ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME} "#include \"${OUT_H}\"\n")
+        add_custom_command(
+            OUTPUT ${OUT_CC_FULL} ${OUT_H_FULL}
             COMMAND "${PROTOBUF_PROTOC_BINARY}" --cpp_out=${PROTO_OUTPUT_DIR} ${DEF}
             DEPENDS ${PROTO_ROOT}/${DEF}
             WORKING_DIRECTORY ${PROTO_ROOT}
             COMMENT "Protobuf: ${DEF}")
     endforeach()
 
-    # A rule for building (copying) auto generated include file
-    add_custom_command(OUTPUT ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME}
-        COMMAND ${CMAKE_COMMAND} -E copy ${ALL_DEFS_INCLUDE_FILE} 
-            ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME}
-        DEPENDS ${ALL_DEFS_INCLUDE_FILE}
-        COMMENT "Protobuf common include: ${PROTO_COMMON_INCLUDE_NAME}")
-    
-    set(PROTOBUF_AUTO_SRCS ${PROTOBUF_AUTO_SRCS}
+    set(PROTOBUF_AUTO_HEADERS ${PROTOBUF_AUTO_HEADERS}
         ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME})
     
-    set(PROTOBUF_AUTO_SRCS ${PROTOBUF_AUTO_SRCS} PARENT_SCOPE)
+    set(PROTOBUF_AUTO_SOURCES ${PROTOBUF_AUTO_SOURCES} PARENT_SCOPE)
+    set(PROTOBUF_AUTO_HEADERS ${PROTOBUF_AUTO_HEADERS} PARENT_SCOPE)
+
     # Includes for the generated headers
     include_directories(${PROTO_OUTPUT_DIR}) 
 endfunction()
 
-add_custom_command(TARGET pdf POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy ${DOC_DIR}/latex/refman.pdf ${PDF_DOC_NAME})

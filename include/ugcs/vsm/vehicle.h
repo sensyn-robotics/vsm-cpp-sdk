@@ -47,6 +47,8 @@ public:
         WAYPOINT_AVAILABLE,
         PAUSE_MISSION_AVAILABLE,
         RESUME_MISSION_AVAILABLE,
+        ADSB_TRANSPONDER_AVAILABLE,
+        GUIDED_MODE_AVAILABLE,
         LAST
     };
     // @}
@@ -66,6 +68,8 @@ public:
         WAYPOINT_ENABLED,
         PAUSE_MISSION_ENABLED,
         RESUME_MISSION_ENABLED,
+        ADSB_TRANSPONDER_ENABLED,
+        GUIDED_MODE_ENABLED,
         LAST
     };
     // @}
@@ -226,11 +230,17 @@ protected:
 
         /** Control mode of the vehicle. */
         enum class Control_mode {
-            /** Manual control. */
+            /** Direct manual control via RC transmitter */
             MANUAL,
 
             /** Automatic control. */
             AUTO,
+
+            /** Manual control via single WP. */
+            GUIDED,
+
+            /** Direct manual control via joystick. */
+            JOYSTICK,
 
             /** Unknown method of control. */
             UNKNOWN

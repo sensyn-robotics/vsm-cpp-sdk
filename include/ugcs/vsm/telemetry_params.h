@@ -53,6 +53,10 @@ public:
         value(value)
     {}
 
+    virtual
+    ~Param_base()
+    {}
+
     /** Commit current value to the telemetry manager.
      *
      * @param tm_man Telemetry manager object to commit to.
@@ -210,24 +214,6 @@ public:
     typedef Param_base Base;
 };
 
-/** Attitude roll angle between vehicle lateral axis and horizon, rad [-pi;+pi].
- * Positive - right roll (right wing is lower than left wing). */
-class Roll: public internal::Param_base<Roll, double> {
-public:
-    using Param_base::Param_base;
-    /** Base class type. */
-    typedef Param_base Base;
-};
-
-/** Attitude yaw angle between vehicle longitudinal axis and true North, rad [-pi;+pi].
- * Positive is clock-wise. */
-class Yaw: public internal::Param_base<Yaw, double> {
-public:
-    using Param_base::Param_base;
-    /** Base class type. */
-    typedef Param_base Base;
-};
-
 /** Course, which is an angle between true North and horizontal movement vector, rad.
  * Positive is clock-wise. */
 class Course: public internal::Param_base<Course, double> {
@@ -275,6 +261,112 @@ public:
  * 1.0 is the best quality, 0.0 is total link failure.
  */
 class Rclink_quality: public internal::Param_base<Rclink_quality, double> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Home position. */
+class Home_position: public internal::Param_base<Home_position, std::tuple<Wgs84_position, bool>> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+
+    Home_position():
+        Home_position(std::make_tuple(Geodetic_tuple(0, 0, 0), false))
+    {
+        is_valid = false;
+    }
+
+    Home_position(const Wgs84_position &pos, bool alt_valid = false):
+        Home_position(std::make_tuple(pos, alt_valid))
+    {}
+
+    /** Construct home position parameter using geodetic tuple.
+     *
+     * @param pos Position as geodetic tuple with WGS-84 coordinates.
+     */
+    Home_position(const Geodetic_tuple &pos, bool alt_valid = false):
+        Home_position(std::make_tuple(Wgs84_position(pos), alt_valid))
+    {}
+
+    /** Construct home position parameter using cartesian tuple.
+     *
+     * @param pos Position as cartesian tuple with ECEF coordinates.
+     */
+    Home_position(const Cartesian_tuple &pos):
+        Home_position(std::make_tuple(Wgs84_position(pos), true))
+    {}
+};
+
+/** ICAO code */
+class Adsb_transponder_icao_code: public internal::Param_base<Adsb_transponder_icao_code, uint32_t> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Registration number */
+class Adsb_transponder_registration: public internal::Param_base<Adsb_transponder_registration, std::string> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Flight id */
+class Adsb_transponder_flight_id: public internal::Param_base<Adsb_transponder_flight_id, std::string> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Transponder error */
+class Adsb_transponder_error_flags: public internal::Param_base<Adsb_transponder_error_flags, uint8_t> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Transponder current operating mode */
+class Adsb_transponder_mode: public internal::Param_base<Adsb_transponder_mode, uint8_t> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Transponder altitude source*/
+class Adsb_transponder_altitude_internal: public internal::Param_base<Adsb_transponder_altitude_internal, bool> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Transponder is sending IDENT?*/
+class Adsb_transponder_ident_active: public internal::Param_base<Adsb_transponder_ident_active, bool> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Transponder altitude*/
+class Adsb_transponder_altitude: public internal::Param_base<Adsb_transponder_altitude, float> {
+public:
+    using Param_base::Param_base;
+    /** Base class type. */
+    typedef Param_base Base;
+};
+
+/** Transponder current squawk code*/
+class Adsb_transponder_squawk: public internal::Param_base<Adsb_transponder_squawk, int16_t> {
 public:
     using Param_base::Param_base;
     /** Base class type. */

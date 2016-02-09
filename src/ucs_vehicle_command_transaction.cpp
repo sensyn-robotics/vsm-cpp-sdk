@@ -76,6 +76,9 @@ Ucs_vehicle_command_transaction::Process(
         } else if (message->payload->param1 ==
                 mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_MANUAL_INPUT_ENABLED) {
             type = Vehicle_command::Type::MANUAL_MODE;
+        } else if (message->payload->param1 ==
+                mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_GUIDED_ENABLED) {
+            type = Vehicle_command::Type::GUIDED_MODE;
         } else {
             unsupported = true;
         }
@@ -98,6 +101,9 @@ Ucs_vehicle_command_transaction::Process(
     case mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_WAYPOINT_EX:
         type = Vehicle_command::Type::WAYPOINT;
         break;
+    case mavlink::ugcs::MAV_CMD::MAV_CMD_DO_ASDB_OPERATING:
+        type = Vehicle_command::Type::ADSB_OPERATING;
+        break;
     default:
         unsupported = true;
     }
@@ -115,13 +121,48 @@ Ucs_vehicle_command_transaction::Process(
     auto completion_handler =
             Make_callback(&Ucs_vehicle_command_transaction::On_vehicle_command_completed,
                     Shared_from_this(), Vehicle_request::Result::NOK);
-    if (type == Vehicle_command::Type::WAYPOINT) {
-        vehicle_command = Vehicle_command_request::Create(completion_handler,
-            completion_context, message->payload);
-    } else {
-        vehicle_command = Vehicle_command_request::Create(completion_handler,
-            completion_context, type);
+    vehicle_command = Vehicle_command_request::Create(completion_handler,
+        completion_context, type, message->payload);
+    vehicle->Submit_vehicle_request(vehicle_command);
+}
+
+void
+Ucs_vehicle_command_transaction::Process(
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_INSTALL,
+                         mavlink::ugcs::Extension>::Ptr message)
+{
+    if (vehicle_command) {
+        /* Already in progress. */
+        Send_adsb_ack(mavlink::MAV_RESULT::MAV_RESULT_TEMPORARILY_REJECTED);
+        return;
     }
+
+    /* Start new transaction. */
+    auto completion_handler =
+            Make_callback(&Ucs_vehicle_command_transaction::On_adsb_command_completed,
+                    Shared_from_this(), Vehicle_request::Result::NOK);
+    vehicle_command = Vehicle_command_request::Create(completion_handler,
+        completion_context, message->payload);
+    vehicle->Submit_vehicle_request(vehicle_command);
+}
+
+void
+Ucs_vehicle_command_transaction::Process(
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_PREFLIGHT,
+                         mavlink::ugcs::Extension>::Ptr message)
+{
+    if (vehicle_command) {
+        /* Already in progress. */
+        Send_adsb_ack(mavlink::MAV_RESULT::MAV_RESULT_TEMPORARILY_REJECTED);
+        return;
+    }
+
+    /* Start new transaction. */
+    auto completion_handler =
+            Make_callback(&Ucs_vehicle_command_transaction::On_adsb_command_completed,
+                    Shared_from_this(), Vehicle_request::Result::NOK);
+    vehicle_command = Vehicle_command_request::Create(completion_handler,
+        completion_context, message->payload);
     vehicle->Submit_vehicle_request(vehicle_command);
 }
 
@@ -141,3 +182,20 @@ Ucs_vehicle_command_transaction::On_vehicle_command_completed(Vehicle_request::R
     vehicle_command = nullptr;
     Done();
 }
+
+void
+Ucs_vehicle_command_transaction::On_adsb_command_completed(Vehicle_request::Result result)
+{
+    LOG_DEBUG("Command completed for vehicle %u, result %d",
+            vehicle->system_id,
+            static_cast<int>(result));
+
+    if (!Is_aborted()) {
+        Send_adsb_ack(result == Vehicle_request::Result::OK ?
+                mavlink::MAV_RESULT::MAV_RESULT_ACCEPTED :
+                mavlink::MAV_RESULT::MAV_RESULT_FAILED);
+    }
+    vehicle_command = nullptr;
+    Done();
+}
+

@@ -32,16 +32,16 @@ Mavlink_demuxer::Register_default_handler(Default_handler handler)
 
 bool
 Mavlink_demuxer::Demux(Io_buffer::Ptr buffer, mavlink::MESSAGE_ID_TYPE message_id,
-                       System_id system_id, uint8_t component_id)
+                       System_id system_id, uint8_t component_id, uint32_t request_id)
 {
-    if (Demux_try(buffer, message_id, system_id, component_id)) {
+    if (Demux_try(buffer, message_id, system_id, component_id, request_id)) {
         return true;
     }
     if (!default_handler) {
         return false;
     }
-    if (default_handler(message_id, system_id, component_id)) {
-        return Demux_try(buffer, message_id, system_id, component_id);
+    if (default_handler(message_id, system_id, component_id, request_id)) {
+        return Demux_try(buffer, message_id, system_id, component_id, request_id);
     }
     return false;
 }
@@ -60,29 +60,30 @@ Mavlink_demuxer::Demux_try(
         Io_buffer::Ptr buffer,
         mavlink::MESSAGE_ID_TYPE message_id,
         System_id system_id,
-        uint8_t component_id)
+        uint8_t component_id,
+        uint32_t request_id)
 {
     /* Try exact match first. */
     if (Demux_try_one(buffer, message_id, system_id, component_id,
-            system_id, component_id)) {
+            system_id, component_id, request_id)) {
         return true;
     }
 
     /* Try all components for specific system. */
     if (Demux_try_one(buffer, message_id, system_id, COMPONENT_ID_ANY,
-            system_id, component_id)) {
+            system_id, component_id, request_id)) {
         return true;
     }
 
     /* Try specific component for any system. */
     if (Demux_try_one(buffer, message_id, SYSTEM_ID_ANY, component_id,
-            system_id, component_id)) {
+            system_id, component_id, request_id)) {
         return true;
     }
 
     /* Finally try any system and any component. */
     if (Demux_try_one(buffer, message_id, SYSTEM_ID_ANY, COMPONENT_ID_ANY,
-            system_id, component_id)) {
+            system_id, component_id, request_id)) {
         return true;
     }
 
@@ -95,7 +96,8 @@ Mavlink_demuxer::Demux_try_one(Io_buffer::Ptr buffer,
                                System_id system_id,
                                Component_id component_id,
                                System_id real_system_id,
-                               uint8_t real_component_id)
+                               uint8_t real_component_id,
+                               uint32_t request_id)
 {
     Callback_base::Ptr cb;
 
@@ -110,7 +112,7 @@ Mavlink_demuxer::Demux_try_one(Io_buffer::Ptr buffer,
         cb = iter->second;
     }
 
-    (*cb)(buffer, real_system_id, real_component_id);
+    (*cb)(buffer, real_system_id, real_component_id, request_id);
 
     return true;
 }

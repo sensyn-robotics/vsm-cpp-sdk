@@ -103,7 +103,8 @@ private:
             SCALED_PRESSURE,
             VFR_HUD,
             CAMERA_ATTITUDE,
-
+            HOME_POSITION,
+            ADSB_TRANSPONDER_STATE,
             NUM_PAYLOAD_TYPES
         };
 
@@ -115,6 +116,8 @@ private:
         mavlink::Pld_scaled_pressure scaled_pressure;
         mavlink::Pld_vfr_hud vfr_hud;
         mavlink::ugcs::Pld_camera_attitude camera_attitude;
+        mavlink::ugcs::Pld_home_position home_position;
+        mavlink::ugcs::Pld_adsb_transponder_state adsb_transponder_state;
 
         int payload_generation[NUM_PAYLOAD_TYPES];
 
@@ -205,6 +208,37 @@ private:
 
     void
     Commit(const tm::Camera_attitude::Base &value);
+
+    void
+    Commit(const tm::Home_position::Base &value);
+
+    void
+    Commit(const tm::Adsb_transponder_icao_code::Base &value);
+
+    void
+    Commit(const tm::Adsb_transponder_registration::Base &value);
+
+    void
+    Commit(const tm::Adsb_transponder_altitude::Base &value);
+
+    void
+    Commit(const tm::Adsb_transponder_altitude_internal::Base &value);
+
+    void
+    Commit(const tm::Adsb_transponder_error_flags::Base &value);
+
+    void
+    Commit(const tm::Adsb_transponder_flight_id::Base &value);
+
+    void
+    Commit(const tm::Adsb_transponder_ident_active::Base &value);
+
+    void
+    Commit(const tm::Adsb_transponder_mode::Base &value);
+
+    void
+    Commit(const tm::Adsb_transponder_squawk::Base &value);
+
 };
 
 } /* namespace vsm */

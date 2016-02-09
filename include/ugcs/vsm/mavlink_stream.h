@@ -72,10 +72,10 @@ public:
     Bind_decoder_demuxer()
     {
         auto binder = [](Io_buffer::Ptr buffer, mavlink::MESSAGE_ID_TYPE message_id,
-                Mavlink_demuxer::System_id system_id, uint8_t component_id,
+                Mavlink_demuxer::System_id system_id, uint8_t component_id, uint32_t request_id,
                 Mavlink_stream::Ptr mav_stream)
         {
-            mav_stream->demuxer.Demux(buffer, message_id, system_id, component_id);
+            mav_stream->demuxer.Demux(buffer, message_id, system_id, component_id, request_id);
         };
 
         decoder.Register_handler(
@@ -99,6 +99,34 @@ public:
         ASSERT(completion_ctx->Get_type() != Request_completion_context::Type::TEMPORAL);
 
         Io_buffer::Ptr buffer = encoder.Encode<Mavlink_kind>(payload, system_id, component_id);
+
+        Operation_waiter waiter = stream->Write(
+                buffer,
+                Make_dummy_callback<void, Io_result>(),
+                completion_ctx);
+        waiter.Timeout(timeout, timeout_handler, true, completion_ctx);
+
+        write_ops.emplace(std::move(waiter));
+        Cleanup_write_ops();
+    }
+
+    /** Send Mavlink message to other end asynchronously. Timeout should be
+     * always present, otherwise there is a chance to overflow the write queue
+     * if underlying stream is write-blocked. Only non-temporal completion
+     * contexts are allowed. */
+    void
+    Send_response_message(
+            const mavlink::Payload_base& payload,
+            typename Mavlink_kind::System_id system_id,
+            uint8_t component_id,
+            uint32_t request_id,
+            const std::chrono::milliseconds& timeout,
+            Operation_waiter::Timeout_handler timeout_handler,
+            const Request_completion_context::Ptr& completion_ctx)
+    {
+        ASSERT(completion_ctx->Get_type() != Request_completion_context::Type::TEMPORAL);
+
+        Io_buffer::Ptr buffer = encoder.Encode<Mavlink_kind>(payload, system_id, component_id, request_id);
 
         Operation_waiter waiter = stream->Write(
                 buffer,

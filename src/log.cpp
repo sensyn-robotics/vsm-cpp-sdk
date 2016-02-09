@@ -23,6 +23,8 @@ volatile Log *Log::log = nullptr;
 constexpr ssize_t Log::MIN_CUSTOM_LOG_FILE_SIZE;
 
 constexpr ssize_t Log::DEFAULT_MAX_CUSTOM_LOG_FILE_SIZE;
+constexpr const char* const Log::LOG_FILE_ROTATOR_SUFFIX_FORMAT;
+constexpr const char* const Log::LOG_FILE_ROTATOR_FIND_PATTERN;
 
 Log::Log()
 {
@@ -129,6 +131,19 @@ Log::Set_max_custom_log_size_inst(ssize_t size)
         LOG_DEBUG("Setting max custom log file to %ld bytes", static_cast<long>(size));
         max_custom_log = size;
     }
+}
+
+void
+Log::Set_max_custom_log_count(size_t count)
+{
+    Log::Get_instance()->Set_max_custom_log_count_inst(count);
+}
+
+void
+Log::Set_max_custom_log_count_inst(size_t count)
+{
+    custom_log_count = count;
+    LOG_DEBUG("Setting max old log file count to %zu", count);
 }
 
 std::string
@@ -360,18 +375,12 @@ Log::Do_cleanup(int thread_id)
     fclose(custom_log_file);
     custom_log_file = nullptr;
 
-    //XXX temporal workaround for Android until normal rotation is implemented
-#ifdef ANDROID
-    File_processor::Rename_utf8(custom_log_file_name,
-                                custom_log_file_name + ".old");
-    Reopen_custom_log_file(custom_log_file_name);
-
-#else
-
     char ts_buf[128];
     auto now = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(now);
-    std::strftime(ts_buf, sizeof(ts_buf), "_%Y%m%d-%H%M%S", std::localtime(&t));
+
+    // If you change this pattern then you fix the Remove_old_log_files, too.
+    std::strftime(ts_buf, sizeof(ts_buf), LOG_FILE_ROTATOR_SUFFIX_FORMAT, std::localtime(&t));
 
     std::string base_name = custom_log_file_name + ts_buf;
 
@@ -412,6 +421,5 @@ Log::Do_cleanup(int thread_id)
         /* Don't throw exception in the middle of work if reopen fails. */
         Reopen_custom_log_file(custom_log_file_name);
     }
-
-#endif
+    Remove_old_log_files();
 }

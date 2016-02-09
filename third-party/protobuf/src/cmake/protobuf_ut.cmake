@@ -152,26 +152,25 @@ add_custom_target(PROTOBUF_RESOURCES DEPENDS ${PROTOBUF_RESOURCE_LIST})
 Compile_protobuf_definitions(
     "${PROTOC_INPUTS}"
     ${CMAKE_SOURCE_DIR}/../../third-party/protobuf/src
-    ${CMAKE_BINARY_DIR}/protobuf
     protobuf_ut.h)
-include_directories(${CMAKE_BINARY_DIR}/protobuf)
 
 add_executable(protobuf_test ${PROTOBUF_TEST_SOURCES} $<TARGET_OBJECTS:protobuf_objlib>
-    ${PROTOBUF_AUTO_SRCS})
+    ${PROTOBUF_AUTO_SOURCES})
+
 target_link_libraries(protobuf_test gtest gtest_main)
 
 add_executable(test_plugin ${TEST_PLUGIN_SOURCES} $<TARGET_OBJECTS:protobuf_objlib>)
 target_link_libraries(test_plugin gtest gtest_main)
 
 add_executable(protobuf_lazy_descriptor_test ${PROTOBUF_LAZY_DESCRIPTOR_TEST_SOURCES}
-    $<TARGET_OBJECTS:protobuf_objlib> ${PROTOBUF_AUTO_SRCS})
+    $<TARGET_OBJECTS:protobuf_objlib> ${PROTOBUF_AUTO_SOURCES})
 target_link_libraries(protobuf_lazy_descriptor_test gtest gtest_main)
 set_target_properties(protobuf_lazy_descriptor_test
     PROPERTIES COMPILE_FLAGS -DPROTOBUF_TEST_NO_DESCRIPTORS)
     
 # Just link with full protobuf support, tests are still for lite only
 add_executable(protobuf_lite_test ${PROTOBUF_LITE_TEST_SOURCES}
-    $<TARGET_OBJECTS:protobuf_objlib> ${PROTOBUF_AUTO_SRCS})
+    $<TARGET_OBJECTS:protobuf_objlib> ${PROTOBUF_AUTO_SOURCES})
 
 add_dependencies(protobuf_test protobuf_compiler test_plugin PROTOBUF_RESOURCES)
 add_dependencies(protobuf_lazy_descriptor_test protobuf_compiler)

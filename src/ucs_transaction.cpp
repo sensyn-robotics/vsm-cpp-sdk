@@ -102,6 +102,22 @@ Ucs_transaction::Process(
 }
 
 void
+Ucs_transaction::Process(
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_INSTALL,
+                         mavlink::ugcs::Extension>::Ptr msg)
+{
+    Default_message_processing(msg);
+}
+
+void
+Ucs_transaction::Process(
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_PREFLIGHT,
+                         mavlink::ugcs::Extension>::Ptr msg)
+{
+    Default_message_processing(msg);
+}
+
+void
 Ucs_transaction::Done()
 {
     if (done_handler) {
@@ -110,8 +126,9 @@ Ucs_transaction::Done()
 }
 
 void
-Ucs_transaction::Send_mission_ack(mavlink::MAV_MISSION_RESULT result,
-        uint8_t vehicle_component_id)
+Ucs_transaction::Send_mission_ack(
+    mavlink::MAV_MISSION_RESULT result,
+    uint8_t vehicle_component_id)
 {
     mavlink::ugcs::Pld_mission_ack_ex ack;
 
@@ -119,19 +136,50 @@ Ucs_transaction::Send_mission_ack(mavlink::MAV_MISSION_RESULT result,
     ack->target_system = ucs_system_id;
     ack->target_component = ucs_component_id;
 
-    Send_message(ack, vehicle->system_id, vehicle_component_id);
+    Send_response_message(ack, vehicle->system_id, vehicle_component_id);
 }
 
 void
-Ucs_transaction::Send_command_ack(mavlink::MAV_RESULT result,
-        const mavlink::ugcs::Pld_command_long_ex& command)
+Ucs_transaction::Send_command_ack(
+    mavlink::MAV_RESULT result,
+    const mavlink::ugcs::Pld_command_long_ex& command)
 {
     mavlink::Pld_command_ack ack;
 
     ack->command = command->command;
     ack->result = result;
 
-    Send_message(ack, vehicle->system_id, command->target_component);
+    Send_response_message(ack, vehicle->system_id, command->target_component);
+}
+
+void
+Ucs_transaction::Send_adsb_ack(
+    mavlink::MAV_RESULT result)
+{
+    mavlink::ugcs::Pld_adsb_transponder_response ack;
+
+    ack->result = result;
+
+    Send_response_message(ack, vehicle->system_id, 0);
+}
+
+void
+Ucs_transaction::Send_response_message(
+        const mavlink::Payload_base& payload,
+        typename mavlink::Mavlink_kind_ugcs::System_id system_id,
+        uint8_t component_id)
+{
+    mav_stream->Send_response_message(
+            payload,
+            system_id,
+            component_id,
+            current_request_id,
+            WRITE_TIMEOUT,
+            Make_timeout_callback(
+                    &Ucs_transaction::Write_to_ucs_timed_out,
+                    Shared_from_this(),
+                    mav_stream),
+            completion_context);
 }
 
 void

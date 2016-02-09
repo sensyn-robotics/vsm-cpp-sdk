@@ -67,6 +67,12 @@ public:
     Operation_waiter&
     operator=(const Operation_waiter&) = delete;
 
+    /** Test the waiter has request associated. */
+    operator bool() const
+    {
+        return request != nullptr;
+    }
+
     /** Wait for request is fully processed, i.e. all handlers were invoked and
      * no more actions pending.
      *

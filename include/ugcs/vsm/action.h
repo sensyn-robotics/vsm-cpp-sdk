@@ -56,7 +56,9 @@ public:
         /** Continuously shot camera in regular time intervals. */
         CAMERA_SERIES_BY_TIME,
         /** Continuously shot camera in regular distance intervals. */
-        CAMERA_SERIES_BY_DISTANCE
+        CAMERA_SERIES_BY_DISTANCE,
+        /** Set mission parameter. see enum MAV_MISSION_PARAMETER_TYPE */
+        SET_PARAMETER
     };
 
     /** Construct action of specific type. */
@@ -92,9 +94,10 @@ public:
         case Type::TASK_ATTRIBUTES: return "TASK ATTRIBUTES";
         case Type::CAMERA_SERIES_BY_TIME: return "CAMERA SERIES BY TIME";
         case Type::CAMERA_SERIES_BY_DISTANCE: return "CAMERA SERIES BY DISTANCE";
+        case Type::SET_PARAMETER: return "SET_PARAMETER";
         }
         VSM_EXCEPTION(Internal_error_exception, "Action type %d unknown.",
-                type);
+                      static_cast<int>(type));
     }
 
     /** Map Action type enum value to specific Action type class. */

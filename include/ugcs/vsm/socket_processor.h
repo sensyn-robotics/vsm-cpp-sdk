@@ -24,10 +24,11 @@ namespace vsm {
 
 class Local_interface {
 public:
-    Local_interface(const std::string&, bool);
+    Local_interface(const std::string& name);
 public:
     std::string name;
-    bool is_multicast;
+    bool is_multicast = false;
+    bool is_loopback = false;
     std::vector<Socket_address::Ptr> adresses;
 };
 
@@ -85,9 +86,6 @@ public:
         Io_request::Ptr
         Get_connect_request();
 
-        int
-        Get_socket_type(){ return socket_type; }
-
         void
         Abort_pending_requests(Io_result result = Io_result::CLOSED);
 
@@ -129,6 +127,14 @@ public:
         bool
         Add_multicast_group(Socket_address::Ptr interface, Socket_address::Ptr multicast);
 
+        /* Enable/disable sending of broadcast packets.
+         * Valid for SOCK_DGRAM streams only
+         * @param enable true - enable sending of broadcast packets
+         *               false - disable sending of broadcast packets
+         * @return true on success */
+        bool
+        Enable_broadcast(bool enable);
+
     private:
 
         Socket_address::Ptr peer_address = nullptr;
@@ -140,8 +146,6 @@ public:
         Socket_processor::Ptr processor;
 
         Io_request::Ptr connect_request;
-
-        int socket_type;    // SOCK_DGRAM | SOCK_STREAM
 
         // true if socket was connected using connect() call.
         // I.e. no need to specify destination when doing send().
@@ -164,9 +168,6 @@ public:
 
         sockets::Socket_handle
         Get_socket();
-
-        void
-        Set_socket_type(int type);
 
         void
         Set_socket(sockets::Socket_handle s);
@@ -224,7 +225,7 @@ public:
     Connect(std::string host, std::string service,
             Connect_handler completion_handler,
             Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create(),
-            int sock_type = SOCK_STREAM,
+            Io_stream::Type sock_type = Io_stream::Type::TCP,
             Socket_address::Ptr src_addr = nullptr)
     {
         return Connect(
@@ -239,7 +240,7 @@ public:
     Connect(Socket_address::Ptr dest_addr,
             Connect_handler completion_handler,
             Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create(),
-            int sock_type = SOCK_STREAM,
+            Io_stream::Type sock_type = Io_stream::Type::TCP,
             Socket_address::Ptr src_addr = nullptr);
 
     template <class Callback_ptr>
@@ -274,7 +275,7 @@ public:
             const std::string& service,
             Listen_handler completion_handler,
             Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create(),
-            int sock_type = SOCK_STREAM)
+            Io_stream::Type sock_type = Io_stream::Type::TCP)
     {
         return Listen(Socket_address::Create(host, service), completion_handler, completion_context, sock_type);
     }
@@ -284,7 +285,7 @@ public:
             Socket_address::Ptr addr,
             Listen_handler completion_handler,
             Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create(),
-            int sock_type = SOCK_STREAM, bool multicast = false);
+            Io_stream::Type sock_type = Io_stream::Type::TCP);
 
     /** create local UDP endpoint socket and associate stream with it.
      * See Listen_handler for completion handler parameters.
@@ -308,8 +309,35 @@ public:
             Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create(),
             bool multicast = false)
     {
-        return Listen(addr, completion_handler, completion_context, SOCK_DGRAM, multicast);
+        return Listen(addr, completion_handler, completion_context, multicast?Io_stream::Type::UDP_MULTICAST:Io_stream::Type::UDP);
     }
+
+    /** Create CAN socket and associate stream with it.
+     * For now this is linux-only stuff (via SocketCAN API).
+     *
+     * How it works:
+     * Socket is bound to a given can interface by name.
+     * User can issue Read, Write on returned stream.
+     *
+     * Write will accept only valid raw CAN frames with length 16.
+     * Caller is responsible of producing a valid frame.
+     *
+     * Read will return only valid CAN frames.
+     * Caller is responsible of parsing payload data from frame.
+     *
+     * Read_from and Write_to are not supported.
+     *
+     * @param interface CAN interface name. Typically "can0" or similar.
+     * @param filter_messges set of can_ids to listen for. Empty means read all.
+     *
+     * See Listen_handler for completion handler parameters.
+     */
+    Operation_waiter
+    Bind_can(
+            std::string interface,
+            std::vector<int> filter_messges,
+            Listen_handler completion_handler,
+            Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create());
 
     static std::list<Local_interface>
     Enumerate_local_interfaces();
@@ -358,6 +386,13 @@ protected:
 
     void
     On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_address::Ptr addr);
+
+    void
+    On_bind_can(
+        Io_request::Ptr request,
+        std::vector<int> filter_messges,
+        Stream::Ptr stream,
+        std::string iface_id);
 
     void
     On_accept(Io_request::Ptr request, Stream::Ptr stream, Stream::Ref listenstream);

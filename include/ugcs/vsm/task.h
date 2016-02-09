@@ -69,6 +69,9 @@ public:
      */
     Task_attributes_action::Ptr attributes;
 
+    /** Parameter list for the task .*/
+    std::vector<Action::Ptr> parameters;
+
 private:
 
     /** Implementation of retrieve home position from the task. Either gets

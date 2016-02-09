@@ -224,13 +224,13 @@ Request_container::Submit_request_impl(
         if (!abort_ongoing.load()) {
             VSM_EXCEPTION(Internal_error_exception,
                     "Request in state %d is submitted to fully disabled container [%s].",
-                    request->Get_status(), name.c_str());
+                    static_cast<int>(request->Get_status()), name.c_str());
         }
         auto status = request->Get_status();
         if (status != Request::Status::ABORT_PENDING) {
             VSM_EXCEPTION(Internal_error_exception,
                     "Request in wrong state %d is submitted to disabled container [%s].",
-                    status, name.c_str());
+                    static_cast<int>(status), name.c_str());
         }
     }
     request_queue.push_back(request);

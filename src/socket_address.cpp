@@ -196,3 +196,11 @@ Socket_address::Is_multicast_address()
     return true;
 }
 
+bool
+Socket_address::Is_loopback_address()
+{
+    if (!is_resolved) {
+        return false;
+    }
+    return (As_sockaddr_in().sin_addr.s_addr == ntohl(INADDR_LOOPBACK));
+}

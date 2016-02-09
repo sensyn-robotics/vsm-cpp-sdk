@@ -16,6 +16,7 @@
 #include <fstream>
 #include <ctime>
 #include <chrono>
+#include <map>
 #include <locale>
 #include <io.h>
 #include <fcntl.h>
@@ -95,3 +96,45 @@ Log::Vprintf_utf8(const char *format, std::va_list args)
     return ret;
 }
 
+struct File_time_compare {
+    bool operator() (const FILETIME& lhs, const FILETIME& rhs) const{
+        return (CompareFileTime(&lhs, &rhs) == -1);
+    }
+};
+
+void
+Log::Remove_old_log_files()
+{
+    WIN32_FIND_DATAW FindFileData;
+    HANDLE hFind;
+
+    auto pat = custom_log_file_name + LOG_FILE_ROTATOR_FIND_PATTERN;
+    auto dir_pos = custom_log_file_name.find_last_of("\\/");
+    std::wstring directory;
+    if (dir_pos != std::string::npos) {
+        directory = std::wstring(Windows_wstring(std::string(custom_log_file_name, 0, dir_pos + 1)).Get());
+    }
+    // This thing returns only unsorted file names, not directory.
+    hFind = FindFirstFileW(Windows_wstring(pat).Get(), &FindFileData);
+    if (hFind != INVALID_HANDLE_VALUE) {
+        // Create a sorted list of filenames
+        std::multimap<FILETIME, std::wstring, File_time_compare> filelist;
+        do {
+            filelist.emplace(FindFileData.ftLastWriteTime, directory + FindFileData.cFileName);
+        } while (FindNextFileW(hFind, &FindFileData));
+
+        FindClose(hFind);
+
+        // Delete all old files, keep only preconfigured number of files.
+        if (filelist.size() > custom_log_count) {
+            auto to_delete = filelist.size() - custom_log_count;
+            for (auto & i : filelist) {
+                _wremove(i.second.c_str());
+                to_delete--;
+                if (to_delete == 0) {
+                    break;
+                }
+            }
+        }
+    }
+}

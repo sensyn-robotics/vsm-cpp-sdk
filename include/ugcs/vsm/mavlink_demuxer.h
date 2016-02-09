@@ -59,13 +59,13 @@ public:
      * @return @a true message will be resubmitted to demuxer for further
      * processing, otherwise @a false.
      */
-    typedef Callback_proxy<bool, mavlink::MESSAGE_ID_TYPE, System_id, uint8_t>
+    typedef Callback_proxy<bool, mavlink::MESSAGE_ID_TYPE, System_id, uint8_t, uint32_t>
         Default_handler;
 
     /** Convenience builder for Mavlink demuxer default handlers. */
     DEFINE_CALLBACK_BUILDER(Make_default_handler,
-            (mavlink::MESSAGE_ID_TYPE, System_id, uint8_t),
-            (mavlink::MESSAGE_ID::DEBUG_VALUE, mavlink::SYSTEM_ID_NONE, 0))
+            (mavlink::MESSAGE_ID_TYPE, System_id, uint8_t, uint32_t),
+            (mavlink::MESSAGE_ID::DEBUG_VALUE, mavlink::SYSTEM_ID_NONE, 0, 0))
 
     /** Convenience builder for Mavlink demuxer handlers. */
     DEFINE_CALLBACK_BUILDER_TEMPLATE(Make_handler,
@@ -192,7 +192,7 @@ public:
      */
     bool
     Demux(Io_buffer::Ptr buffer, mavlink::MESSAGE_ID_TYPE message_id,
-          System_id system_id, uint8_t component_id);
+          System_id system_id, uint8_t component_id, uint32_t request_id);
 
     /** Unregister handler using registration key. Key is invalidated upon exit
      * from the method. */
@@ -207,7 +207,7 @@ private:
      */
     bool
     Demux_try(Io_buffer::Ptr buffer, mavlink::MESSAGE_ID_TYPE message_id,
-              System_id system_id, uint8_t component_id);
+              System_id system_id, uint8_t component_id, uint32_t request_id);
 
     /** Demultiplex the message based on provided identifiers which could have
      * special values.
@@ -217,7 +217,8 @@ private:
     Demux_try_one(Io_buffer::Ptr buffer, mavlink::MESSAGE_ID_TYPE message_id,
                   System_id system_id, Component_id component_id,
                   System_id real_system_id,
-                  uint8_t real_component_id);
+                  uint8_t real_component_id,
+                  uint32_t request_id);
 
     /** Callback base class to provide a unified interface to convert raw
      * data buffer to specific Mavlink message and call associated
@@ -236,7 +237,7 @@ private:
 
         virtual void
         operator ()(Io_buffer::Ptr buffer, System_id system_id,
-                    uint8_t component_id) = 0;
+                    uint8_t component_id, uint32_t request_id) = 0;
 
     protected:
         /** Optional request processor for a handler (may be nullptr). */
@@ -260,10 +261,10 @@ private:
 
         virtual void
         operator ()(Io_buffer::Ptr buffer, System_id system_id,
-                    uint8_t component_id) override
+                    uint8_t component_id, uint32_t request_id) override
         {
             typename Message_type::Ptr message =
-                    Message_type::Create(system_id, component_id, buffer);
+                    Message_type::Create(system_id, component_id, request_id, buffer);
             if (processor) {
                 /* Callback will be invoked from processor context. */
                 auto request = Request::Create();

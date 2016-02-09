@@ -44,7 +44,8 @@ Io_stream::Io_result_as_char(const Io_result res)
         return "OTHER_FAILURE";
     }
     VSM_EXCEPTION(Internal_error_exception,
-            "Io_result value %d is not handled in stringify.", res);
+            "Io_result value %d is not handled in stringify.",
+            static_cast<int>(res));
     return "Invalid";
 }
 

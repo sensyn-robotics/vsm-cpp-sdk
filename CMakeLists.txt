@@ -24,13 +24,14 @@ if (NOT DEFINED UGCS_PACKAGING_ENABLED)
     endif()
 endif()
 
-include("sdk_common")
-
-# Protobuf support
+# Compile protobuf compiler before including sdk_common.
+# This ensures that protobuf_compiler is built for host platform.
 add_subdirectory(third-party/protobuf/src ${CMAKE_BINARY_DIR}/protobuf)
 
+include("sdk_common")
+
 # Add all source files
-file(GLOB SOURCES "src/*.cpp")
+file(GLOB SOURCES "src/*.cpp" "src/*.c")
 file(GLOB HEADERS "include/ugcs/vsm/*.h")
 
 # Setup platform specific sources
@@ -54,21 +55,35 @@ include_directories(${SDK_INCLUDES})
 
 if (ANDROID)
     # Add target "android"
-    Create_android_build("armeabi-v7a;x86" "android-19" "${SDK_SOURCES}" "${SDK_INCLUDES}")
+    Create_android_build("${ANDROID_ABI_LIST}" "${ANDROID_PLATFORM}" "${SDK_SOURCES}" "${SDK_INCLUDES}")
     add_custom_target(${CMAKE_PROJECT_NAME} ALL)
     add_dependencies(${CMAKE_PROJECT_NAME} android)
 else()
-    # Build the (static) sdk library
-    add_library(${CMAKE_PROJECT_NAME} STATIC
-        ${SDK_SOURCES} ${SDK_HEADERS} ${DLL_IMPORT_LIBS}
-        $<TARGET_OBJECTS:protobuf_objlib>
-        )
+    # Build the vsm-sdk static library
+    if (BEAGLEBONE)
+        # Create protobuf lib for BB.
+        add_subdirectory(third-party/protobuf/src ${CMAKE_BINARY_DIR}/protobuf_bb)
+        add_library(${CMAKE_PROJECT_NAME} STATIC
+            ${SDK_SOURCES} ${SDK_HEADERS} ${DLL_IMPORT_LIBS}
+            $<TARGET_OBJECTS:protobuf_objlib_bb>
+            )
+        set (LIBRARY_INSTALL_DIR "${UGCS_INSTALL_DIR}/beaglebone/lib")
+    else()
+        add_library(${CMAKE_PROJECT_NAME} STATIC
+            ${SDK_SOURCES} ${SDK_HEADERS} ${DLL_IMPORT_LIBS}
+            $<TARGET_OBJECTS:protobuf_objlib>
+            )
+        set (LIBRARY_INSTALL_DIR "${UGCS_INSTALL_DIR}/lib")
+    endif()
+
     # Install vsm-sdk library
     install(TARGETS ${CMAKE_PROJECT_NAME}
             RUNTIME DESTINATION "${UGCS_INSTALL_DIR}/bin"
-            LIBRARY DESTINATION "${UGCS_INSTALL_DIR}/lib"
-            ARCHIVE DESTINATION "${UGCS_INSTALL_DIR}/lib")
+            LIBRARY DESTINATION "${LIBRARY_INSTALL_DIR}"
+            ARCHIVE DESTINATION "${LIBRARY_INSTALL_DIR}")
 endif()
+
+
 add_dependencies(${CMAKE_PROJECT_NAME} mavlink_lua)
 
 add_dependencies (${CMAKE_PROJECT_NAME} protobuf_compiler)
@@ -127,13 +142,6 @@ install(FILES   "cmake/ugcs/vsm.cmake"
 install (DIRECTORY third-party/protobuf/src/google
         DESTINATION "${UGCS_INSTALL_DIR}/include"
         FILES_MATCHING PATTERN "*.h")
-
-get_target_property (PROTOC_PATH protobuf_compiler LOCATION)
-
-# Install google protobuf compiler
-install (FILES ${PROTOC_PATH}
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-        DESTINATION "${UGCS_INSTALL_DIR}/share/tools")
 
 # Install import dlls
 install (FILES ${DLL_IMPORT_LIBS} 

@@ -164,7 +164,7 @@ Some basic examples:
     virtual void
     Handle_vehicle_request(ugcs::vsm::Vehicle_task_request::Handle request) override
     {
-        ugcs::vsm::Vehicle_tequest::Handle base_handle = request;
+        ugcs::vsm::Vehicle_request::Handle base_handle = request;
         /* if (request) - yields to true */
         /* if (base_handle) - yields to true */
         base_handle = ugcs::vsm::Vehicle_request::Result::OK;

@@ -48,11 +48,11 @@ typedef Atomic32 (*LinuxKernelCmpxchgFunc)(Atomic32 old_value,
                                            Atomic32 new_value,
                                            volatile Atomic32* ptr);
 LinuxKernelCmpxchgFunc pLinuxKernelCmpxchg __attribute__((weak)) =
-    (LinuxKernelCmpxchgFunc) 0xffff0fc0;
+    reinterpret_cast<LinuxKernelCmpxchgFunc> (0xffff0fc0);
 
 typedef void (*LinuxKernelMemoryBarrierFunc)(void);
 LinuxKernelMemoryBarrierFunc pLinuxKernelMemoryBarrier __attribute__((weak)) =
-    (LinuxKernelMemoryBarrierFunc) 0xffff0fa0;
+    reinterpret_cast<LinuxKernelMemoryBarrierFunc> (0xffff0fa0);
 
 
 inline Atomic32 NoBarrier_CompareAndSwap(volatile Atomic32* ptr,

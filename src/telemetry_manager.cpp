@@ -48,6 +48,8 @@ Telemetry_manager::Raw_data::Reset()
     scaled_pressure.Reset();
     vfr_hud.Reset();
     camera_attitude.Reset();
+    home_position.Reset();
+    adsb_transponder_state.Reset();
 }
 
 void
@@ -81,6 +83,10 @@ Telemetry_manager::Raw_data::Is_dirty(Payload_type type, const Raw_data &prev_da
         return vfr_hud != prev_data.vfr_hud;
     case Payload_type::CAMERA_ATTITUDE:
         return camera_attitude != prev_data.camera_attitude;
+    case Payload_type::HOME_POSITION:
+        return home_position != prev_data.home_position;
+    case Payload_type::ADSB_TRANSPONDER_STATE:
+        return adsb_transponder_state != prev_data.adsb_transponder_state;
 
     /* Prevent from compilation warning and still allow compiler to control that
      * all values are handled.
@@ -146,6 +152,18 @@ Telemetry_manager::Raw_data::Commit(const Telemetry_interface &iface,
     if (Is_dirty(Payload_type::CAMERA_ATTITUDE, prev_data)) {
         if (iface.camera_attitude) {
             iface.camera_attitude(&camera_attitude);
+        }
+    }
+
+    if (Is_dirty(Payload_type::HOME_POSITION, prev_data)) {
+        if (iface.home_position) {
+            iface.home_position(&home_position);
+        }
+    }
+
+    if (Is_dirty(Payload_type::ADSB_TRANSPONDER_STATE, prev_data)) {
+        if (iface.adsb_transponder_state) {
+            iface.adsb_transponder_state(&adsb_transponder_state);
         }
     }
 }
@@ -491,3 +509,111 @@ Telemetry_manager::Commit(const tm::Camera_attitude::Base &value)
     last_data.camera_attitude->yaw = att.yaw;
     last_data.camera_attitude->relative = att.relative;
 }
+
+void
+Telemetry_manager::Commit(const tm::Home_position::Base &value)
+{
+    if (!value) {
+        return;
+    }
+
+    last_data.Hit_payload(Raw_data::Payload_type::HOME_POSITION);
+
+    Geodetic_tuple gt = std::get<0>(value.value).Get_geodetic();
+
+    last_data.home_position->latitude = gt.latitude / M_PI * 180.0 * 1e7;
+    last_data.home_position->longitude = gt.longitude / M_PI * 180.0 * 1e7;
+    last_data.home_position->altitude = std::get<1>(value.value) ?
+        gt.altitude : std::nan("");
+}
+
+void
+Telemetry_manager::Commit(const tm::Adsb_transponder_icao_code::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::ADSB_TRANSPONDER_STATE);
+    last_data.adsb_transponder_state->icao_code = value.value;
+}
+
+void
+Telemetry_manager::Commit(const tm::Adsb_transponder_registration::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::ADSB_TRANSPONDER_STATE);
+    last_data.adsb_transponder_state->registration = value.value;
+}
+
+void
+Telemetry_manager::Commit(const tm::Adsb_transponder_altitude::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::ADSB_TRANSPONDER_STATE);
+    last_data.adsb_transponder_state->altitude = value.value;
+}
+
+void
+Telemetry_manager::Commit(const tm::Adsb_transponder_altitude_internal::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::ADSB_TRANSPONDER_STATE);
+    last_data.adsb_transponder_state->altitude_source_internal = value.value;
+}
+
+void
+Telemetry_manager::Commit(const tm::Adsb_transponder_error_flags::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::ADSB_TRANSPONDER_STATE);
+    last_data.adsb_transponder_state->error_flags = value.value;
+}
+
+void
+Telemetry_manager::Commit(const tm::Adsb_transponder_flight_id::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::ADSB_TRANSPONDER_STATE);
+    last_data.adsb_transponder_state->flight = value.value;
+}
+
+void
+Telemetry_manager::Commit(const tm::Adsb_transponder_ident_active::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::ADSB_TRANSPONDER_STATE);
+    last_data.adsb_transponder_state->ident_active = value.value;
+}
+
+void
+Telemetry_manager::Commit(const tm::Adsb_transponder_mode::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::ADSB_TRANSPONDER_STATE);
+    last_data.adsb_transponder_state->transponder_mode = value.value;
+}
+
+void
+Telemetry_manager::Commit(const tm::Adsb_transponder_squawk::Base &value)
+{
+    if (!value) {
+        return;
+    }
+    last_data.Hit_payload(Raw_data::Payload_type::ADSB_TRANSPONDER_STATE);
+    last_data.adsb_transponder_state->squawk_code = value.value;
+}
+

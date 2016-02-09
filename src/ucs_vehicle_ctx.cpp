@@ -76,6 +76,24 @@ Ucs_vehicle_ctx::Process(
 
 void
 Ucs_vehicle_ctx::Process(
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_INSTALL,
+                         mavlink::ugcs::Extension>::Ptr message,
+        Ugcs_mavlink_stream::Ptr mav_stream)
+{
+    Create_or_forward_transaction<Ucs_vehicle_command_transaction>(message, mav_stream);
+}
+
+void
+Ucs_vehicle_ctx::Process(
+        mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_PREFLIGHT,
+                         mavlink::ugcs::Extension>::Ptr message,
+        Ugcs_mavlink_stream::Ptr mav_stream)
+{
+    Create_or_forward_transaction<Ucs_vehicle_command_transaction>(message, mav_stream);
+}
+
+void
+Ucs_vehicle_ctx::Process(
         mavlink::Message<mavlink::ugcs::MESSAGE_ID::MISSION_ITEM_EX,
                          mavlink::ugcs::Extension>::Ptr message,
         Ugcs_mavlink_stream::Ptr mav_stream)
@@ -93,7 +111,10 @@ Ucs_vehicle_ctx::Process(
     response->result = mavlink::MAV_RESULT::MAV_RESULT_ACCEPTED;
     response->tail_number = vehicle->Get_model_name() + "-" +
             vehicle->Get_serial_number();
-    Send_message(mav_stream, response, message->payload->target_component);
+    Send_response_message(
+        mav_stream,
+        response,
+        message->payload->target_component);
 }
 
 void

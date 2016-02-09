@@ -36,15 +36,3 @@ TEST(basic_usage)
     Vehicle::Ptr ptr = v;
     CHECK(ptr == v);
 }
-
-TEST(id_generator_hash_function)
-{
-    auto v = Vehicle::Create(
-            mavlink::MAV_TYPE::MAV_TYPE_QUADROTOR,
-            mavlink::MAV_AUTOPILOT::MAV_AUTOPILOT_ARDUPILOTMEGA,
-            Vehicle::Capabilities(),
-            "ABCD", "1234567890");
-    v->Calculate_system_id();
-    CHECK_EQUAL(3540108284, v->system_id);
-}
-

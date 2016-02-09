@@ -161,7 +161,8 @@ Request::Process(bool process_request)
     if (process_request) {
         if (status != Status::PENDING && status != Status::CANCELLATION_PENDING) {
             VSM_EXCEPTION(Invalid_op_exception,
-                          "Attempted to process request in invalid state, state was %d!", status.load());
+                          "Attempted to process request in invalid state, state was %d!",
+                          static_cast<int>(status.load()));
         }
         if (!processing_handler) {
             VSM_EXCEPTION(Nullptr_exception, "Processing handler not set");

@@ -209,7 +209,7 @@ class MlMessage(object):
             if self.type.GetName() == 'char': 
                 return self.type.GetCount()
             else:
-                return self.type.GetSize()
+                return self.type.GetSize() * self.type.GetCount()
 
 
     def __init__(self, file, name, id):
@@ -725,8 +725,6 @@ def generate_lua_msg_fields(outf, msg):
 
 def generate_field_dissector(outf, msg, field):
     mtype = field.type.GetName()
-    size = field.GetSize()
-    ltype = lua_type(mtype)
     count = field.type.GetCount()
 
     # string is no array but string of chars
@@ -736,9 +734,11 @@ def generate_field_dissector(outf, msg, field):
     # handle arrays, but not strings
     
     for i in range(0,count):
-        if count>1: 
+        if count > 1: 
+            size = field.type.GetSize()
             index_text = '_' + str(i)
         else:
+            size = field.GetSize()
             index_text = ''
         outf.write("""
     tree:add_le(f.{1}_{0}{3}, buffer(offset, {2}))

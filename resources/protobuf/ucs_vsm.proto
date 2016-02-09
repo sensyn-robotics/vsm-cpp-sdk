@@ -1,0 +1,208 @@
+package ugcs.vsm.proto;
+
+option java_package = "com.ugcs.ucs.vsm.proto";
+option java_outer_classname = "VSMMessagesProto";
+
+import "ucs_vsm_defs.proto";
+
+// VSM-UCS Transport protocol wire format definition
+//
+// Frame format:
+// Bytes    Description
+// 0..3     message length N (little endian)
+// 4..N+4   message data of type Vsm_message
+//
+// Having only one message type allows us to avoid sending message ID on the wire with each message.
+
+// Generic message
+message Vsm_message {
+    // Target ID (vehicle ID or UCS ID)
+    optional uint32 target_system_id = 1;
+    // Message origin (vehicle ID or UCS ID). not present means message originated from VSM, not vehicle.
+    optional uint32 source_system_id = 2;
+    // Unique message id. This will be put into response field "request_id" if response is required.
+    optional uint32 message_id = 3;
+    // Request message_id if this message is a response to particular request.
+    optional uint32 request_id = 4;
+    // Indicates that peer will wait for response on this command.
+    optional bool response_required = 5;
+
+    // Message type.
+    required Vsm_message_enum message_type = 6;
+
+    // Payload for VSM_MESSAGE_VEHICLE_COMMAND
+    optional Vsm_command command = 7;
+
+    // Payload for VSM_MESSAGE_TELEMETRY
+    repeated Parameter_field telemetry_fields = 8;
+
+    // Payload for UCS_COMMAND_REGISTER_VEHICLE
+    optional Register_vehicle register_vehicle = 9;
+
+    // Payload for UCS_COMMAND_SET_CAPABILITIES
+    repeated Capability_setting command_availability = 10;
+
+    // used when message is a response to previously sent request.
+    optional Vsm_response_enum response = 11;
+}
+
+message Vsm_command {
+    // Command id (must be from from previously registered commands)
+    required uint32 command_id = 1;
+    // item sequence id in command list. used for referencing mission items later.
+    optional uint32 sequence_id = 2;
+    // list of command parameters.
+    repeated Parameter_field parameters = 3;
+    // List of subcommands (E.g. mission items)
+    repeated Vsm_command sub_commands = 4;
+}
+
+message Parameter_field {
+    // Unique field id defined via Register_field message
+    required uint32 field_id = 1;
+    // Time in ms this value was gathered since begin_of_epoch which set in Register_vehicle message.
+    optional uint64 ms_since_epoch = 2;
+    // field is present and its value == not available
+    optional bool value_is_na = 3;
+    // field is present and its value == unknown
+    optional bool value_is_unknown = 4;
+    // field is present and its value == invalid
+    optional bool value_is_invalid = 5;
+    // value holders for various field types.
+    optional sint64 int_value = 6;
+    optional float float_value = 7;
+    optional double double_value = 8;
+    optional string string_value = 9;
+    optional bool bool_value = 10;
+}
+
+enum Vsm_message_enum {
+    // New vehicle detected.
+    VSM_MESSAGE_REGISTER_VEHICLE = 1;
+
+    // Vehicle removed. After this command vehicle_id value becomes invalid. Command has no parameters.
+    VSM_MESSAGE_UNREGISTER_VEHICLE = 2;
+
+    // VSM detected altitude drift. UCS should ask user to reset takeoff altitude.
+    VSM_MESSAGE_RESET_ALTITUDE_ORIGIN = 3;
+
+    // change available capabilities of vehicle.
+    VSM_MESSAGE_SET_CAPABILITIES = 4;
+
+    // This is a telemetry packet. "parameters" array contain telemtry values.
+    VSM_MESSAGE_TELEMETRY = 5;
+
+    // Vehicle specific command.
+    VSM_MESSAGE_VEHICLE_COMMAND = 6;
+
+    // Peer identification. Sent as first message on newly established connection.
+    VSM_MESSAGE_HELLO = 7;
+
+    // Sent as response to previously sent command.
+    VSM_MESSAGE_RESPONSE = 8;
+}
+
+// When registering the vehicle vehicle_id becomes the vehicle identificator
+// used during current session until connection close or UCS_COMMAND_UNREGISTER_VEHICLE command.
+message Register_vehicle {
+    required uint32 vehicle_id = 1;
+    // User specified human readable name of the vehicle
+    required string vehicle_name = 2;
+    // User specified identification string of the vehicle
+    required string vehicle_tail_number = 3;
+    // Autopilot identificator
+    required string autopilot_type = 4;
+    // Frame identificator
+    required string frame_type = 5;
+    // begin_of_epoch is used to optimize space used for timestamp in each telemetry field.
+    // the absolute time is calculated as begin_of_epoch + timestamp.
+    // Milliseconds since 1970-01-01 00:00:00 UTC.
+    required fixed64 begin_of_epoch = 6;
+    // Telemetry fields supported by vehicle
+    repeated Register_field telemetry_fields = 7;
+    // commands and mission items supported by vehicle
+    repeated Register_capability commands = 8;
+}
+
+// VSM can enable/disable specific capability at runtime
+message Capability_setting {
+    // command_id
+    required uint32 id = 1;
+    // capability is supported by vehicle
+    optional bool is_available = 2;
+    // capability can be used on the vehicle, currently
+    optional bool is_enabled = 3;
+}
+
+message Vsm_response {
+    // Response code. This is generated by application. For 3rd party (vehicle) data use raw_data field.
+    required Vsm_response_enum response_code = 1;
+    // array of values to create localized error string for given vsm_response_code.
+    repeated string response_arguments = 3;
+    // place to put raw data received from vehicle or debug messages from VSM.
+    optional string raw_data = 4;
+}
+
+// Response code sent by VSM tu UCS
+enum Vsm_response_enum {
+    VSM_RESPONSE_OK = 0;
+    VSM_RESPONSE_FAILED = 1;
+    VSM_RESPONSE_MISSION_UPLOAD_FAILED = 2;
+    // Command is not supported 
+    VSM_RESPONSE_INVALID_COMMAND = 3;
+}
+
+// VSM must send this message before UCS_COMMAND_SET_CAPABILITIES can be used.
+message Register_capability {
+    // Name of command
+    required string name = 1;
+
+    // Session specific id for name.
+    required uint32 id = 2;
+
+    // parameters supported by command.
+    repeated Register_field parameters = 3;
+    
+    // this command is available as mission item
+    optional bool available_in_mission = 4;
+
+    // this command can be issued as seperate command
+    optional bool available_as_command = 5;
+}
+
+// Used to send definitions of vehicle supported parameters and telemetry fields to UCS
+message Register_field {
+    // Name of telemetry field.
+    required string name = 1;
+
+    // Session specific field id.
+    required uint32 field_id = 2;
+
+    // Required for any user defined field. Ignored for hardcoded field names.
+    optional Field_semantic semantic = 3; // semantic
+
+    // Default value to show in client.
+    // If min_value == max_value it means that parameter is not user chengeable and should be set to default_value.
+    optional Parameter_field default_value = 4;
+
+    // Minimum value of field
+    optional Parameter_field min_value = 5;
+
+    // Maximum value of field
+    optional Parameter_field max_value = 6;
+
+    // User defined enumreation when field_semantic == FIELD_SEMANTIC_ENUM.
+    repeated Field_enumeration enumeration = 7;
+
+    // Timeout in seconds used for telemetry fields. 0 means the value should not timeout.
+    optional uint32 timeout = 8;
+}
+
+// Used to send definitions of user-defined enumerations used in telemetry and parameters.
+message Field_enumeration {
+    // Value of enum field
+    required int32 id = 1;
+    // Description of the value
+    required string description = 2;
+}
+

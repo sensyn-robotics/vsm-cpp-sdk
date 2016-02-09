@@ -100,6 +100,7 @@ public:
         TCP,
         UDP,
         UDP_MULTICAST,
+        CAN,
         UNDEFINED
     };
 

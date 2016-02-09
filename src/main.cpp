@@ -8,8 +8,10 @@
 
 #include <ugcs/vsm/vsm.h>
 #include <ugcs/vsm/cucs_processor.h>
-#include <ugcs/vsm/crash_handler.h>
 #include <ugcs/vsm/service_discovery_processor.h>
+#ifdef ANDROID
+#include <ugcs/vsm/android_serial_processor.h>
+#endif
 
 #include <fstream>
 
@@ -24,6 +26,9 @@ Cucs_processor::Ptr cucs_processor;
 Socket_processor::Ptr socket_processor;
 File_processor::Ptr file_processor;
 Serial_processor::Ptr serial_processor;
+#ifdef ANDROID
+Android_serial_processor::Ptr android_serial_processor;
+#endif
 Transport_detector::Ptr transport_detector;
 Service_discovery_processor::Ptr discoverer;
 #ifndef VSM_DISABLE_HID
@@ -64,9 +69,12 @@ ugcs::vsm::Initialize(const std::string &props_file)
         &&  properties->Get("log.level").length()) {
         Log::Set_level(properties->Get("log.level"));
     }
+    // This should appear before Set_custom_log() call to avoid unexpected rotation.
+    if (properties->Exists("log.max_file_count")) {
+        Log::Set_max_custom_log_count(properties->Get_int("log.max_file_count"));
+    }
     if (properties->Exists("log.file_path")) {
         Log::Set_custom_log(properties->Get("log.file_path"));
-        Crash_handler::Set_reports_file_base(properties->Get("log.file_path") + "_crash_");
     }
     if (properties->Exists("log.single_max_size")) {
         Log::Set_max_custom_log_size(properties->Get("log.single_max_size"));
@@ -91,6 +99,11 @@ ugcs::vsm::Initialize(const std::string &props_file)
 
     serial_processor = Serial_processor::Get_instance();
     serial_processor->Enable();
+
+#   ifdef ANDROID
+    android_serial_processor = Android_serial_processor::Get_instance();
+    android_serial_processor->Enable();
+#   endif
 
     // Start service discovery protocol
     if (    properties->Exists("service_discovery.address")
@@ -120,11 +133,10 @@ ugcs::vsm::Initialize(const std::string &props_file)
      *
      * Example config entries:
      * service_discovery.advertise.1.name = Ardupilot VSM
-     * service_discovery.advertise.1.type = ugcs:vsm:ardupilot
-     * service_discovery.advertise.1.location = {local_address}:5556
+     * service_discovery.advertise.1.type = ugcs:vsm
+     * service_discovery.advertise.1.location = tcp://{local_address}:5556
      *
      */
-
     // Advertise configured services
     static std::string prefix = "service_discovery.advertise";
     for (auto base_it = properties->begin(prefix); base_it != properties->end(); base_it++) {
@@ -147,6 +159,26 @@ ugcs::vsm::Initialize(const std::string &props_file)
             // ignore parsing errors.
         }
     }
+
+    // Initialize VSM discovery if configured.
+    // Only VSM name must be configured.
+    if (    properties->Exists("service_discovery.vsm_name")
+        &&  properties->Exists("ucs.local_listening_port"))
+    {
+        try {
+            LOG("Automatic VSM discovery enabled");
+            discoverer->Advertise_service(
+                    "ugcs:vsm",
+                    properties->Get("service_discovery.vsm_name"),
+                    "tcp://{local_address}:" + properties->Get("ucs.local_listening_port")
+                    );
+        } catch (Exception&) {
+            // ignore parsing errors.
+        }
+    }
+
+    LOG_INFO("VSM instance ID=%08X", Get_application_instance_id());
+
 
 #   ifndef VSM_DISABLE_HID
     hid_processor = Hid_processor::Get_instance();
@@ -180,6 +212,11 @@ ugcs::vsm::Terminate(bool save_config)
 
     serial_processor->Disable();
     serial_processor = nullptr;
+
+#   ifdef ANDROID
+    android_serial_processor->Disable();
+    android_serial_processor = nullptr;
+#   endif
 
     timer_proc->Disable();
     timer_proc = nullptr;

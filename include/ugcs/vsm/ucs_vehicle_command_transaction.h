@@ -35,8 +35,19 @@ private:
     Process(mavlink::Message<mavlink::ugcs::MESSAGE_ID::COMMAND_LONG_EX,
                              mavlink::ugcs::Extension>::Ptr) override;
 
+    virtual void
+    Process(mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_INSTALL,
+                             mavlink::ugcs::Extension>::Ptr) override;
+
+    virtual void
+    Process(mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_PREFLIGHT,
+                             mavlink::ugcs::Extension>::Ptr) override;
+
     void
     On_vehicle_command_completed(Vehicle_request::Result);
+
+    void
+    On_adsb_command_completed(Vehicle_request::Result);
 
     Vehicle_command_request::Ptr vehicle_command;
 

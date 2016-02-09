@@ -6,6 +6,13 @@ set(VSM_EXECUTABLE_NAME ${CMAKE_PROJECT_NAME})
 
 include("ugcs/common")
 
+# Set correct compiler for cross compiling for BeagleBoneBlack
+if (BEAGLEBONE)
+    # Everything is statically linked for BeagleBoneBlack target for now.
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s -static-libstdc++ -static -pthread -std=c++11 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
+    set (CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++")
+endif()
+
 # this removes the -rdynamic link flag which bloats the executable.
 string(REPLACE "-rdynamic" "" CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS}")
 
@@ -16,7 +23,15 @@ endif()
 
 include_directories("${VSM_SDK_DIR}/include")
 
-link_directories(${VSM_SDK_DIR}/lib)
+if (BEAGLEBONE)
+    set (VSM_LIBRARY_DIR "${VSM_SDK_DIR}/beaglebone/lib")
+else()
+    set (VSM_LIBRARY_DIR "${VSM_SDK_DIR}/lib")
+endif()
+
+link_directories(${VSM_LIBRARY_DIR})
+
+set (VSM_LIBRARY_FILE "${VSM_LIBRARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}vsm-sdk${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
 # Add DLL import libraries from SDK
 if (CMAKE_SYSTEM_NAME MATCHES "Windows" AND ENABLE_DLL_IMPORT)
@@ -72,7 +87,7 @@ function(Build_vsm_config)
   endif()
 endfunction()
 
-set(VSM_LIBS vsm-sdk ${VSM_PLAT_LIBS} ${DLL_IMPORT_LIB_NAMES})
+set(VSM_LIBS ${VSM_LIBRARY_FILE} ${VSM_PLAT_LIBS} ${DLL_IMPORT_LIB_NAMES})
 
 # Function for adding standard install target for VSM and and corresponding log directory
 function(Add_install_target)
@@ -126,7 +141,7 @@ endfunction()
 function(Build_vsm)
     if (ANDROID)
         get_directory_property(INCLUDE_DIRS INCLUDE_DIRECTORIES)
-        Create_android_build("armeabi-v7a;x86" "android-19" "${SOURCES}" "${INCLUDE_DIRS}")
+        Create_android_build("${ANDROID_ABI_LIST}" "${ANDROID_PLATFORM}" "${SOURCES}" "${INCLUDE_DIRS}")
         add_custom_target(${CMAKE_PROJECT_NAME} ALL)
         add_dependencies(${CMAKE_PROJECT_NAME} android)
     else()

@@ -270,7 +270,7 @@ Timer_processor::On_disable()
             }
         }
         LOG_ERR("Timer interval [%" PRIu64 " ms] in context [%s] is still running.",
-                iter.second->interval.count(),
+                static_cast<uint64_t>(iter.second->interval.count()),
                 ctx_name.c_str());
         /* This is not normal. Timer users should cancel their timers before
          * disabling the timer processor. Try to recover in release anyway. */

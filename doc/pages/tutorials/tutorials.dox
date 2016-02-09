@@ -12,4 +12,6 @@ Most of SDK concepts are described in these tutorials:
 
  - @subpage async_programming_page
 
+ - @subpage service_discovery_page
+
 */

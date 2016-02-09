@@ -101,6 +101,14 @@ public:
         }
     };
 
+    /** Get global or create new processor instance. */
+    template <typename... Args>
+    static Ptr
+    Get_instance(Args &&... args)
+    {
+        return singleton.Get_instance(std::forward<Args>(args)...);
+    }
+
     /** Default prototype for open operation completion handler.
      * Stream argument is nun-null if succeeded, null otherwise.
      */
@@ -223,8 +231,8 @@ private:
         Close();
     };
 
-    /** Singletone instance required since JNI is used. */
-    static Android_serial_processor *instance;
+    /** Singleton object. */
+    static Singleton<Android_serial_processor> singleton;
     Request_worker::Ptr worker;
     /** Active streams. */
     std::map<int, Stream_entry::Ptr> streams;

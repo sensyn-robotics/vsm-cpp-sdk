@@ -157,13 +157,13 @@ Socket_address::Ptr
 Socket_processor::Stream::Get_peer_address()
 {
     return Socket_address::Create(peer_address);
-};
+}
 
 Socket_address::Ptr
 Socket_processor::Stream::Get_local_address()
 {
     return Socket_address::Create(local_address);
-};
+}
 
 bool
 Socket_processor::Stream::Add_multicast_group(Socket_address::Ptr interface, Socket_address::Ptr multicast)
@@ -182,12 +182,28 @@ Socket_processor::Stream::Add_multicast_group(Socket_address::Ptr interface, Soc
         return false;
     }
     return true;
-};
+}
+
+bool
+Socket_processor::Stream::Enable_broadcast(bool enable)
+{
+    int broadcast = enable?1:0;
+    if (setsockopt(
+            s,
+            SOL_SOCKET,
+            SO_BROADCAST,
+            reinterpret_cast<const char*>(&broadcast),
+            sizeof(broadcast))) {
+        LOG("Enable_broadcast failed: %s", Log::Get_system_error().c_str());
+        return false;
+    }
+    return true;
+}
 
 void
 Socket_processor::Stream::Set_peer_address(Socket_address::Ptr addr)
 {
-    if (socket_type != SOCK_DGRAM)
+    if (Get_type() != Io_stream::Type::UDP && Get_type() != Io_stream::Type::UDP_MULTICAST)
         return;
     static Io_result unused_result_arg;
 
@@ -196,7 +212,7 @@ Socket_processor::Stream::Set_peer_address(Socket_address::Ptr addr)
     request->Set_processing_handler(
             Make_callback(&Socket_processor::On_set_peer_address, processor, request, addr));
     processor->Submit_request(request);
-};
+}
 
 Socket_processor::Socket_processor(Piped_request_waiter::Ptr piped_waiter) :
         Request_processor("Socket processor", piped_waiter),
@@ -216,12 +232,6 @@ void
 Socket_processor::Stream::Set_state(Io_stream::State state)
 {
     this->state = state;
-}
-
-void
-Socket_processor::Stream::Set_socket_type(int type)
-{
-    socket_type = type;
 }
 
 void
@@ -756,6 +766,7 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
                     if (stream->read_bytes < readmin) {
                         // readmin was not reached. Report the stream as closed
                         // but return the read data anyway.
+                        LOG("Stream half-close: %s", stream->Get_name().c_str());
                         request->Set_result_arg(Io_result::CLOSED, locker);
                     }
                     // else we got at least the bytes we asked for, so it's not
@@ -779,6 +790,9 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
                 }
                 else
                 {// Socket error. assume no other operation can be performed.
+                    LOG("Socket read error for stream '%s': %s",
+                        stream->Get_name().c_str(),
+                        Log::Get_system_error().c_str());
                 	request->Set_result_arg(Io_result::CLOSED, locker);
                     close_stream = true;
                     break;
@@ -790,7 +804,7 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
              * fit the whole packet the error occurs (windows) or excess data
              * is discarded (linux).
              */
-            while (stream->read_bytes < readmax && stream->Get_socket_type() == SOCK_STREAM);
+            while (stream->read_bytes < readmax && stream->Get_type() == Io_stream::Type::TCP);
 
             stream->reading_buffer->resize(stream->read_bytes);
             request->Set_buffer_arg(
@@ -818,24 +832,15 @@ Socket_processor::Connect(
         Socket_address::Ptr addr,
         Connect_handler completion_handler,
         Request_completion_context::Ptr completion_context,
-        int sock_type,
+        Io_stream::Type sock_type,
         Socket_address::Ptr src_addr)
 {
-    Io_stream::Type type;
-    if (sock_type == SOCK_STREAM) {
-        type = Io_stream::Type::TCP;
-    } else if (sock_type == SOCK_DGRAM) {
-        type = Io_stream::Type::UDP;
-    } else {
-        type = Io_stream::Type::UNDEFINED;
-    }
-    Stream::Ptr stream = Stream::Create(Shared_from_this(), type);
+    Stream::Ptr stream = Stream::Create(Shared_from_this(), sock_type);
     stream->Set_state(Io_stream::State::OPENING);
 
     Io_request::Ptr request = Io_request::Create(stream, Io_stream::OFFSET_NONE, completion_handler.Get_arg<1>());
     completion_handler.Set_arg<0>(stream); /* Ensures stream existence for completion handler. */
     stream->Set_connect_request(request);
-    stream->Set_socket_type(sock_type);
     // Copy the address from user to avoid uncontrolled modification.
     stream->peer_address = Socket_address::Create(addr);
     if (src_addr) {
@@ -869,8 +874,21 @@ Socket_processor::On_connect(Io_request::Ptr request, Stream::Ptr stream)
     sockets::Socket_handle s = INVALID_SOCKET;
 
     memset(&hints, 0, sizeof(addrinfo));
+    switch (stream->Get_type()) {
+    case Io_stream::Type::TCP:
+        hints.ai_socktype = SOCK_STREAM;
+        break;
+    case Io_stream::Type::UDP:
+    case Io_stream::Type::UDP_MULTICAST:
+        hints.ai_socktype = SOCK_DGRAM;
+        break;
+    default:
+        request->Set_result_arg(Io_result::BAD_ADDRESS);
+        stream->Set_connect_request(nullptr);
+        request->Complete();
+        return;
+    }
     hints.ai_family = AF_INET; /* Only IPv4 for now. */
-    hints.ai_socktype = stream->Get_socket_type();
     hints.ai_flags = 0;
     hints.ai_protocol = 0; /* Any protocol */
     hints.ai_canonname = nullptr;
@@ -981,27 +999,39 @@ Socket_processor::On_connect(Io_request::Ptr request, Stream::Ptr stream)
 }
 
 Operation_waiter
+Socket_processor::Bind_can(
+        std::string interface,
+        std::vector<int> filter_messges,
+        Listen_handler completion_handler,
+        Request_completion_context::Ptr completion_context)
+{
+    Socket_listener::Ptr stream = Socket_listener::Create(Shared_from_this(), Io_stream::Type::CAN);
+    completion_handler.Set_arg<0>(stream);
+    Io_request::Ptr request = Io_request::Create(stream, Io_stream::OFFSET_NONE, completion_handler.Get_arg<1>());
+    request->Set_completion_handler(completion_context, completion_handler);
+
+    auto proc_handler = Make_callback(
+            &Socket_processor::On_bind_can,
+            Shared_from_this(),
+            request,
+            filter_messges,
+            stream,
+            interface);
+    request->Set_processing_handler(proc_handler);
+    request->Set_cancellation_handler(Make_callback(&Socket_processor::Cancel_operation,
+                                                    Shared_from_this(), request));
+    Submit_request(request);
+    return request;
+}
+
+Operation_waiter
 Socket_processor::Listen(
         Socket_address::Ptr addr,
         Listen_handler completion_handler,
         Request_completion_context::Ptr completion_context,
-        int sock_type,
-        bool multicast)
+        Io_stream::Type sock_type)
 {
-    Io_stream::Type type;
-    if (sock_type == SOCK_STREAM) {
-        type = Io_stream::Type::TCP;
-    } else if (sock_type == SOCK_DGRAM) {
-        if (multicast) {
-            type = Io_stream::Type::UDP_MULTICAST;
-        } else {
-            type = Io_stream::Type::UDP;
-        }
-    } else {
-        type = Io_stream::Type::UNDEFINED;
-    }
-    Socket_listener::Ptr stream = Socket_listener::Create(Shared_from_this(), type);
-    stream->Set_socket_type(sock_type);
+    Socket_listener::Ptr stream = Socket_listener::Create(Shared_from_this(), sock_type);
     completion_handler.Set_arg<0>(stream);
     Io_request::Ptr request = Io_request::Create(stream, Io_stream::OFFSET_NONE, completion_handler.Get_arg<1>());
     request->Set_completion_handler(completion_context, completion_handler);
@@ -1027,8 +1057,21 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
     sockets::Socket_handle s = INVALID_SOCKET;
 
     memset(&hints, 0, sizeof(addrinfo));
+    switch (stream->Get_type()) {
+    case Io_stream::Type::TCP:
+        hints.ai_socktype = SOCK_STREAM;
+        break;
+    case Io_stream::Type::UDP:
+    case Io_stream::Type::UDP_MULTICAST:
+        hints.ai_socktype = SOCK_DGRAM;
+        break;
+    default:
+        request->Set_result_arg(Io_result::BAD_ADDRESS);
+        stream->Set_connect_request(nullptr);
+        request->Complete();
+        return;
+    }
     hints.ai_family = AF_INET; /* Only IPv4 for now. */
-    hints.ai_socktype = stream->Get_socket_type();
     hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST;   // require address to be numeric.
     hints.ai_protocol = 0; /* Any protocol */
     hints.ai_canonname = nullptr;
@@ -1066,9 +1109,11 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
             }
             if (bind(s, rp->ai_addr, rp->ai_addrlen) == 0)
             {
-                if (    (   stream->Get_socket_type() == SOCK_STREAM
+                if (    (   stream->Get_type() == Io_stream::Type::TCP
                         &&  listen(s, LISTEN_QUEUE_LEN) == 0)
-                    ||  stream->Get_socket_type() == SOCK_DGRAM)
+                    ||  stream->Get_type() == Io_stream::Type::UDP
+                    ||  stream->Get_type() == Io_stream::Type::UDP_MULTICAST
+                    )
                 {// success
                     auto locker = request->Lock();
                     if (request->Is_processing())
@@ -1202,10 +1247,9 @@ Socket_processor::Accept_impl(Socket_listener::Ref listener,
         Io_result& result_arg)
 {
     // Do not call accept on udp socket.
-    ASSERT(listener->Get_socket_type() == SOCK_STREAM);
+    ASSERT(listener->Get_type() == Io_stream::Type::TCP);
     Stream::Ptr stream = Stream::Create(Shared_from_this(), Io_stream::Type::TCP);
     stream->Set_state(Io_stream::State::OPENING_PASSIVE);
-    stream->Set_socket_type(SOCK_STREAM);
     stream_arg = Stream::Ref(stream);
     Io_request::Ptr request = Io_request::Create(stream, Io_stream::OFFSET_NONE, result_arg);
     request->Set_completion_handler(completion_context, completion_handler);
@@ -1404,7 +1448,7 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
             auto ctx = request->Get_completion_context(std::move(locker));
             LOG_DEBUG("Canceling unknown request in state %d, completion context "
                     "[%s] stream %s.",
-                    request->Get_status(),
+                    static_cast<int>(request->Get_status()),
                     ctx ? ctx->Get_name().c_str() : "empty",
                     stream ? stream->Get_name().c_str() : "[already closed]");
         }
@@ -1423,7 +1467,7 @@ Socket_processor::Lookup_stream(Io_stream::Ptr io_stream)
     return stream;
 }
 
-Local_interface::Local_interface(const std::string& name, bool m)
-:name(name),is_multicast(m)
+Local_interface::Local_interface(const std::string& name)
+:name(name)
 {
 }

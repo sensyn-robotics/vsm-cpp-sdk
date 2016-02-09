@@ -10,14 +10,26 @@
  */
 
 #include <ugcs/vsm/transport_detector.h>
-#include <ugcs/vsm/serial_processor.h>
 #include <ugcs/vsm/utils.h>
+
+#ifdef ANDROID
+#include <ugcs/vsm/android_serial_processor.h>
+using Serial_processor_type = ugcs::vsm::Android_serial_processor;
+#else
+#include <ugcs/vsm/serial_processor.h>
+using Serial_processor_type = ugcs::vsm::Serial_processor;
+#endif
 
 using namespace ugcs::vsm;
 
 constexpr std::chrono::seconds Transport_detector::TCP_CONNECT_TIMEOUT;
+constexpr std::chrono::seconds Transport_detector::PROXY_TIMEOUT;
 constexpr size_t Transport_detector::ARBITER_NAME_MAX_LEN;
 std::string Transport_detector::SERIAL_PORT_ARBITER_NAME_PREFIX("vsm-serial-port-arbiter-");
+
+std::vector<uint8_t> Transport_detector::PROXY_SIGNATURE {0x56, 0x53, 0x4d, 0x50};
+
+constexpr uint8_t Transport_detector::PROXY_COMMAND_HELLO;
 
 Singleton<Transport_detector> Transport_detector::singleton;
 
@@ -71,6 +83,9 @@ Transport_detector::Process_on_disable(Request::Ptr request)
     watchdog_timer->Cancel();
     serial_detector_config.clear();
     active_config.clear();
+#   ifdef ANDROID
+    Java::Detach_current_thread();
+#   endif
     request->Complete();
 }
 
@@ -156,6 +171,33 @@ Transport_detector::Add_detector(
                             request);
                     request->Set_processing_handler(proc_handler);
                     Submit_request(request);
+                } else if (it[token_index] == "proxy") {
+                    auto address = properties->Get(*it);
+                    auto port = properties->Get(vpref + tokenizer + "port");
+                    Request::Ptr request = Request::Create();
+                    auto proc_handler = Make_callback(
+                            &Transport_detector::Add_ip_detector,
+                            Shared_from_this(),
+                            Socket_address::Create(),               // empty local addr.
+                            Socket_address::Create(address, port),
+                            Port::Type::PROXY,
+                            handler,
+                            context,
+                            request);
+                    request->Set_processing_handler(proc_handler);
+                    Submit_request(request);
+                } else if (it[token_index] == "can") {
+                    auto iface = properties->Get(*it);
+                    Request::Ptr request = Request::Create();
+                    auto proc_handler = Make_callback(
+                            &Transport_detector::Add_can_detector,
+                            Shared_from_this(),
+                            iface,
+                            handler,
+                            context,
+                            request);
+                    request->Set_processing_handler(proc_handler);
+                    Submit_request(request);
                 } else if (it[token_index] == "udp_local_port") {
                     // This means udp listener is configured.
                     // It can have also local address to bind to and
@@ -229,7 +271,7 @@ Transport_detector::Add_serial_detector(
     auto it = serial_detector_config.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(port_regexp),
-            std::forward_as_tuple(port_regexp)).first;
+            std::forward_as_tuple(port_regexp, Port::SERIAL)).first;
     it->second.Add_detector(baud, handler, ctx);
     request->Complete();
 }
@@ -254,6 +296,23 @@ Transport_detector::Add_ip_detector(
 }
 
 void
+Transport_detector::Add_can_detector(
+        const std::string can_interface,
+        Connect_handler handler,
+        Request_processor::Ptr ctx,
+        Request::Ptr request)
+{
+    // Put it directly in active config.
+    std::string name;
+    auto it = active_config.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(can_interface),
+            std::forward_as_tuple(can_interface, Port::CAN, worker)).first;
+    it->second.Add_detector(0, handler, ctx);
+    request->Complete();
+}
+
+void
 Transport_detector::Add_blacklisted_impl(Connect_handler handler,
         const std::string port_regexp, Request::Ptr request)
 {
@@ -270,11 +329,7 @@ Transport_detector::Protocol_not_detected_impl(Io_stream::Ref stream,
         Request::Ptr request)
 {
     for (auto &it : active_config) {
-        auto &port = it.second;
-        if (stream == port.Get_stream()) {
-            port.Reopen_and_call_next_handler();
-            break;
-        }
+        it.second.Protocol_not_detected(stream);
     }
     request->Complete();
 }
@@ -283,7 +338,7 @@ bool
 Transport_detector::On_timer()
 {
     // modify current config according to connected ports.
-    auto detected_ports = Serial_processor::Enumerate_port_names();
+    auto detected_ports = Serial_processor_type::Enumerate_port_names();
 
     for (auto it = active_config.begin(); it != active_config.end();)
     {// Remove all serial ports which do not exist any more.
@@ -322,7 +377,7 @@ Transport_detector::On_timer()
                     auto emplace_result = active_config.emplace(
                             std::piecewise_construct,
                             std::forward_as_tuple(detected_port),
-                            std::forward_as_tuple(detected_port));
+                            std::forward_as_tuple(detected_port, Port::SERIAL));
                     auto &current_port = emplace_result.first->second;
                     if (emplace_result.second && use_serial_arbiter) {
                         auto acquire_complete = Shared_mutex_file::Make_acquire_handler(
@@ -354,14 +409,14 @@ Transport_detector::On_timer()
     return true;
 }
 
-Transport_detector::Port::Port(const std::string &name):
+Transport_detector::Port::Port(const std::string &name, Type ctype, Request_worker::Ptr w):
     state(NONE),
     name(name),
     current_detector(detectors.end()),
     stream(nullptr),
     re(name, platform_independent_filename_regex_matching_flag),
-    worker(nullptr),
-    type(SERIAL),
+    worker(w),
+    type(ctype),
     arbiter(nullptr)
 {
 }
@@ -382,10 +437,19 @@ Transport_detector::Port::Port(Socket_address::Ptr local_addr, Socket_address::P
 Transport_detector::Port::~Port()
 {
     socket_connecting_op.Abort();
+    proxy_stream_reader_op.Abort();
 
     if (stream && !stream->Is_closed()) {
         stream->Close();
     }
+
+    for (auto &it : proxy_streams) {
+        if (!it->Is_closed()) {
+            it->Close();
+        }
+    }
+
+    proxy_streams.clear();
 
     stream = nullptr;
     arbiter = nullptr;
@@ -402,6 +466,15 @@ Transport_detector::Port::On_timer()
             arbiter->Release();
         }
         state = NONE;
+    }
+
+    // check for broken proxy connections.
+    for(auto it = proxy_streams.begin(); it != proxy_streams.end();) {
+        if ((*it)->Is_closed()) {
+            it = proxy_streams.erase(it);
+        } else {
+            it++;
+        }
     }
 
     if (state == NONE) {
@@ -454,8 +527,19 @@ Transport_detector::Port::Open_serial(bool ok_to_open)
         if (current_detector != detectors.end()) {
             auto baud = current_detector->Get_baud();
             try {
-                auto mode = Serial_processor::Stream::Mode().Baud(baud);
-                stream = Serial_processor::Get_instance()->Open(name, mode);
+                auto mode = Serial_processor_type::Stream::Mode().Baud(baud);
+
+                stream = nullptr;
+#               ifdef ANDROID
+                Serial_processor_type::Get_instance()->Open(name, mode,
+                    Make_callback([this](Io_stream::Ref s) { stream = s; },
+                                  Io_stream::Ref()));
+                if (!stream) {
+                    VSM_EXCEPTION(Exception, "Serial stream opening failed");
+                }
+#               else
+                stream = Serial_processor_type::Get_instance()->Open(name, mode);
+#               endif
                 LOG("Opened serial port %s", name.c_str());
                 /* XXX Workaround against submitting into
                  * disabled context. Full redesign is needed to fix it properly.
@@ -471,9 +555,10 @@ Transport_detector::Port::Open_serial(bool ok_to_open)
                      * call Set_args() just before invocation. This works assuming user context
                      * is executing in one thread only.
                      */
+                    Connect_handler h = current_detector->Get_handler();
                     auto temp_handler = Make_callback(
-                            [](std::string name, int baud, Io_stream::Ref stream,
-                                    Connect_handler h, Request::Ptr req)
+                            [h](std::string name, int baud, Io_stream::Ref stream,
+                                    Request::Ptr req)
                                     {
                         h.Set_args(name, baud, nullptr, stream);
                         h.Invoke();
@@ -482,7 +567,6 @@ Transport_detector::Port::Open_serial(bool ok_to_open)
                                     name,
                                     baud,
                                     stream,
-                                    current_detector->Get_handler(),
                                     request);
                     request->Set_processing_handler(temp_handler);
                     current_detector->Get_ctx()->Submit_request_locked(
@@ -555,6 +639,18 @@ Transport_detector::Port::Reopen_and_call_next_handler()
                 );
             socket_connecting_op.Timeout(Transport_detector::TCP_CONNECT_TIMEOUT);
             break;
+        case PROXY:
+            socket_connecting_op.Abort();
+            socket_connecting_op =
+                    Socket_processor::Get_instance()->Connect(
+                    peer_addr,
+                    Make_socket_connect_callback(
+                            &Transport_detector::Port::Proxy_connected,
+                            this),
+                    worker
+                );
+            socket_connecting_op.Timeout(Transport_detector::TCP_CONNECT_TIMEOUT);
+            break;
         case UDP_IN:
             socket_connecting_op.Abort();
             socket_connecting_op =
@@ -564,8 +660,20 @@ Transport_detector::Port::Reopen_and_call_next_handler()
                             &Transport_detector::Port::Ip_connected,
                             this),
                     worker,
-                    SOCK_DGRAM,
+                    Io_stream::Type::UDP,
                     local_addr);
+
+            break;
+        case CAN:
+            socket_connecting_op.Abort();
+            socket_connecting_op =
+                    Socket_processor::Get_instance()->Bind_can(
+                    name,
+                    std::vector<int>(),
+                    Make_socket_listen_callback(
+                            &Transport_detector::Port::Ip_connected,
+                            this),
+                    worker);
 
             break;
         default:
@@ -577,17 +685,99 @@ Transport_detector::Port::Reopen_and_call_next_handler()
 }
 
 void
+Transport_detector::Port::On_proxy_data_received(
+        ugcs::vsm::Io_buffer::Ptr buf,
+        ugcs::vsm::Io_result result,
+        Socket_stream::Ref idle_stream)
+{
+    if (result == Io_result::OK) {
+        auto cmd = *(static_cast<const uint8_t*>(buf->Get_data()) + PROXY_SIGNATURE.size());
+        if (memcmp(buf->Get_data(), PROXY_SIGNATURE.data(), PROXY_SIGNATURE.size())) {
+            LOG("invalid data in proxy connection");
+            state = NONE;
+        } else {
+            switch (cmd) {
+            case PROXY_COMMAND_WAIT:
+                proxy_stream_reader_op = stream->Read(
+                    PROXY_RESPONSE_LEN,
+                    PROXY_RESPONSE_LEN,
+                    Make_read_callback(
+                        &Transport_detector::Port::On_proxy_data_received,
+                        this,
+                        idle_stream),
+                    worker);
+                proxy_stream_reader_op.Timeout(std::chrono::seconds(PROXY_TIMEOUT));
+                break;
+            case PROXY_COMMAND_READY:
+                LOG("proxy accepted connection");
+                Ip_connected(idle_stream, Io_result::OK);
+                break;
+            case PROXY_COMMAND_NOTREADY:
+                LOG("proxy denied connection");
+                state = NONE;
+                break;
+            default:
+                LOG("invalid proxy command");
+                state = NONE;
+                break;
+            }
+        }
+    } else {
+        LOG("proxy stream read failed");
+        state = NONE;
+    }
+}
+
+void
+Transport_detector::Port::Proxy_connected(
+        Socket_stream::Ref new_stream,
+        Io_result result)
+{
+    if (result == Io_result::OK)
+    {
+        stream = new_stream;
+        proxy_stream_reader_op = stream->Read(
+            PROXY_RESPONSE_LEN,
+            PROXY_RESPONSE_LEN,
+            Make_read_callback(
+                &Transport_detector::Port::On_proxy_data_received,
+                this,
+                new_stream),
+            worker);
+        proxy_stream_reader_op.Timeout(std::chrono::seconds(PROXY_TIMEOUT));
+        auto id = Get_application_instance_id();
+        auto hello_packet(PROXY_SIGNATURE);
+        hello_packet.push_back(PROXY_COMMAND_HELLO);
+        hello_packet.push_back((id >>  0) & 0xff);
+        hello_packet.push_back((id >>  8) & 0xff);
+        hello_packet.push_back((id >> 16) & 0xff);
+        hello_packet.push_back((id >> 24) & 0xff);
+        stream->Write(Io_buffer::Create(std::move(hello_packet)));
+    } else {
+        state = NONE;
+    }
+}
+
+void
 Transport_detector::Port::Ip_connected(
         Socket_stream::Ref new_stream,
         Io_result res)
 {
     if (res == Io_result::OK)
     {
-        stream = new_stream;
+        if (type == PROXY) {
+            proxy_streams.push_back(new_stream);
+            stream = nullptr;
+        } else {
+            state = CONNECTED;
+            stream = new_stream;
+        }
         Request::Ptr request = Request::Create();
         std::string address;
-        if (new_stream->Get_socket_type() == SOCK_STREAM) {
+        if (new_stream->Get_type() == Io_stream::Type::TCP) {
             address = peer_addr->Get_as_string();
+        } else if (new_stream->Get_type() == Io_stream::Type::CAN){
+            address = name;
         } else {
             new_stream->Set_peer_address(peer_addr);
             address = peer_addr->Get_as_string() + "->" + local_addr->Get_as_string();
@@ -609,7 +799,7 @@ Transport_detector::Port::Ip_connected(
              */
             auto temp_handler = Make_callback(
                     [](std::string peer, Io_stream::Ref stream,
-                    		Socket_address::Ptr peer_addr, Connect_handler h,
+                            Socket_address::Ptr peer_addr, Connect_handler h,
                             Request::Ptr request)
                             {
                 h.Set_args(peer, 0, peer_addr, stream);
@@ -629,19 +819,34 @@ Transport_detector::Port::Ip_connected(
                     "transport detector used (socket)!",
                     ctx->Get_name().c_str());
             ctx_lock.Unlock();
-            stream->Close();
+            new_stream->Close();
         }
-        state = CONNECTED;
         current_detector++;
+        if (type == PROXY) {
+            Reopen_and_call_next_handler();
+        }
     } else {
         state = NONE;
     }
 }
 
-Io_stream::Ref
-Transport_detector::Port::Get_stream()
+void
+Transport_detector::Port::Protocol_not_detected(Io_stream::Ref str)
 {
-    return stream;
+    if (type == PROXY) {
+        str->Close();
+        for(auto it = proxy_streams.begin(); it != proxy_streams.end();) {
+            if (*it == str) {
+                it = proxy_streams.erase(it);
+            } else {
+                it++;
+            }
+        }
+    } else {
+        if (stream == str) {
+            Reopen_and_call_next_handler();
+        }
+    }
 }
 
 void

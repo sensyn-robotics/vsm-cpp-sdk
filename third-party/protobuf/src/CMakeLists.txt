@@ -115,12 +115,20 @@ include_directories(".")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
 
 # Reused by protoc, sdk and UT
-add_library(protobuf_objlib OBJECT ${LIBPROTOC_SOURCES} ${LIBPROTOBUF_SOURCES} ${LIBPROTOBUF_LITE_SOURCES})
 
-add_executable(protobuf_compiler ${PROTOC_SOURCES} $<TARGET_OBJECTS:protobuf_objlib>)
-
-if (PROTOBUF_UT_ENABLED)
-    add_subdirectory(../gtest gtest)
-    include_directories(../gtest/include)
-    include(cmake/protobuf_ut.cmake)
+if (BEAGLEBONE)
+    # For BB target only library is built to link into sdk.
+    add_library(protobuf_objlib_bb OBJECT ${LIBPROTOC_SOURCES} ${LIBPROTOBUF_SOURCES} ${LIBPROTOBUF_LITE_SOURCES})
+else()
+    add_library(protobuf_objlib OBJECT ${LIBPROTOC_SOURCES} ${LIBPROTOBUF_SOURCES} ${LIBPROTOBUF_LITE_SOURCES})
+    add_executable(protobuf_compiler ${PROTOC_SOURCES} $<TARGET_OBJECTS:protobuf_objlib>)
+    if (PROTOBUF_UT_ENABLED)
+        add_subdirectory(../gtest gtest)
+        include_directories(../gtest/include)
+        include(cmake/protobuf_ut.cmake)
+    endif()
+    set (PROTOBUF_PROTOC_BINARY $<TARGET_FILE:protobuf_compiler> PARENT_SCOPE)
+    install (TARGETS protobuf_compiler
+             RUNTIME DESTINATION "${UGCS_INSTALL_DIR}/share/tools")
 endif()
+

@@ -22,3 +22,4 @@
 #include <ugcs/vsm/panorama_action.h>
 #include <ugcs/vsm/camera_series_by_time_action.h>
 #include <ugcs/vsm/camera_series_by_distance_action.h>
+#include <ugcs/vsm/set_parameter_action.h>

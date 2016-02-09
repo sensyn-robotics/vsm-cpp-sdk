@@ -17,8 +17,8 @@ namespace vsm {
 
 Shared_mutex_file::Shared_mutex_file(const std::string& name, File_processor::Ptr fp)
 {
-    char dest[200];
-    ExpandEnvironmentStrings("%SystemRoot%\\Temp\\vsm_shared_mutex_", dest, 200);
+    char dest[0x1000];
+    ExpandEnvironmentStrings("%SystemRoot%\\Temp\\vsm_shared_mutex_", dest, sizeof(dest));
     std::string mutex_name = dest + name;
     stream = fp->Open(mutex_name, "rx");
 
@@ -55,7 +55,7 @@ Shared_mutex_file::Shared_mutex_file(const std::string& name, File_processor::Pt
     }
     // Initialize an EXPLICIT_ACCESS structure for an ACE.
     // The ACE will allow Everyone read access to the key.
-    ZeroMemory(&ea, sizeof(EXPLICIT_ACCESS));
+    ZeroMemory(&ea, sizeof(ea));
     ea.grfAccessPermissions = FILE_GENERIC_READ;
     ea.grfAccessMode = SET_ACCESS;
     ea.grfInheritance= NO_INHERITANCE;
@@ -79,7 +79,6 @@ Shared_mutex_file::Shared_mutex_file(const std::string& name, File_processor::Pt
             new_acl,
             NULL);
     LocalFree(pSD);
-    LocalFree(old_acl);
     LocalFree(new_acl);
     FreeSid(sid_everyone);
 }

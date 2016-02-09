@@ -46,7 +46,6 @@ TEST_FIXTURE(Test_case_wrapper, socket_processor_udp)
     Io_buffer::Ptr client_buf;
     Io_buffer::Ptr server_buf;
 
-
     // forward declaration
     std::function<void(Io_buffer::Ptr, Io_result, Socket_address::Ptr)> server_read_complete;
     Socket_address::Ptr bound_client_point = nullptr;
@@ -79,7 +78,7 @@ TEST_FIXTURE(Test_case_wrapper, socket_processor_udp)
             client_stream = l;
             }),
             Request_temp_completion_context::Create(),
-            SOCK_DGRAM);
+            Io_stream::Type::UDP);
 
     // Create serverside socket.
     sp->Bind_udp(server_point,

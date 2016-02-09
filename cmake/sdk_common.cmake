@@ -2,6 +2,13 @@
 
 include("ugcs/common")
 
+# Set correct compiler for cross compiling for BeagleBoneBlack
+if (BEAGLEBONE)
+    set (CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++")
+    # Everything is statically linked for BeagleBoneBlack target
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s -static-libstdc++ -static -pthread -std=c++11 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
+endif()
+
 # Find all platform dependent source files in the specified SDK directory.
 # include directory list is placed in INCLUDES_VAR
 # Source file list is placed in SOURCES_VAR
@@ -29,6 +36,8 @@ function(Find_platform_sources SDK_DIR INCLUDES_VAR SOURCES_VAR HEADERS_VAR)
         if (NOT has_match EQUAL -1)
             file(GLOB _sources "${SDK_DIR}/src/platform/${DIR}/*.cpp")
             list(APPEND PLAT_SOURCES ${_sources})
+            file(GLOB _sources "${SDK_DIR}/src/platform/${DIR}/*.c")
+            list(APPEND PLAT_SOURCES ${_sources})
         endif()
     endforeach()
 
@@ -47,7 +56,9 @@ function(Find_platform_sources SDK_DIR INCLUDES_VAR SOURCES_VAR HEADERS_VAR)
     if(PLAT_NAME MATCHES "win")
         # MinGW does not have bfd.h in its standard includes, so hack it a bit.
         find_path(BFD_INCLUDE "bfd.h" PATH_SUFFIXES "..//include")
-        list(APPEND PLAT_INCLUDES ${BFD_INCLUDE})
+        if (BFD_INCLUDE)
+            list(APPEND PLAT_INCLUDES ${BFD_INCLUDE})
+        endif()
     endif()
 
     set(${SOURCES_VAR} ${PLAT_SOURCES} PARENT_SCOPE)

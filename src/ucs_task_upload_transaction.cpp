@@ -140,11 +140,17 @@ void Ucs_task_upload_transaction::Process(
                 vehicle_component_id);
         Done();
     } else {
-        if (action->Get_type() == Action::Type::TASK_ATTRIBUTES) {
+        switch (action->Get_type()) {
+        case Action::Type::TASK_ATTRIBUTES:
             task->payload.attributes =
-                    action->Get_action<Action::Type::TASK_ATTRIBUTES>();
-        } else {
+                action->Get_action<Action::Type::TASK_ATTRIBUTES>();
+            break;
+        case Action::Type::SET_PARAMETER:
+            task->payload.parameters.push_back(action);
+            break;
+        default:
             task->payload.actions.push_back(action);
+            break;
         }
         current_task_item++;
         Get_next_mission_item();

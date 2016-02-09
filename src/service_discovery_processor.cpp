@@ -17,14 +17,26 @@ namespace ugcs {
 namespace vsm {
 
 Singleton<Service_discovery_processor> Service_discovery_processor::singleton;
-std::string Service_discovery_processor::DEAFULT_DISCOVERY_ADDRESS("239.255.255.250");
-std::string Service_discovery_processor::DEAFULT_DISCOVERY_PORT("1900");
+std::string Service_discovery_processor::DEFAULT_DISCOVERY_ADDRESS("239.198.46.46");
+std::string Service_discovery_processor::DEFAULT_DISCOVERY_PORT("1991");
 std::string Service_discovery_processor::LOCAL_ADDRESS_IDENTIFIER("{local_address}");
+std::string Service_discovery_processor::SEARCH_METHOD_STRING("M-SEARCH");
+std::string Service_discovery_processor::NOTIFY_METHOD_STRING("NOTIFY");
+
+std::string Service_discovery_processor::LOOPBACK_IDENTIFIER("lb");
+std::string Service_discovery_processor::MC_IDENTIFIER("mc");
+std::string Service_discovery_processor::LOOPBACK_BROADCAST_ADDRESS("127.255.255.255");
 
 Service_discovery_processor::Service_discovery_processor(Socket_address::Ptr muticast_adress):
         Request_processor("Service discovery processor"),
         multicast_adress(muticast_adress)
 {
+    loopback_broadcast_adress =
+        Socket_address::Create(
+                LOOPBACK_BROADCAST_ADDRESS,
+                muticast_adress->Get_service_as_c_str());
+    // Get the unique instance identifier.
+    my_instance_identifier = std::to_string(Get_application_instance_id());
 }
 
 Service_discovery_processor::~Service_discovery_processor()
@@ -50,6 +62,7 @@ Service_discovery_processor::On_enable()
 void
 Service_discovery_processor::On_disable()
 {
+    my_timer->Cancel();
     Request::Ptr request = Request::Create();
     auto proc_handler = Make_callback(
             &Service_discovery_processor::On_disable_impl,
@@ -59,7 +72,6 @@ Service_discovery_processor::On_disable()
     Submit_request(request);
     request->Wait_done();
     Set_disabled();
-    my_timer->Cancel();
     worker->Disable();
     worker = nullptr;
 }
@@ -68,8 +80,10 @@ void
 Service_discovery_processor::Schedule_read(std::string stream_id)
 {
     My_socket* my_port = nullptr;
-    if (stream_id.empty()) {
+    if (stream_id == MC_IDENTIFIER) {
         my_port = &receiver;
+    } else if (stream_id == LOOPBACK_IDENTIFIER) {
+        my_port = &sender_loopback;
     } else {
         auto sender = sender_sockets.find(stream_id);
         if (sender != sender_sockets.end()) {
@@ -105,20 +119,39 @@ Service_discovery_processor::On_read(
     std::istringstream buf(buffer->Get_string());
     parser.Parse(buf);
 
-    if (parser.Get_method() == "M-SEARCH") {
+//    LOG("read(%s)=%s", stream_id.c_str(), buffer->Get_string().c_str());
+
+    if (parser.Get_method() == SEARCH_METHOD_STRING) {
         auto type = parser.Get_header_value("st");
         if (!type.empty()) {
             for (auto &service : my_services) {
                 if (std::get<0>(service) == type) {
                     // Use receiver socket to send the response.
                     if (Has_location_string(std::get<2>(service))) {
-                        // If we need to replace {local_address} then send response for each possible location.
-                        for (auto& iface : sender_sockets) {
+                        if (addr->Is_loopback_address()) {
                             Send_response(
-                                    addr,
-                                    std::get<0>(service),
-                                    std::get<1>(service),
-                                    Build_location_string(std::get<2>(service), iface.second.second->Get_local_address()));
+                                addr,
+                                std::get<0>(service),
+                                std::get<1>(service),
+                                Build_location_string(
+                                    std::get<2>(service),
+                                    sender_loopback.second->Get_local_address()));
+                        } else {
+                            // If we need to replace {local_address} then send
+                            // response for each possible location.
+                            // This is because there is no easy way (let alone
+                            // platform independent way) to get incoming interface.
+                            for (auto& iface : sender_sockets) {
+                                if (iface.second.second) {
+                                    Send_response(
+                                        addr,
+                                        std::get<0>(service),
+                                        std::get<1>(service),
+                                        Build_location_string(
+                                            std::get<2>(service),
+                                            iface.second.second->Get_local_address()));
+                                }
+                            }
                         }
                     } else {
                         Send_response(
@@ -132,7 +165,7 @@ Service_discovery_processor::On_read(
         }
     }
 
-    if (parser.Get_method() == "NOTIFY" || parser.Get_method().empty()) {
+    if (parser.Get_method() == NOTIFY_METHOD_STRING || parser.Get_method().empty()) {
         std::string service_type;
         bool active = false, not_active = false;
         if (parser.Get_method().empty()) {
@@ -168,17 +201,19 @@ Service_discovery_processor::On_read(
                         []( std::string type,
                             std::string name,
                             std::string location,
+                            std::string id,
                             bool active,
                             Detection_handler h,
                             Request::Ptr request)
                                 {
-                                    h.Set_args(type, name, location, active);
+                                    h.Set_args(type, name, location, id, active);
                                     h.Invoke();
                                     request->Complete();
                                 },
                                 service_type,
                                 parser.Get_header_value("usn"),
                                 parser.Get_header_value("location"),
+                                parser.Get_header_value("ID"),
                                 active,
                                 service->second.first,  // handler
                                 request);
@@ -198,10 +233,10 @@ Service_discovery_processor::On_sender_bound(Socket_processor::Stream::Ref strea
         if (result == Io_result::OK) {
             sender->second.second = stream;
             for (auto &service : my_services) {
-                Send_notify(stream, std::get<0>(service), std::get<1>(service), std::get<2>(service));
+                Send_notify(stream, multicast_adress, std::get<0>(service), std::get<1>(service), std::get<2>(service), true);
             }
             for (auto &service : subscribed_services) {
-                Send_msearch(stream, service.first);
+                Send_msearch(stream, multicast_adress, service.first);
             }
             Schedule_read(stream->Get_local_address()->Get_address_as_string());
         } else {
@@ -224,7 +259,7 @@ Service_discovery_processor::On_timer()
     bool found = false;
     for (auto sender = sender_sockets.begin(); sender != sender_sockets.end();) {
         for (auto& iface : locals) {
-            if (iface.is_multicast) {
+            if (iface.is_multicast && !iface.is_loopback) {
                 for (auto& local : iface.adresses) {
                     if ((*sender).first == local->Get_address_as_string()) {
                         found = true;
@@ -245,7 +280,8 @@ Service_discovery_processor::On_timer()
 
     // Add newly discovered interfaces to our multicast streams.
     for (auto& iface : locals) {
-        if (iface.is_multicast) {
+        if (iface.is_multicast && !iface.is_loopback)
+        {
             found = false;
             for (auto& local : iface.adresses) {
                 if (sender_sockets.find(local->Get_address_as_string()) != sender_sockets.end()) {
@@ -254,18 +290,18 @@ Service_discovery_processor::On_timer()
                 }
             }
             if (!found && !iface.adresses.empty()) {
+                auto addr = iface.adresses.front();
                 // Create listener on first IP on newly discovered interface.
                 // Must bind on arbitrary port to avoid conflict with other discoverer services on this host.
                 // Unicast discovery responses will come back to this socket.
-                auto ad = iface.adresses.front();
-                ad->Set_service("0");
-                LOG("Discovered new local address %s", ad->Get_address_as_string().c_str());
+                addr->Set_service("0");
+                LOG("Discovered new local address %s", addr->Get_address_as_string().c_str());
                 sender_sockets.emplace(
                         std::piecewise_construct,
-                        std::forward_as_tuple(ad->Get_address_as_string()),
+                        std::forward_as_tuple(addr->Get_address_as_string()),
                         std::forward_as_tuple(Operation_waiter(), nullptr));
                 Socket_processor::Get_instance()->Bind_udp(
-                        ad,
+                        addr,
                         Make_socket_listen_callback(&Service_discovery_processor::On_sender_bound, Shared_from_this()),
                         worker);
             }
@@ -330,6 +366,14 @@ Service_discovery_processor::Unadvertise_service(
     Submit_request(request);
 }
 
+auto Dump_error =
+    [](Io_result result, std::string data)
+    {
+        if (result != Io_result::OK) {
+            LOG_ERR("IO_error %s", data.c_str());
+        }
+    };
+
 void
 Service_discovery_processor::Send_response(
         Socket_address::Ptr addr,
@@ -337,58 +381,38 @@ Service_discovery_processor::Send_response(
         const std::string& name,
         const std::string& location)
 {
-    auto response = std::string("HTTP/1.1 200\r\nST:");
+    auto response = std::string("HTTP/1.1 200 OK\r\nST:");
     response += type;
     response += "\r\nUSN:";
     response += name;
     response += "\r\nLocation:";
     response += location;
+    response += "\r\nID:";
+    response += my_instance_identifier;
     response += "\r\n\r\n";
     receiver.second->Write_to(
             Io_buffer::Create(response),
             addr,
-            Make_dummy_callback<void, Io_result>());
-}
-
-void
-Service_discovery_processor::Send_notify(
-        Socket_processor::Stream::Ref stream,
-        const std::string& type,
-        const std::string& name,
-        const std::string& location)
-{
-    if (stream) {
-        auto notify = std::string("NOTIFY * HTTP/1.1\r\nHOST:");
-        notify += multicast_adress->Get_as_string();
-        notify += "\r\nNTS:ssdp:alive\r\nNT:";
-        notify += type;
-        notify += "\r\nUSN:";
-        notify += name;
-        notify += "\r\nLocation:";
-        notify += Build_location_string(location, stream->Get_local_address());
-        notify += "\r\n\r\n";
-        // Send notification. Do not care about Write result.
-        stream->Write_to(Io_buffer::Create(notify),
-                multicast_adress,
-                Make_dummy_callback<void, Io_result>());
-    }
+            Make_write_callback(Dump_error, "Send_response"));
 }
 
 void
 Service_discovery_processor::Send_msearch(
         Socket_processor::Stream::Ref stream,
+        Socket_address::Ptr dest_addr,
         const std::string& type)
 {
     if (stream) {
-        auto notify = std::string("M-SEARCH * HTTP/1.1\r\nHOST:");
-        notify += multicast_adress->Get_as_string();
+        auto notify = SEARCH_METHOD_STRING;
+        notify += " * HTTP/1.1\r\nHOST:";
+        notify += dest_addr->Get_as_string();
         notify += "\r\nMAN: \"ssdp:discover\"\r\nMX: 3\nST:";
         notify += type;
         notify += "\r\n\r\n";
         // Send search. Do not care about the Write result.
         stream->Write_to(Io_buffer::Create(notify),
-                multicast_adress,
-                Make_dummy_callback<void, Io_result>());
+                dest_addr,
+                Make_write_callback(Dump_error, dest_addr->Get_as_string()));
     }
 }
 
@@ -443,21 +467,45 @@ Service_discovery_processor::Activate()
 {
     if (my_services.size() + subscribed_services.size() == 1) {
         // Bind multicast listener on all interfaces.
-        auto listener_address = Socket_address::Create("0.0.0.0", multicast_adress->Get_service_as_c_str());
+        auto multicast_listener_address = Socket_address::Create("0.0.0.0", multicast_adress->Get_service_as_c_str());
+        auto loopback_sender_address = Socket_address::Create("127.0.0.1", "0");
 
+        // Bind synchronously.
         Socket_processor::Get_instance()->Bind_udp(
-                listener_address,
-                Make_socket_listen_callback([&](Socket_processor::Stream::Ref s, Io_result result){
+            multicast_listener_address,
+            Make_socket_listen_callback([&](Socket_processor::Stream::Ref s, Io_result result)
+                {
                     if (result == Io_result::OK) {
                         receiver.second = s;
-                        s->Add_multicast_group(listener_address, multicast_adress);
-                        Schedule_read("");
+                        s->Add_multicast_group(multicast_listener_address, multicast_adress);
+                        Schedule_read(MC_IDENTIFIER);
                     } else {
                         LOG_ERR("Failed to bind multicast listener on port %s", multicast_adress->Get_service_as_c_str());
                     }
                 }),
-                Request_temp_completion_context::Create(),
-                true);
+            Request_temp_completion_context::Create(),
+            true);
+
+        // Assume loopback is always present (and always be).
+        // I.e. do not support dynamic addtion/removal of loopback interface
+        // as we do for other interfaces.
+        // Bind loopback sender to loopback ip and to arbitrary port.
+        // This assumes that your loopback ip is 127.0.0.1.
+        Socket_processor::Get_instance()->Bind_udp(
+            loopback_sender_address,
+            Make_socket_listen_callback([&](Socket_processor::Stream::Ref s, Io_result result)
+                {
+                    if (result == Io_result::OK) {
+                        sender_loopback.second = s;
+                        sender_loopback.second->Enable_broadcast(true);
+                        Schedule_read(LOOPBACK_IDENTIFIER);
+                    } else {
+                        LOG_ERR("Failed to bind loopback sender");
+                    }
+                }),
+            Request_temp_completion_context::Create(),
+            true);
+
         On_timer();
         return false;
     } else {
@@ -466,13 +514,17 @@ Service_discovery_processor::Activate()
 }
 
 void
-Service_discovery_processor::Deactivate()
+Service_discovery_processor::Deactivate_if_no_services()
 {
     if (my_services.size() + subscribed_services.size()) {
         // Some services still present.
         return;
     }
     // All services gone. Remove the sockets.
+    sender_loopback.first.Abort();
+    if (sender_loopback.second) {
+        sender_loopback.second->Close();
+    }
     receiver.first.Abort();
     if (receiver.second) {
         receiver.second->Close();
@@ -498,8 +550,42 @@ Service_discovery_processor::On_advertise(
 
     if (Activate()) {
         for (auto& stream : sender_sockets) {
-            Send_notify(stream.second.second, type, name, location);
+            Send_notify(stream.second.second, multicast_adress, type, name, location, true);
         }
+    }
+    Send_notify(sender_loopback.second, loopback_broadcast_adress, type, name, location, true);
+}
+
+void
+Service_discovery_processor::Send_notify(
+        Socket_processor::Stream::Ref stream,
+        Socket_address::Ptr dest_addr,
+        const std::string& type,
+        const std::string& name,
+        const std::string& location,
+        bool alive)
+{
+    if (stream) {
+        auto notify = NOTIFY_METHOD_STRING;
+        notify += " * HTTP/1.1\r\nHOST:";
+        notify += dest_addr->Get_as_string();
+        if (alive) {
+            notify += "\r\nNTS:ssdp:alive\r\nNT:";
+        } else {
+            notify += "\r\nNTS:ssdp:byebye\r\nNT:";
+        }
+        notify += type;
+        notify += "\r\nUSN:";
+        notify += name;
+        notify += "\r\nID:";
+        notify += my_instance_identifier;
+        notify += "\r\nLocation:";
+        notify += Build_location_string(location, stream->Get_local_address());
+        notify += "\r\n\r\n";
+        // Send notification. Do not care about Write result.
+        stream->Write_to(Io_buffer::Create(notify),
+                dest_addr,
+                Make_write_callback(Dump_error, "Send_notify"));
     }
 }
 
@@ -516,23 +602,10 @@ Service_discovery_processor::On_unadvertise(
 
     if (result) {
         for (auto& stream : sender_sockets) {
-            if (stream.second.second) {
-                auto notify = std::string("NOTIFY * HTTP/1.1\r\nHOST:");
-                notify += multicast_adress->Get_as_string();
-                notify += "\r\nNTS:ssdp:byebye\r\nNT:";
-                notify += type;
-                notify += "\r\nUSN:";
-                notify += name;
-                notify += "\r\nLocation:";
-                notify += Build_location_string(location, stream.second.second->Get_local_address());
-                notify += "\r\n\r\n";
-                // Send notification. Do not care about Write result.
-                stream.second.second->Write_to(Io_buffer::Create(notify),
-                        multicast_adress,
-                        Make_dummy_callback<void, Io_result>());
-            }
+            Send_notify(stream.second.second, multicast_adress, type, name, location, false);
         }
-        Deactivate();
+        Send_notify(sender_loopback.second, loopback_broadcast_adress, type, name, location, false);
+        Deactivate_if_no_services();
     }
 }
 
@@ -546,8 +619,11 @@ Service_discovery_processor::On_subscribe_for_service(
     subscribed_services[type] = std::make_pair(handler, context);
     request->Complete();
     if (Activate()) {
-        On_search_for_service(type);
+        for (auto& stream : sender_sockets) {
+            Send_msearch(stream.second.second, multicast_adress, type);
+        }
     }
+    Send_msearch(sender_loopback.second, loopback_broadcast_adress, type);
 }
 
 void
@@ -558,7 +634,7 @@ Service_discovery_processor::On_unsubscribe_from_service(
     auto result = subscribed_services.erase(type);
     request->Complete();
     if (result) {
-        Deactivate();
+        Deactivate_if_no_services();
     }
 }
 
@@ -570,8 +646,11 @@ Service_discovery_processor::On_search_for_service(
     if (request) {
         request->Complete();
     }
-    for (auto& stream : sender_sockets) {
-        Send_msearch(stream.second.second, type);
+    if (subscribed_services.size()) {
+        Send_msearch(sender_loopback.second, loopback_broadcast_adress, type);
+        for (auto& stream : sender_sockets) {
+            Send_msearch(stream.second.second, multicast_adress, type);
+        }
     }
 }
 
@@ -580,7 +659,7 @@ Service_discovery_processor::On_disable_impl(Request::Ptr request)
 {
     my_services.clear();
     subscribed_services.clear();
-    Deactivate();
+    Deactivate_if_no_services();
     request->Complete();
 }
 

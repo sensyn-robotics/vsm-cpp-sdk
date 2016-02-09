@@ -74,6 +74,12 @@ public:
     bool
     Is_aborted() const;
 
+    void
+    Set_current_request_id(uint32_t id)
+    {
+        current_request_id = id;
+    }
+
     // @{
     /** Process methods for all currently supported Mavlink messages. Does
      * nothing by default, should be overridden by derived class if custom
@@ -92,6 +98,14 @@ public:
 
     virtual void
     Process(mavlink::Message<mavlink::ugcs::MESSAGE_ID::COMMAND_LONG_EX,
+            mavlink::ugcs::Extension>::Ptr);
+
+    virtual void
+    Process(mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_INSTALL,
+            mavlink::ugcs::Extension>::Ptr);
+
+    virtual void
+    Process(mavlink::Message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_PREFLIGHT,
             mavlink::ugcs::Extension>::Ptr);
     // @}
 
@@ -122,7 +136,9 @@ protected:
      * @param vehicle_component_id Component id of the vehicle which sends ack.
      */
     void
-    Send_mission_ack(mavlink::MAV_MISSION_RESULT result, uint8_t vehicle_component_id);
+    Send_mission_ack(
+        mavlink::MAV_MISSION_RESULT result,
+        uint8_t vehicle_component_id);
 
     /**
      * Send Mavlink mission ack message as a response to source message. Supposed
@@ -133,16 +149,19 @@ protected:
      */
     template<class Mavlink_message_ptr>
     void
-    Send_mission_ack(mavlink::MAV_MISSION_RESULT result, Mavlink_message_ptr source_message)
+    Send_mission_ack(
+        mavlink::MAV_MISSION_RESULT result,
+        Mavlink_message_ptr source_message)
     {
         mavlink::ugcs::Pld_mission_ack_ex ack;
-
         ack->type = result;
         ack->target_system = source_message->Get_sender_system_id();
         ack->target_component = source_message->Get_sender_component_id();
 
-        Send_message(ack, vehicle->system_id,
-                source_message->payload->target_component);
+        Send_response_message(
+            ack,
+            vehicle->system_id,
+            source_message->payload->target_component);
     }
 
     /**
@@ -151,7 +170,17 @@ protected:
      * @param command Original command.
      */
     void
-    Send_command_ack(mavlink::MAV_RESULT result, const mavlink::ugcs::Pld_command_long_ex& command);
+    Send_command_ack(
+        mavlink::MAV_RESULT result,
+        const mavlink::ugcs::Pld_command_long_ex& command);
+
+    /**
+     * Send ADSB command acknowledgment.
+     * @param result Result of the command execution.
+     */
+    void
+    Send_adsb_ack(
+        mavlink::MAV_RESULT result);
 
     /**
      * Send Mavlink message towads UCS server.
@@ -161,6 +190,18 @@ protected:
      */
     void
     Send_message(
+            const mavlink::Payload_base& payload,
+            typename mavlink::Mavlink_kind_ugcs::System_id system_id,
+            uint8_t component_id);
+
+    /**
+     * Send Mavlink response message with request_id towards UCS server.
+     * @param payload Message to send.
+     * @param system_id System id.
+     * @param component_id Component id.
+     */
+    void
+    Send_response_message(
             const mavlink::Payload_base& payload,
             typename mavlink::Mavlink_kind_ugcs::System_id system_id,
             uint8_t component_id);
@@ -211,6 +252,9 @@ private:
 
     /** Indicate whether transaction is aborted. */
     bool aborted = false;
+
+    uint32_t current_request_id;
+
 };
 
 } /* namespace vsm */

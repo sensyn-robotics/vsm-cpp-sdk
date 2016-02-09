@@ -619,10 +619,11 @@ public:
      * @throws Invalid_param_exception if size of the buffer is less than
      * expected payload size.
      */
-    Message(System_id_common system_id, uint8_t component_id, Io_buffer::Ptr buffer) :
+    Message(System_id_common system_id, uint8_t component_id, uint32_t request_id, Io_buffer::Ptr buffer) :
         payload(buffer),
         sender_system_id(system_id),
-        sender_component_id(component_id) {}
+        sender_component_id(component_id),
+        sender_request_id(request_id){}
 
     /** Get system id of the sender. */
     System_id_common
@@ -638,6 +639,13 @@ public:
         return sender_component_id;
     }
 
+    /** Get component id of the sender. */
+    uint32_t
+    Get_sender_request_id() const
+    {
+        return sender_request_id;
+    }
+
     /** Payload of the message. */
     typename Payload_type_mapper<message_id, Extension_type>::type payload;
 
@@ -648,6 +656,9 @@ private:
 
     /** Component id of the sending side. */
     uint8_t sender_component_id;
+
+    /** Request id of the sender */
+    uint32_t sender_request_id;
 };
 
 /** Mavlink compatible checksum (ITU X.25/SAE AS-4 hash) calculation class. It

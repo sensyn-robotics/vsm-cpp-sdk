@@ -16,7 +16,8 @@ mavlink::MESSAGE_ID_TYPE msg_id;
 
 void Mavlink_message_handler(Io_buffer::Ptr buffer,
         mavlink::MESSAGE_ID_TYPE message_id, Mavlink_kind::System_id system_id,
-        uint8_t component_id)
+        uint8_t component_id,
+        uint8_t)
 {
     mavlink::Pld_heartbeat hb(buffer);
     sys_id = system_id;

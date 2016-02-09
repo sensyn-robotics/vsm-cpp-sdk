@@ -26,12 +26,12 @@ ugcs::vsm::Socket_processor::Enumerate_local_interfaces()
                     }
                 }
                 if (iface == ret.end()) {
-                    iface = ret.emplace(ret.end(), ifa->ifa_name, ifa->ifa_flags & IFF_MULTICAST);
+                    iface = ret.emplace(ret.end(), ifa->ifa_name);
+                    iface->is_multicast = (ifa->ifa_flags & IFF_MULTICAST);
+                    iface->is_loopback = (ifa->ifa_flags & IFF_LOOPBACK);
                 }
                 const sockaddr_in* addr = reinterpret_cast<const sockaddr_in*>(ifa->ifa_addr);
-                if (    addr->sin_family == AF_INET
-                    &&  addr->sin_addr.s_addr != ntohl(INADDR_LOOPBACK)) {
-                    // Do not add loopback to list (OSX reports it as multicast capable, but that is not true.)
+                if (addr->sin_family == AF_INET) {
                     iface->adresses.emplace_back(ugcs::vsm::Socket_address::Create(*addr));
                 }
             }
