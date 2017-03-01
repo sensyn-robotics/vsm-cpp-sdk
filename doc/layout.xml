@@ -4,7 +4,6 @@
   <navindex>
     <tab type="mainpage" visible="yes" title="Home"/>
     <!-- XXX <tab type="pages" visible="yes" title="" intro=""/> -->
-    <tab type="user" visible="yes" url="@ref ucs_vsm_protocol_page" title="UCS-VSM protocol"/>
     <tab type="modules" visible="yes" title="" intro=""/>
     <tab type="namespaces" visible="yes" title="">
       <tab type="namespacelist" visible="yes" title="" intro=""/>

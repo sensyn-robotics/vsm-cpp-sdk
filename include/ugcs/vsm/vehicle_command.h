@@ -12,6 +12,8 @@
 
 #include <ugcs/vsm/mavlink.h>
 #include <ugcs/vsm/coordinates.h>
+#include <ugcs/vsm/property.h>
+
 
 namespace ugcs {
 namespace vsm {
@@ -19,6 +21,23 @@ namespace vsm {
 /** Information about a command for a vehicle. */
 class Vehicle_command {
 public:
+    /** Camera trigger state. */
+    enum class Camera_trigger_state {
+        SINGLE_SHOT,
+        VIDEO_START,
+        VIDEO_STOP,
+        VIDEO_TOGGLE,   // Toggle video recording on/off. Used for cameras which do not support separate commands for video start/stop.
+        UNKNOWN
+    };
+
+    /** Camera power state. */
+    enum class Camera_power_state {
+        ON,
+        OFF,
+        TOGGLE,     // Toggle the power state. Used for cameras which do not support separate commands for on and off.
+        UNKNOWN
+    };
+
     /** Type of the command. */
     enum class Type {
         /** Do arm. */
@@ -31,6 +50,8 @@ public:
         MANUAL_MODE,
         /** Enable guided mode. */
         GUIDED_MODE,
+        /** Enable direct vehicle control mode. */
+        JOYSTICK_CONTROL_MODE,
         /** Return to home. */
         RETURN_HOME,
         /** Do takeoff. */
@@ -53,8 +74,18 @@ public:
         ADSB_PREFLIGHT,
         /** Set transponder mode */
         ADSB_OPERATING,
+        /** Direct vehicle control. */
+        DIRECT_VEHICLE_CONTROL,
+        /** Direct gimbal control. */
+        DIRECT_PAYLOAD_CONTROL,
+        /** camera power on/off. */
+        CAMERA_POWER,
+        /** camera selection. */
+        CAMERA_VIDEO_SOURCE,
     };
 
+    // Construct from argument list.
+    Vehicle_command(Type type, const Property_list& params);
 
     /** Construct command of a specific type. */
     Vehicle_command(Type type, const mavlink::ugcs::Pld_command_long_ex& cmd);
@@ -159,10 +190,46 @@ public:
         return integer3;
     }
 
+    float
+    Get_pitch() const
+    {
+        return pitch;
+    }
+
+    float
+    Get_roll() const
+    {
+        return roll;
+    }
+
+    float
+    Get_yaw() const
+    {
+        return yaw;
+    }
+
+    float
+    Get_throttle() const
+    {
+        return throttle;
+    }
+
+    float
+    Get_zoom() const
+    {
+        return zoom;
+    }
+
+    int
+    Get_payload_id() const
+    {
+        return payload_id;
+    }
+
 private:
 
     /** Type of the command. */
-    const Type type;
+    Type type;
 
     Wgs84_position position;
 
@@ -181,8 +248,28 @@ private:
     /** Heading. radians from North*/
     float heading;
 
+    /** Vertical speed m/s */
+    float vertical_speed = 0;
+
+    /** Roll [-1..1] Used in direct control messages. */
+    float roll;
+    /** Pitch [-1..1] Used in direct control messages. */
+    float pitch;
+    /** Yaw [-1..1] Used in direct control messages. */
+    float yaw;
+    /** Throttle [-1..1] Used in direct control messages. */
+    float throttle;
+    /** Zoom [-1..1] Used in direct control messages. */
+    float zoom;
+
     /** Take-off point altitude AMSL from where the vehicle was launched. */
     float takeoff_altitude;
+
+    /** Payload ID. currently:  1 - Primary, 2 - Secondary */
+    int payload_id; // DEPRECATED
+
+    Camera_power_state power_state;
+    Camera_trigger_state trigger_state;
 
     std::string string1;
 

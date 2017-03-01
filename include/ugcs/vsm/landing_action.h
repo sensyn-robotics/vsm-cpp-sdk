@@ -50,6 +50,32 @@ public:
         ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_LAND_EX);
     }
 
+    /**
+     * Construct move action from protobuf command.
+     */
+    Landing_action(const Property_list& p) :
+        Action(Type::LANDING),
+        position(Geodetic_tuple(0,0,0))
+    {
+        double lat = 0, lon = 0, alt = 0;
+        auto pi = p.find("latitude");
+        if (pi != p.end()) {
+            pi->second->Get_value(lat);
+        }
+        pi = p.find("longitude");
+        if (pi != p.end()) {
+            pi->second->Get_value(lon);
+        }
+        pi = p.find("altitude_amsl");
+        if (pi != p.end()) {
+            pi->second->Get_value(alt);
+        }
+        position = Geodetic_tuple(lat, lon, alt);
+        p.at("acceptance_radius")->Get_value(acceptance_radius);
+        p.at("heading")->Get_value(heading);
+        p.at("descent_rate")->Get_value(descend_rate);
+        p.at("ground_elevation")->Get_value(elevation);
+    }
 
     /** Landing position. The landing phase should start at the specified
      * position, i.e. altitude is an initial altitude for the landing phase. */

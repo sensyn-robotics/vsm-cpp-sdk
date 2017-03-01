@@ -45,12 +45,6 @@ public:
          * only. */
         Handle(Vehicle_request::Ptr vehicle_request);
 
-        /** Complete the request with a given result. Handle is invalid after
-         * this assignment. Can be done only once for one request, even if there
-         * are multiple copies of the same handle. */
-        Handle&
-        operator =(Result result);
-
         /**
          * Handle validness check. Handle is considered valid if it points
          * to some vehicle request which is not yet completed.
@@ -58,18 +52,30 @@ public:
          */
         explicit operator bool() const;
 
+        void
+        Fail(const char *format = nullptr, ...) __FORMAT(printf, 2, 3);
+
+        void
+        Fail_v(const char *format, va_list fmt_args) __FORMAT(printf, 2, 0);
+
+        void
+        Fail(const std::string& reason);
+
+        void
+        Succeed();
+
     protected:
 
         /** Assignment operator implementation. */
         void
-        Assign_result(Result result);
+        Assign_result(Result result, const std::string& status_text = std::string());
 
         /** Managed vehicle request. */
         Reference_guard<Vehicle_request::Ptr> vehicle_request;
     };
 
     /** Completion handler type of the request. */
-    typedef Callback_proxy<void, Result> Completion_handler;
+    typedef Callback_proxy<void, Result, std::string> Completion_handler;
 
     /** Construct base request instance. */
     Vehicle_request(Completion_handler completion_handler,
@@ -84,7 +90,7 @@ public:
      * @param result Result for Complete method.
      */
     void
-    Set_completion_result(Result result);
+    Set_completion_result(Result result, const std::string&);
 
     /** Should be called when vehicle request is completed by the user. Result,
      * previously set by Set_completion_result is used. */
@@ -155,14 +161,6 @@ public:
     public:
 
         using Vehicle_request::Handle::Handle;
-
-        /** Set request completion result. */
-        Handle&
-        operator =(Result result)
-        {
-            Assign_result(result);
-            return *this;
-        }
 
         /** Access payload using pointer semantics. */
         Payload*

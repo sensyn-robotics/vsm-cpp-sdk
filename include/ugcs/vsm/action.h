@@ -13,6 +13,7 @@
 
 #include <ugcs/vsm/utils.h>
 #include <ugcs/vsm/coordinates.h>
+#include <ugcs/vsm/property.h>
 
 namespace ugcs {
 namespace vsm {

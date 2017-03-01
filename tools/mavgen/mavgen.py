@@ -756,7 +756,7 @@ function myfuncs.dissect_payload_{0}(buffer, tree, msgid, offset, len)
 
     if (len ~= {2}) then
         tree:add_le("Payload length mismatch: dissector needs: {2}, packet has " .. len, buffer(offset, len))
-        return offset + len
+        return false
     end
 """.format(msg.id, msg.name, my_field_len, my_field_len))
     
@@ -764,7 +764,7 @@ function myfuncs.dissect_payload_{0}(buffer, tree, msgid, offset, len)
         generate_field_dissector(outf, msg, f)
 
     outf.write("""
-    return offset
+    return true
 end
 """)
     
@@ -834,97 +834,101 @@ f.rawpayload = ProtoField.bytes("mavlink_proto.rawpayload", "Unparsable payload"
 function mavlink_proto.dissector(buffer,pinfo,tree)
     local offset = 0
     local colinfo = "mavlink"
-            
+    local frame_count = 0
+    local id_len = 1
+    local header_len = id_len + 5
+
     while offset < buffer:len() do
-        -- decode protocol version first
-        local version = buffer(offset,1):uint()
-        local msgid
-        local subtree
-        local protocolString = ""
-        local payload_size
-        
-        if (version == 0xfe) then
-                protocolString = "MAVLink 1.0"
-        elseif (version == 0x55) then
-                protocolString = "MAVLink 0.9"
-        else
-               -- this is not mavlink
-            return
-        end    
-    
-        -- some Wireshark decoration
-        pinfo.cols.protocol = protocolString
-        pinfo.cols.info = colinfo
-    
+
+        -- skip until we have a preamble
+        while (offset < buffer:len()) do
+            if (buffer(offset, 1):uint() == 0xfe) then
+                break
+            end
+            offset = offset + 1
+        end
+
+        -- we need at least 8 bytes to start dissect mavlink.
+        local bytes_remaining = buffer:len() - offset
+        if (bytes_remaining < 2 + header_len) then
+            pinfo.desegment_offset = offset
+            pinfo.desegment_len = DESEGMENT_ONE_MORE_SEGMENT
+            break;
+        end
+
+        local length = buffer(offset + 1, 1)
+        local payload_size = length:uint()
+
+        if (bytes_remaining < payload_size + 2 + header_len) then
+            -- buf does not contain all the packet data we need.
+            pinfo.desegment_offset = offset
+            pinfo.desegment_len = DESEGMENT_ONE_MORE_SEGMENT
+            break;
+        end
+
         -- HEADER ----------------------------------------
         
-        -- we need at least 2 bytes to start dissect mavlink.
-        local bytes_remaining = buffer:len() - offset
-        if (bytes_remaining < 2) then
-            pinfo.desegment_offset = offset
-            pinfo.desegment_len = 2 - bytes_remaining
-            return;
-        else 
+        local version = buffer(offset, 1):uint()
+        local sequence = buffer(offset + 2, 1)
+        local sysid = buffer(offset + 3, id_len)
+        local compid = buffer(offset + id_len + 3, 1)
+        local msgid = buffer(offset + id_len + 4, 1)
 
-            local length = buffer(offset + 1, 1)
-            payload_size = length:uint()
-            
-            if (payload_size + 2 + 6 > bytes_remaining) then
-                -- buf does not contain all the packet data we need.
-                pinfo.desegment_offset = offset
-                pinfo.desegment_len = payload_size + 2 + 6 - bytes_remaining
-                return;
-            end
-
-            local sequence = buffer(offset + 2, 1)
-            local sysid = buffer(offset + 3, 1)
-            local compid = buffer(offset + 4, 1)
-            msgid = buffer(offset + 5, 1)
-
-            if (messageName[msgid:uint()]) then
-                subtree = tree:add(mavlink_proto, buffer(), "mavlink " .. messageName[msgid:uint()] .." ("..(payload_size + 2 + 6)..")")
-            else
-                subtree = tree:add(mavlink_proto, buffer(), "mavlink msg " .. msgid:uint() .." ("..(payload_size + 2 + 6)..")")
-            end
-    
-            local header = subtree:add("Header")
-            header:add(f.magic,version)
-            header:add(f.length, length)
-            header:add(f.sequence, sequence)
-            header:add(f.sysid, sysid)
-            header:add(f.compid, compid)
-            header:add(f.msgid, msgid)
-
-            offset = offset + 6
+        local subtree
+        
+        if (messageName[msgid:uint()]) then
+            subtree = tree:add(mavlink_proto, buffer(offset, payload_size + header_len + 2), "mavlink " .. messageName[msgid:uint()] .." ("..(payload_size + 2 + 6)..")")
+        else
+            subtree = tree:add(mavlink_proto, buffer(offset, payload_size + header_len + 2), "mavlink msg " .. msgid:uint() .." ("..(payload_size + 2 + 6)..")")
         end
-    
-    
+
+        local header = subtree:add("Header")
+        header:add(f.magic,version)
+        header:add(f.length, length)
+        header:add(f.sequence, sequence)
+        header:add(f.sysid, sysid)
+        header:add(f.compid, compid)
+        header:add(f.msgid, msgid)
+
         -- BODY ----------------------------------------
         
         -- dynamically call the type-specific payload dissector    
         local msgnr = msgid:uint()
         local dissect_payload_fn = "dissect_payload_"..tostring(msgnr) 
         local fn = myfuncs[dissect_payload_fn]
+        local parser_error = false
         
         -- do not stumble into exceptions while trying to parse junk
         if (fn == nil) then
-            pinfo.cols.info:append ("Unkown message type   ")
-            subtree:add_expert_info(PI_MALFORMED, PI_ERROR, "Unkown message type")
-            subtree:add(f.rawpayload, buffer(offset, payload_size))
+            parser_error = true
         else
             local payload = subtree:add(f.payload, msgid)
-            fn(buffer, payload, msgid, offset, payload_size)
-            colinfo = colinfo .. " " .. messageName[msgid:uint()]
+            if (fn(buffer, payload, msgid, offset + header_len, payload_size)) then
+                colinfo = colinfo .. " " .. messageName[msgid:uint()]
+            else
+                parser_error = true
+            end
         end
-        offset = offset + payload_size
-    
-        -- CRC ----------------------------------------
-        local crc = buffer(offset,2)
-        subtree:add_le(f.crc, crc)
-        offset = offset + 2
+
+        if (parser_error) then
+            offset = offset + 1
+        else
+            offset = offset + payload_size + header_len
+       
+            -- CRC ----------------------------------------
+            local crc = buffer(offset, 2)
+            subtree:add_le(f.crc, crc)
+            offset = offset + 2
+
+            frame_count = frame_count + 1
+        end
+    end
+
+    -- some Wireshark decoration
+    if (frame_count) then
+        pinfo.cols.protocol = "mavlink_proto"
         pinfo.cols.info = colinfo
     end
-    return offset
 end
 
 -- bind protocol dissector to UDP port 14450 used by ArDrone and MissionPlanner 
@@ -943,7 +947,7 @@ tcp_encap:add(14557, mavlink_proto)
 tcp_encap:add(40115, mavlink_proto)
 
 """)
-# Wireshark dissector generator end here
+# Wireshark dissector generator ends here
 ################################################################################
 
 def FormatPyComment(f, text, indent = 0):

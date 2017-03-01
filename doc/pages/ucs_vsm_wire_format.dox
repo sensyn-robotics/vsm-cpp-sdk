@@ -1,0 +1,47 @@
+/**
+
+@page ucs_vsm_protocol_wire_format_page UCS-VSM protocol wire format
+
+@details
+
+The protocol data is sent over TCP connection. Protobuf does not specify message boundaries, so the simplest way to send multiple messages is to delimit them with message length.
+Data format is:
+
+    <message_size><proto_message><message_size><proto_message><message_size><proto_message>...
+
+## Format of *message_size* field
+
+<b>message_size</b> is a variable length field. This is because most of the ucs-vsm traffic is telemetry which typically consists of small messages. But protocol must support larger messages, too. Eg. mission_upload or Register_vehicle.
+
+Message length | Length of message_size field in bytes
+---|---
+0..127 | 1
+128..16383 | 2
+16384..2097151 | 3
+
+The format of message_size is defined as "Little Endian Base 128", see https://en.wikipedia.org/wiki/LEB128.
+
+The following is taken from https://developers.google.com/protocol-buffers/docs/encoding#varints :
+
+Each byte in a varint, except the last byte, has the most significant bit (msb) set – this indicates that there are further bytes to come. The lower 7 bits of each byte are used to store the two's complement representation of the number in groups of 7 bits, least significant group first.
+
+So, for example, here is the number 1 – it's a single byte, so the msb is not set:
+
+    00000001
+
+And here is 300 – this is a bit more complicated:
+
+    10101100 00000010
+
+How do you figure out that this is 300? First you drop the msb from each byte, as this is just there to tell us whether we've reached the end of the number (as you can see, it's set in the first byte as there is more than one byte in the varint):
+
+   10101100 00000010 ->
+    0101100  0000010
+
+You reverse the two groups of 7 bits because, as you remember, varints store numbers with the least significant group first. Then you concatenate them to get your final value:
+
+    0000010 0101100     ->
+    00000100101100      ->
+    100101100           ->
+    256 + 32 + 8 + 4 = 300
+*/

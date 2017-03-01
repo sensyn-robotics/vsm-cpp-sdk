@@ -12,6 +12,8 @@ This is a VSM C++ SDK Developer's manual.
  - @subpage tutorials_page Detailed guides about different topics and SDK usage
  concepts.
 
+ - @subpage ucs_vsm_protocol_page UCS-VSM protocol
+
  - @subpage license_page
 
 */

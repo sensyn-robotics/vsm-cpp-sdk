@@ -9,7 +9,10 @@ set(UGCS_PACKAGE_SUMMARY "Unittest package")
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../../cmake")
 
-set(PROTOBUF_UT_ENABLED 1)
+add_subdirectory(../../third-party/protobuf/src ${CMAKE_BINARY_DIR}/protobuf)
+
+set(PROTOBUF_UT_ENABLED 0)
+
 include("ut")
 
 add_test(NAME protobuf_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/protobuf

@@ -22,6 +22,7 @@ if(CMAKE_BUILD_TYPE MATCHES "RELEASE")
 endif()
 
 include_directories("${VSM_SDK_DIR}/include")
+include_directories("${VSM_SDK_DIR}/include/generated")
 
 if (BEAGLEBONE)
     set (VSM_LIBRARY_DIR "${VSM_SDK_DIR}/beaglebone/lib")
@@ -40,17 +41,7 @@ endif()
 
 if (UGCS_PACKAGING_ENABLED)
     if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-        set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15), libgcc1 (>= 1:4.1.1)")
-        # Special handling for adding libstdc++ to installation.
-        # what we do here is reference the stdcpp library in our distribution to support
-        # ubuntu precise.
-        # Assume vsms will install under .../bin which is at the same level as .../lib.
-        if ("${LINUX_DISTRO_VERSION}" VERSION_EQUAL "12.04")
-            set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib")
-            set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, ugcs-stdcpp-runtime")
-        else()
-            set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, libstdc++6 (>= 4.8.1)")
-        endif()
+        set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15), libgcc1 (>= 1:4.1.1), libstdc++6 (>= 4.8.1)")
     elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
         set(CMAKE_MACOSX_RPATH NO)
     endif()

@@ -328,6 +328,9 @@ typedef Position<Wgs84_datum> Wgs84_position;
 float
 Normalize_angle_0_2pi(float a);
 
+float
+Normalize_angle_minuspi_pi(float a);
+
 } /* namespace vsm */
 } /* namespace ugcs */
 

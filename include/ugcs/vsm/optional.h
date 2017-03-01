@@ -26,11 +26,14 @@ class Optional {
 public:
 
     constexpr Optional():
-        is_valid(false)
+        /* Initialize storage to prevent from false GCC warnings about
+         * uninitialized value used in release build.
+         */
+        storage{0}, is_valid(false)
     {}
 
     constexpr Optional(Nullopt_t):
-        is_valid(false)
+        storage{0}, is_valid(false)
     {}
 
     Optional(const T &value):

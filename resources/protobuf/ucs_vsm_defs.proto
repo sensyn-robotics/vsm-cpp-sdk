@@ -1,12 +1,40 @@
 package ugcs.vsm.proto;
 
 option java_package = "com.ugcs.ucs.vsm.proto";
-option java_outer_classname = "VSMMessagesProto";
+option java_outer_classname = "VsmDefinitionsProto";
+
+// Response code sent by VSM tu UCS
+enum Status_code {
+    STATUS_OK = 0;
+    // Generic error
+    STATUS_FAILED = 1;
+    // Command is not supported 
+    STATUS_INVALID_COMMAND = 2;
+    // Command parameters are invalid 
+    STATUS_INVALID_PARAMETER = 3;
+    // Invalid session id
+    STATUS_INVALID_SESSION_ID = 4;
+}
+
+enum Vehicle_type {
+    VEHICLE_TYPE_GROUND = 0;
+    VEHICLE_TYPE_FIXED_WING = 1;
+    VEHICLE_TYPE_MULTICOPTER = 2;
+    VEHICLE_TYPE_HELICOPTER = 3;
+}
+
+enum Meta_value {
+    META_VALUE_NA = 0;
+}
+
+// Built in telemetry enums
 
 enum Gps_fix_type {
     GPS_FIX_TYPE_NONE = 0;
     GPS_FIX_TYPE_2D = 1;
     GPS_FIX_TYPE_3D = 2;
+    GPS_FIX_TYPE_DIFF = 3;
+    GPS_FIX_TYPE_RTK = 4;
 }
 
 enum Control_mode {
@@ -16,16 +44,64 @@ enum Control_mode {
     CONTROL_MODE_JOYSTICK = 3;
 }
 
+// Built in command parameter enums
+
 enum Adsb_mode {
-    ADSB_MODE_OFF = 1;
-    ADSB_MODE_STBY = 2;
-    ADSB_MODE_ON = 3;
-    ADSB_MODE_ALT = 4;
+    ADSB_MODE_OFF = 0;
+    ADSB_MODE_STBY = 1;
+    ADSB_MODE_ON = 2;
+    ADSB_MODE_ALT = 3;
+}
+
+enum Failsafe_action {
+    FAILSAFE_ACTION_RTH = 0;
+    FAILSAFE_ACTION_LAND = 1;
+    FAILSAFE_ACTION_WAIT = 2;
+    FAILSAFE_ACTION_CONTINUE = 3;
+}
+
+enum Camera_power_state {
+    CAMERA_POWER_STATE_ON = 0;
+    CAMERA_POWER_STATE_OFF = 1;
+    CAMERA_POWER_STATE_TOGGLE = 2;
+}
+
+enum Camera_video_source {
+    CAMERA_VIDEO_SOURCE_PRIMARY = 0;
+    CAMERA_VIDEO_SOURCE_SECONDARY = 1;
+}
+
+enum Camera_command_trigger_state {
+    CAMERA_COMMAND_TRIGGER_STATE_SINGLE_SHOT = 0;
+    CAMERA_COMMAND_TRIGGER_STATE_VIDEO_START = 1;
+    CAMERA_COMMAND_TRIGGER_STATE_VIDEO_STOP = 2;
+    CAMERA_COMMAND_TRIGGER_STATE_VIDEO_TOGGLE = 3;
+}
+
+enum Camera_mission_trigger_state {
+    CAMERA_MISSION_TRIGGER_STATE_ON = 0;
+    CAMERA_MISSION_TRIGGER_STATE_OFF = 1;
+    CAMERA_MISSION_TRIGGER_STATE_SINGLE_PHOTO = 2;
+    CAMERA_MISSION_TRIGGER_STATE_SERIAL_PHOTO = 3;
+}
+
+enum Panorama_mode {
+    PANORAMA_MODE_PHOTO = 0;
+    PANORAMA_MODE_VIDEO = 1;
+}
+
+enum Turn_type {
+    TURN_TYPE_STOP_AND_TURN = 0;
+    TURN_TYPE_STRAIGHT = 1;
+    TURN_TYPE_SPLINE = 2;
+    TURN_TYPE_BANK_TURN = 3;
 }
 
 // Field/parameter type (semantic)
 enum Field_semantic {
 
+    // Used internally.
+    FIELD_SEMANTIC_DEFAULT = 0;
     // Description, Units, Data type, Range, Origin, Positive direction
 
     // Geodetic latitude, radians, double, -Pi/2..Pi/2, equator, north
@@ -46,11 +122,8 @@ enum Field_semantic {
     // Vehicle nose angle, radians, numeric, 0..2Pi, North, East
     FIELD_SEMANTIC_HEADING = 6;
 
-    // Vehicle speed vector angle, radians, numeric, 0..2Pi, North, East
-    FIELD_SEMANTIC_COURSE = 7;
-
-    // Main battery voltage, volts, numeric
-    FIELD_SEMANTIC_MAIN_VOLTAGE = 8;
+    // Battery voltage, volts, numeric
+    FIELD_SEMANTIC_VOLTAGE = 8;
 
     // Air speed, m/s, numeric
     FIELD_SEMANTIC_AIR_SPEED = 9;
@@ -73,11 +146,17 @@ enum Field_semantic {
     // Pitch angle, radians, numeric, -Pi..Pi, Horizon, up
     FIELD_SEMANTIC_PITCH = 15;
 
-    // Yaw angle, radians, numeric, 0..2Pi, North, East
+    // Yaw angle, radians, numeric, 0..2Pi, unspecified, East
     FIELD_SEMANTIC_YAW = 16;
 
     // RC link quality, , numeric, [0..1]
-    FIELD_SEMANTIC_LINK_QUALITY = 17;
+    FIELD_SEMANTIC_RC_LINK_QUALITY = 17;
+
+    // Battery current, amperes, numeric
+    FIELD_SEMANTIC_CURRENT = 18;
+
+    // Groundstation datalink quality, , numeric, [0..1]
+    FIELD_SEMANTIC_GCS_LINK_QUALITY = 19;
 
     // Camera Field-of-view horizontal angle, radians, numeric, 0..Pi
     FIELD_SEMANTIC_FOV_H = 23;
@@ -105,6 +184,12 @@ enum Field_semantic {
 
     // ADSB squawk code, 12 bits, numeric, represented as octal
     FIELD_SEMANTIC_SQUAWK = 32;
+
+    // Time interval, milliseconds, numeric, represented as time
+    FIELD_SEMANTIC_MILLISECONDS = 33;
+
+    // Battery capacity percentage, numeric, [0..1]
+    FIELD_SEMANTIC_CAPACITY_LEVEL = 34;
 
     // Generic types used for user-defined telemetry fields.
 

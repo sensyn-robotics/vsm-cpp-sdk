@@ -244,7 +244,25 @@ Socket_processor::Stream::Set_socket(sockets::Socket_handle s)
 void
 Socket_processor::Stream::Update_name()
 {
-    Set_name("remote: " + peer_address->Get_as_string());
+    std::string prefix;
+    switch (Get_type()) {
+    case Type::TCP:
+        prefix = "tcp:";
+        break;
+    case Type::UDP:
+        prefix = "udp:";
+        break;
+    case Type::UDP_MULTICAST:
+        prefix = "udp_mcast:";
+        break;
+    case Type::CAN:
+        prefix = "can:";
+        break;
+    default:
+        prefix = "remote:";
+        break;
+    }
+    Set_name(prefix + peer_address->Get_as_string());
 }
 
 void

@@ -13,7 +13,7 @@
 #ifndef HID_PROCESSOR_H_
 #define HID_PROCESSOR_H_
 
-#include <ugcs/vsm/vsm.h>
+#include <ugcs/vsm/file_processor.h>
 
 namespace ugcs {
 namespace vsm {

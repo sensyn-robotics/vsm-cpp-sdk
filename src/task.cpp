@@ -15,19 +15,10 @@ Task::Get_home_position() const
     return std::get<0>(Get_home_position_impl());
 }
 
-Wgs84_position
-Task::Get_home_position_relative() const
-{
-    auto home = Get_home_position_impl();
-    Geodetic_tuple gt(std::get<0>(home).Get_geodetic());
-    gt.altitude -= std::get<1>(home);
-    return Wgs84_position(gt);
-}
-
 double
-Task::Get_home_position_elevation() const
+Task::Get_home_position_altitude() const
 {
-    return std::get<1>(Get_home_position_impl());
+    return std::get<0>(Get_home_position_impl()).Get_geodetic().altitude;
 }
 
 double

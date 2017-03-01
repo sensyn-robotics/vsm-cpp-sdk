@@ -53,6 +53,32 @@ public:
         }
     }
 
+    /**
+     * Construct move action from protobuf command.
+     */
+    Takeoff_action(const Property_list& p) :
+        Action(Type::TAKEOFF),
+        position(Geodetic_tuple(0,0,0))
+    {
+        double lat = 0, lon = 0, alt = 0;
+        auto pi = p.find("latitude");
+        if (pi != p.end()) {
+            pi->second->Get_value(lat);
+        }
+        pi = p.find("longitude");
+        if (pi != p.end()) {
+            pi->second->Get_value(lon);
+        }
+        pi = p.find("altitude_amsl");
+        if (pi != p.end()) {
+            pi->second->Get_value(alt);
+        }
+        position = Geodetic_tuple(lat, lon, alt);
+        p.at("acceptance_radius")->Get_value(acceptance_radius);
+        p.at("heading")->Get_value(heading);
+        p.at("climb_rate")->Get_value(climb_rate);
+        p.at("ground_elevation")->Get_value(elevation);
+    }
 
     /** Take-off position. After take-off, the vehicle should climb to the
      * altitude defined in the position. */

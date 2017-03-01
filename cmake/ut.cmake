@@ -28,6 +28,11 @@ Find_platform_sources("${VSM_SDK_DIR}"
                       PLATFORM_INCLUDES PLATFORM_SOURCES PLATFORM_HEADERS)
 Build_mavlink(${VSM_SDK_DIR} MAVLINK_INCLUDES MAVLINK_SOURCES MAVLINK_HEADERS MAVLINK_LUA)
 
+Compile_protobuf_definitions(
+    "ucs_vsm.proto;ucs_vsm_defs.proto"
+    "${VSM_SDK_DIR}/resources/protobuf"
+    "ucs_vsm_proto.h")
+
 include_directories(${VSM_SDK_DIR}/include)
 include_directories(${PLATFORM_INCLUDES} ${MAVLINK_INCLUDES})
 include_directories(${VSM_SDK_DIR}/third-party/protobuf/src)
@@ -50,6 +55,7 @@ file(GLOB SDK_SRCS "${VSM_SDK_DIR}/src/*.cpp")
 file(GLOB HEADERS "${VSM_SDK_DIR}/src/include/vsm/*.h")
 set(SDK_SRCS ${SDK_SRCS} ${HEADERS} ${PLATFORM_SOURCES} ${PLATFORM_HEADERS})
 set(SDK_SRCS ${SDK_SRCS} ${MAVLINK_SOURCES} ${MAVLINK_HEADERS})
+set(SDK_SRCS ${SDK_SRCS} ${PROTOBUF_AUTO_SOURCES} ${PROTOBUF_AUTO_HEADERS})
 # Process DLL module definitions on Windows
 Process_dll_defs("${VSM_SDK_DIR}/src/platform/win")
 
@@ -63,7 +69,7 @@ add_custom_command(TARGET initial_config COMMAND
     ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/resources
     ${CMAKE_BINARY_DIR}/resources)
 
-add_library(ut_vsm_sdk STATIC ${SDK_SRCS})
+add_library(ut_vsm_sdk STATIC ${SDK_SRCS} $<TARGET_OBJECTS:protobuf_objlib>)
 
 add_dependencies(ut_vsm_sdk unittestpp initial_config)
 

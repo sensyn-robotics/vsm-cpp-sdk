@@ -46,6 +46,31 @@ public:
     }
 
     /**
+     * Construct action from protobuf command.
+     */
+    Set_home_action(const Property_list& p) :
+        Action(Type::SET_HOME),
+        use_current_position(false),
+        home_position(Geodetic_tuple(0,0,0))
+    {
+        double lat = 0, lon = 0, alt = 0;
+        auto pi = p.find("latitude");
+        if (pi != p.end()) {
+            pi->second->Get_value(lat);
+        }
+        pi = p.find("longitude");
+        if (pi != p.end()) {
+            pi->second->Get_value(lon);
+        }
+        pi = p.find("altitude_amsl");
+        if (pi != p.end()) {
+            pi->second->Get_value(alt);
+        }
+        home_position = Geodetic_tuple(lat, lon, alt);
+        p.at("ground_elevation")->Get_value(elevation);
+    }
+
+    /**
      * If set, current vehicle position should be set as the home/base position
      * on the action occurrence. Otherwise, vehicle should use @ref home_position
      * value.

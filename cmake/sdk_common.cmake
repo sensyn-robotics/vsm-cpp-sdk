@@ -96,7 +96,7 @@ endfunction()
 function(Build_mavlink SDK_SRC_DIR MAVLINK_INCLUDES_VAR MAVLINK_SOURCES_VAR MAVLINK_HEADERS_VAR MAVLINK_LUA_VAR)
     # Automatic generation of MAVLink definitions
     set(MAVGEN ${SDK_SRC_DIR}/tools/mavgen/mavgen.py)
-    set(MAV_DEF_DIR ${SDK_SRC_DIR}/resources/mavlink/message_definitions/v1.0)
+    set(MAV_DEF_DIR ${SDK_SRC_DIR}/resources/mavlink)
     set(MAV_XML ${MAV_DEF_DIR}/common.xml
                 ${MAV_DEF_DIR}/ardupilotmega.xml
                 ${MAV_DEF_DIR}/ugcs.xml)
@@ -130,7 +130,8 @@ function(Build_mavlink SDK_SRC_DIR MAVLINK_INCLUDES_VAR MAVLINK_SOURCES_VAR MAVL
     add_custom_target(mavlink_lua ALL
         COMMAND python -B ${MAVGEN} --output-dir=${CMAKE_BINARY_DIR}/mavlink
         --lang=Lua
-        ${XML_PARAM}
+        --xml-def=${MAV_DEF_DIR}/common.xml
+        --xml-def=${MAV_DEF_DIR}/ardupilotmega.xml
         --schema=${MAV_XSD}
         --merge-extensions
         DEPENDS ${MAV_XML} ${MAV_XSD} ${MAVGEN})

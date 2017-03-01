@@ -53,7 +53,7 @@ if (ANDROID)
         endif()
     endif()
     if (NOT DEFINED ANDROID_ABI_LIST)
-        set(ANDROID_ABI_LIST "armeabi;armeabi-v7a;x86;mips;arm64-v8a;x86_64;mips64")
+        set(ANDROID_ABI_LIST "armeabi;armeabi-v7a;x86;mips;x86_64")
     endif()
     if (NOT DEFINED ANDROID_PLATFORM)
         set(ANDROID_PLATFORM "android-19")
@@ -198,7 +198,8 @@ function(Compile_protobuf_definitions PROTO_INPUT_FILES PROTO_ROOT PROTO_COMMON_
         set (PROTOBUF_PROTOC_BINARY "${VSM_SDK_DIR}/share/tools/protobuf_compiler")
     endif()
     
-    set(PROTO_OUTPUT_DIR "${CMAKE_BINARY_DIR}/protobuf")
+    # Dedicated directory to generated files for easy install via "install(DIRECTORY...."
+    set(PROTO_OUTPUT_DIR "${CMAKE_BINARY_DIR}/protobuf_generated")
     
     # Auto include is generated during configure phase, not build time.
     # Consider it "enough" for now.

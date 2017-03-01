@@ -14,3 +14,9 @@ ugcs::vsm::Normalize_angle_0_2pi(float a)
         return ret;
     }
 }
+
+float
+ugcs::vsm::Normalize_angle_minuspi_pi(float a)
+{
+    return Normalize_angle_0_2pi(a + M_PI) - M_PI;
+}

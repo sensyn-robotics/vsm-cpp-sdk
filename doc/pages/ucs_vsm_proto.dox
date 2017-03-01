@@ -1,0 +1,17 @@
+/**
+
+@page ucs_vsm_proto_page ucs_vsm.proto
+
+@tableofcontents
+
+@section proto_files Protobuf definition files
+
+@subsection proto_messages Protobuf Message definitions
+
+@includelineno ucs_vsm.proto
+
+@subsection proto_enums Protobuf enumerations
+
+@includelineno ucs_vsm_defs.proto
+
+*/

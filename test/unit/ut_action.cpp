@@ -73,7 +73,7 @@ TEST(convertions_from_base_class_takeoff)
 
 TEST(convertions_from_base_class_change_speed)
 {
-    Action::Ptr action = Change_speed_action::Create(42);
+    Action::Ptr action = Change_speed_action::Create(42, 0);
     CHECK(Action::Type::CHANGE_SPEED == action->Get_type());
     Change_speed_action::Ptr ca = action->Get_action<Action::Type::CHANGE_SPEED>();
     CHECK_EQUAL(42, ca->speed);
@@ -255,8 +255,8 @@ TEST(construct_from_mavlink_landing)
 TEST(construct_from_mavlink_change_speed)
 {
     mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::MAV_CMD::MAV_CMD_DO_CHANGE_SPEED;
-    item->param2 = 42; /* ms */
+    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CHANGE_SPEED_EX;
+    item->param1 = 42; /* ms */
 
     Change_speed_action ca(item);
     CHECK_EQUAL(42, ca.speed);
@@ -320,7 +320,7 @@ TEST(construct_from_mavlink_heading)
 TEST(construct_from_mavlink_camera_control)
 {
     mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_CONTROL;
+    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_PAYLOAD_CONTROL;
     item->param1 = 0; /* deg, tilt */
     item->param2 = 90; /* deg, roll */
     item->param3 = -90; /* deg, yaw */

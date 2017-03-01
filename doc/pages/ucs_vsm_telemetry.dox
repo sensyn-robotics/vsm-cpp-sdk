@@ -1,0 +1,89 @@
+/**
+
+@page ucs_vsm_telemetry_page Telemetry protocol
+
+@tableofcontents
+
+@section telemetry_registration Telemetry field registration
+
+Before any telemetry can be sent to the UCS it must be registered.
+
+Each telemetry field supported by the vehicle should be registered via @b Register_vehicle.register_flight_controller.telemetry_fields message (See @ref register_field).
+
+All telemetry values are considered valid until explicitly reported as N/A by the VSM.
+
+VSM will send N/A automatically depending on timeout upon field creation. This timeout value is used only by VSM-SDK and not communicated to UCS.
+
+@subsection telemetry_fields Built in telemetry field names
+
+VSM can register any set of telemetry fields but there are some built in telemetry field names which are treated specially by UCS.
+
+Registering different semantic for these values will lead to undesired results.
+
+| Field name | Semantic | Notes |
+|---|---|---|
+| latitude | FIELD_SEMANTIC_LATITUDE |  |
+| longitude | FIELD_SEMANTIC_LONGITUDE |  |
+| altitude_amsl | FIELD_SEMANTIC_ALTITUDE_AMSL |  |
+| altitude_raw | FIELD_SEMANTIC_ALTITUDE_RAW |  |
+| heading | FIELD_SEMANTIC_HEADING | Yaw relative to North. Range 0..2Pi, East is positive |
+| course | FIELD_SEMANTIC_HEADING | Course over ground relative to North. Range 0..2Pi, East is positive |
+| ground_speed | FIELD_SEMANTIC_GROUND_SPEED |  |
+| air_speed | FIELD_SEMANTIC_AIR_SPEED |  |
+| vertical_speed | FIELD_SEMANTIC_VERTICAL_SPEED |  |
+| main_voltage | FIELD_SEMANTIC_MAIN_VOLTAGE |  |
+| satellite_count | FIELD_SEMANTIC_SATELLITE_COUNT |  |
+| gps_fix | FIELD_SEMANTIC_GPS_FIX_TYPE |  |
+| roll | FIELD_SEMANTIC_ROLL | Roll relative to horizon. Range -Pi..Pi, roll right is positive |
+| pitch | FIELD_SEMANTIC_PITCH | Pitch relative to horizon. Range -Pi..Pi, pitch up is positive |
+| rc_link_quality | FIELD_SEMANTIC_LINK_QUALITY |  |
+| gcs_link_quality | FIELD_SEMANTIC_LINK_QUALITY |  |
+| uplink_present | FIELD_SEMANTIC_BOOL |  |
+| downlink_present | FIELD_SEMANTIC_BOOL |  |
+| is_armed | FIELD_SEMANTIC_BOOL |  |
+| control_mode | FIELD_SEMANTIC_CONTROL_MODE |  |
+| adsb_icao | FIELD_SEMANTIC_ICAO |  |
+| adsb_altitude | FIELD_SEMANTIC_ALTITUDE_AMSL |  |
+| adsb_registration | FIELD_SEMANTIC_STRING |  |
+| adsb_flight | FIELD_SEMANTIC_STRING |  |
+| adsb_altitude_internal | FIELD_SEMANTIC_BOOL |  |
+| adsb_error_xpdr | FIELD_SEMANTIC_BOOL |  |
+| adsb_error_icao | FIELD_SEMANTIC_BOOL |  |
+| adsb_error_gps | FIELD_SEMANTIC_BOOL |  |
+| adsb_error_squitter | FIELD_SEMANTIC_BOOL |  |
+| adsb_error_temperature | FIELD_SEMANTIC_BOOL |  |
+| adsb_ident_active | FIELD_SEMANTIC_BOOL |  |
+| adsb_transponder_mode | FIELD_SEMANTIC_ADSB_MODE |  |
+| adsb_squawk | FIELD_SEMANTIC_SQUAWK |  |
+| home_altitude_amsl | FIELD_SEMANTIC_ALTITUDE_AMSL |  |
+| home_altitude_raw | FIELD_SEMANTIC_ALTITUDE_RAW |  |
+| home_latitude | FIELD_SEMANTIC_LATITUDE |  |
+| home_longitude | FIELD_SEMANTIC_LONGITUDE |  |
+| takeoff_latitude | FIELD_SEMANTIC_LATITUDE |  |
+| takeoff_longitude | FIELD_SEMANTIC_LONGITUDE |  |
+| altitude_origin | FIELD_SEMANTIC_ALTITUDE_AMSL |  |
+| autopilot_status_text | FIELD_SEMANTIC_STRING |  |
+| safety_battery_voltage | FIELD_SEMANTIC_NUMERIC |  WINCH Subsytem |
+| current | FIELD_SEMANTIC_NUMERIC | FC Subsystem  |
+| safety_battery_active | FIELD_SEMANTIC_BOOL |  WINCH Subsytem |
+| winch_connected | FIELD_SEMANTIC_BOOL |  WINCH Subsytem |
+| motors_ok | FIELD_SEMANTIC_BOOL |  true - ok, false - not ok. FC Subsystem |
+| vibration_x | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| vibration_y | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| vibration_z | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| field_of_view | FIELD_SEMANTIC_NUMERIC | Camera Subsystem |
+| motor_pwm_1 | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| motor_pwm_2 | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| motor_pwm_3 | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| motor_pwm_4 | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| motor_pwm_5 | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| motor_pwm_6 | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| motor_pwm_7 | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+| motor_pwm_8 | FIELD_SEMANTIC_NUMERIC | FC Subsystem |
+
+
+@section telemetry_sending Sending telemetry data
+
+Any message from VSM can contain a set of telemetry fields from vehicle specified by @b device_id (Vsm_message.device_status.telemetry_fields).
+
+*/

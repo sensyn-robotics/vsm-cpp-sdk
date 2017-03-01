@@ -43,6 +43,27 @@ public:
         ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_TIME);
     }
 
+    /**
+     * Construct action from protobuf command.
+     */
+    Camera_series_by_time_action(const Property_list& p) :
+        Action(Type::CAMERA_SERIES_BY_TIME)
+    {
+        int tmp;
+        float time;
+
+        if (p.at("count")->Get_value(tmp)) {
+            count = tmp;
+        }
+        p.at("period")->Get_value(time);
+        tmp = time * 1000;
+        interval = std::chrono::milliseconds(tmp);
+
+        p.at("delay")->Get_value(time);
+        tmp = time * 1000;
+        initial_delay = std::chrono::milliseconds(tmp);
+    }
+
     /** Time interval between two consequent shots. */
     std::chrono::milliseconds interval;
     /** Total number of shots to perform. */

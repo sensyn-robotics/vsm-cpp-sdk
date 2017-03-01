@@ -9,7 +9,7 @@ include(ugcs/unittestpp)
 
 file(GLOB TEST_SRCS ut_*.cpp)
 file(STRINGS no_valgrind.txt NO_VALGRIND)
-set(TESTS, "")
+set(TESTS "")
 foreach (TEST_SRC ${TEST_SRCS})
     string(REGEX REPLACE ".*/ut_(.+)\\.cpp" \\1 TEST_SRC ${TEST_SRC})
     list(APPEND TESTS ${TEST_SRC})

@@ -9,6 +9,7 @@
 #include <ugcs/vsm/timer_processor.h>
 #include <ugcs/vsm/transport_detector.h>
 #include <ugcs/vsm/properties.h>
+#include <ugcs/vsm/param_setter.h>
 
 using namespace ugcs::vsm;
 
@@ -17,105 +18,51 @@ constexpr std::chrono::seconds Cucs_processor::WRITE_TIMEOUT;
 Singleton<Cucs_processor> Cucs_processor::singleton;
 
 Cucs_processor::Cucs_processor():
-        Request_processor("Cucs processor")
+        Request_processor("Cucs processor"),
+        ucs_id_counter(1)
 {
 }
 
 void
-Cucs_processor::Register_vehicle(Vehicle::Ptr vehicle)
+Cucs_processor::Register_device(Device::Ptr vehicle)
 {
-    bool success = false;
     auto request = Request::Create();
     auto proc_handler = Make_callback(
             &Cucs_processor::On_register_vehicle,
             Shared_from_this(),
             request,
-            vehicle,
-            &success);
+            vehicle);
     request->Set_processing_handler(proc_handler);
-    Operation_waiter waiter(request);
     Submit_request(request);
-    /* Register vehicle is never called from UCS processor context, so no
-     * need to process requests. */
-    waiter.Wait(false);
-    if (!success) {
-        VSM_EXCEPTION(Invalid_param_exception,
-                "Can not register vehicle [%s:%s].",
-                vehicle->Get_model_name().c_str(),
-                vehicle->Get_serial_number().c_str());
-    }
+    // Wait because it accesses Device structures to create registration message.
+    request->Wait_done();
 }
 
 void
-Cucs_processor::Unregister_vehicle(Vehicle::Ptr vehicle)
+Cucs_processor::Unregister_device(uint32_t handle)
 {
-    bool success = false;
     auto request = Request::Create();
     auto proc_handler = Make_callback(
             &Cucs_processor::On_unregister_vehicle,
             Shared_from_this(),
             request,
-            vehicle,
-            &success);
+            handle);
     request->Set_processing_handler(proc_handler);
-    Operation_waiter waiter(request);
     Submit_request(request);
-    /* Unregister vehicle is never called from UCS processor context, so no
-     * need to process request. */
-    waiter.Wait(false);
-    if (!success) {
-        VSM_EXCEPTION(Invalid_param_exception, "Vehicle with ID %u already unregistered",
-                vehicle->system_id);
-    }
 }
 
 void
-Cucs_processor::Send_adsb_report(const Adsb_report& report)
+Cucs_processor::Send_ucs_message(uint32_t handle, Proto_msg_ptr message)
 {
     auto request = Request::Create();
-    request->Set_processing_handler(
-            Make_callback(
-                    &Cucs_processor::On_send_adsb_report,
-                    Shared_from_this(),
-                    report, request));
-    pending_adsb_reports.fetch_add(1);
+    auto proc_handler = Make_callback(
+            &Cucs_processor::On_send_ucs_message,
+            Shared_from_this(),
+            request,
+            handle,
+            message);
+    request->Set_processing_handler(proc_handler);
     Submit_request(request);
-    if (pending_adsb_reports.load() >= MAX_ADSB_REPORTS_PENDING) {
-        LOG_WARNING("CUCS processor overload suspected, %zu pending ADS-B "
-                "reports are present. Waiting for all reports to be completed...",
-                pending_adsb_reports.load());
-        Operation_waiter waiter(request);
-        waiter.Wait(false);
-        LOG_DEBUG("%zu pending ADS-B reports after waiting.",
-                pending_adsb_reports.load());
-    }
-}
-
-void
-Cucs_processor::Send_peripheral_register(const Peripheral_message::Peripheral_register& report) {
-    auto request = Request::Create();
-    request->Set_processing_handler(
-            Make_callback(
-                    &Cucs_processor::On_send_peripheral_register,
-                    Shared_from_this(),
-                    report, request));
-    Operation_waiter waiter(request);
-    Submit_request(request);
-    waiter.Wait(false);
-}
-
-
-void
-Cucs_processor::Send_peripheral_update(const Peripheral_message::Peripheral_update& update) {
-    auto request = Request::Create();
-    request->Set_processing_handler(
-            Make_callback(
-                    &Cucs_processor::On_send_peripheral_update,
-                    Shared_from_this(),
-                    update, request));
-    Operation_waiter waiter(request);
-    Submit_request(request);
-    waiter.Wait(false);
 }
 
 void
@@ -128,10 +75,6 @@ Cucs_processor::On_enable()
     completion_ctx->Enable();
     Request_processor::On_enable();
     worker->Enable();
-    heartbeat_timer = Timer_processor::Get_instance()->Create_timer(
-            std::chrono::seconds(3),
-            Make_callback(&Cucs_processor::On_heartbeat_timer, Shared_from_this()),
-                    completion_ctx);
     Start_listening();
 }
 
@@ -155,8 +98,6 @@ Cucs_processor::Process_on_disable(Request::Ptr request)
 {
     accept_op.Abort();
     cucs_listener_op.Abort();
-    heartbeat_timer->Cancel();
-    heartbeat_timer = nullptr;
     if (cucs_listener) {
         cucs_listener->Close();
     }
@@ -165,17 +106,13 @@ Cucs_processor::Process_on_disable(Request::Ptr request)
                 vehicles.size());
         ASSERT(false);
     }
-    auto vehicles_copy = vehicles;
-    for (auto& iter : vehicles_copy) {
-        /* Disable context. */
-        iter.second->Disable();
-    }
+
+    // TODO clean vehicle shutdown.
     vehicles.clear();
-    vehicles_copy.clear();
+
     for (auto& iter : ucs_connections) {
-        iter.second.second.Abort();
-        iter.first->Get_stream()->Close();
-        iter.first->Disable();
+        iter.second.read_waiter.Abort();
+        iter.second.stream->Close();
     }
     ucs_connections.clear();
 
@@ -208,25 +145,21 @@ Cucs_processor::On_incoming_connection(Socket_processor::Stream::Ref stream, Io_
     if (result == Io_result::OK) {
         LOG_INFO("UCS connection accepted [%s].",
                 stream->Get_name().c_str());
-        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream = Ucs_vehicle_ctx::Ugcs_mavlink_stream::Create(
-                stream, mavlink::ugcs::Extension::Get());
-
-        mav_stream->Bind_decoder_demuxer();
-
-        Register_mavlink_handlers(mav_stream);
 
         if (ucs_connections.size() == 0) {
             Transport_detector::Get_instance()->Activate(true);
         }
+        Server_context sc;
+        sc.stream = stream;
+        sc.stream_id = Get_next_id();
+        Schedule_next_read(sc);
 
-        Operation_waiter& op_waiter = ucs_connections.emplace(
-                std::piecewise_construct,
-                std::forward_as_tuple(mav_stream),
-                std::forward_as_tuple(Optional<uint32_t>(), Operation_waiter())).first->second.second;
-        Schedule_next_read(mav_stream, op_waiter);
-        if(on_new_connection_callback_proxy) {
-        	on_new_connection_callback_proxy();
-        }
+        ucs_connections.emplace(sc.stream_id, std::move(sc));
+
+        ugcs::vsm::proto::Vsm_message msg;
+        msg.mutable_register_peer()->set_peer_id(Get_application_instance_id());
+        msg.set_device_id(0);
+        Send_ucs_message(sc.stream_id, msg);
 
     } else {
         LOG_WARN("Incoming connection accept failed %d",
@@ -237,75 +170,111 @@ Cucs_processor::On_incoming_connection(Socket_processor::Stream::Ref stream, Io_
 
 void
 Cucs_processor::Schedule_next_read(
-        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr& mav_stream,
-        Operation_waiter& waiter)
+        Server_context& sc)
 {
-    waiter.Abort();
-    auto cb = Make_read_callback(
-            &Cucs_processor::Read_completed,
-            Shared_from_this(),
-            mav_stream);
-    size_t to_read = mav_stream->Get_decoder().Get_next_read_size();
-    waiter = mav_stream->Get_stream()->Read(to_read, to_read, std::move(cb), completion_ctx);
-}
-
-void
-Cucs_processor::Read_completed(Io_buffer::Ptr buffer, Io_result result,
-        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream)
-{
-    auto iter = ucs_connections.find(mav_stream);
-    ASSERT(iter != ucs_connections.end());
-    if (result == Io_result::OK) {
-        mav_stream->Get_decoder().Decode(buffer);
-        Schedule_next_read(mav_stream, iter->second.second);
-    } else {
-        LOG_WARN("UCS connection closed [%s], %zu vehicles are still registered.",
-                mav_stream->Get_stream()->Get_name().c_str(),
-                vehicles.size());
-        mav_stream->Get_stream()->Close();
-        /* Propagate stream disconnect event for all vehicle contexts. */
-        for (auto& iter: vehicles) {
-            iter.second->Stream_disconnected(mav_stream);
-        }
-        mav_stream->Disable();
-        ucs_connections.erase(iter);
-        if (ucs_connections.size() == 0) {
-            if (!transport_detector_on_when_diconnected) {
-                Transport_detector::Get_instance()->Activate(false);
-            }
-        }
-    }
-}
-
-void
-Cucs_processor::Register_mavlink_handlers(Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream)
-{
-    auto& demuxer = mav_stream->Get_demuxer();
-
-    demuxer.Register_default_handler(
-            Mavlink_demuxer::Make_default_handler(
-                    &Cucs_processor::On_default_mavlink_message_handler,
+    sc.read_waiter.Abort();
+    sc.read_waiter = sc.stream->Read(
+            sc.to_read,
+            sc.to_read,
+            Make_read_callback(
+                    &Cucs_processor::Read_completed,
                     Shared_from_this(),
-                    mav_stream));
+                    sc.stream_id),
+            completion_ctx);
+}
 
-    /* Here are all Mavlink messages supported by UCS processor and UCS
-     * transactions with their negative ack builders. Other messages will
-     * end up in default handler.
-     */
-    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::MISSION_CLEAR_ALL_EX,
-        Mission_nack_builder, mavlink::ugcs::Extension>(mav_stream);
-    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::MISSION_COUNT_EX,
-        Mission_nack_builder, mavlink::ugcs::Extension>(mav_stream);
-    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::COMMAND_LONG_EX,
-        Command_nack_builder, mavlink::ugcs::Extension>(mav_stream);
-    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::MISSION_ITEM_EX,
-        Mission_nack_builder, mavlink::ugcs::Extension>(mav_stream);
-    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::TAIL_NUMBER_REQUEST,
-        Tail_number_response_nack_builder, mavlink::ugcs::Extension>(mav_stream);
-    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_INSTALL,
-        Adsb_response_nack_builder, mavlink::ugcs::Extension>(mav_stream);
-    Register_mavlink_message<mavlink::ugcs::MESSAGE_ID::ADSB_TRANSPONDER_PREFLIGHT,
-        Adsb_response_nack_builder, mavlink::ugcs::Extension>(mav_stream);
+void
+Cucs_processor::Read_completed(
+        Io_buffer::Ptr buffer,
+        Io_result result,
+        size_t stream_id)
+{
+    auto iter = ucs_connections.find(stream_id);
+    if (iter == ucs_connections.end()) {
+        // stream closed. nothing to do.
+        return;
+    }
+    auto & connection = iter->second;
+    if (result == Io_result::OK) {
+        if (connection.reading_header) {
+            if (buffer->Get_length() != 1) {
+                VSM_EXCEPTION(Internal_error_exception, "Internal error");
+            }
+            int byte = *static_cast<const uint8_t*>(buffer->Get_data());
+            connection.message_size |= (byte & 0x7f) << connection.shift;
+            if (connection.message_size > PROTO_MAX_MESSAGE_LEN) {
+                LOG_ERR("Proto message len of %zu exceeds allowed %zu bytes!", connection.message_size, PROTO_MAX_MESSAGE_LEN);
+                Close_ucs_stream(stream_id);
+                return;
+            }
+            if (byte & 0x80) {
+                // there is more
+                connection.shift +=7;
+            } else {
+                connection.shift = 0;
+                connection.to_read = connection.message_size;
+                connection.reading_header = false;
+            }
+        } else {
+            ugcs::vsm::proto::Vsm_message vsm_msg;
+            if (vsm_msg.ParseFromArray(buffer->Get_data(), buffer->Get_length())) {
+                // Message parsed ok.
+                if (!connection.ucs_id) {
+                    // ucs id yet unknown.
+                    if (vsm_msg.has_register_peer()) {
+                        // message has ucs id.
+                        auto new_peer = vsm_msg.register_peer().peer_id();
+                        // Look if it is a duplicate connection
+                        auto dupe = false;
+                        for (auto& ucs : ucs_connections) {
+                            if (ucs.second.ucs_id && *(ucs.second.ucs_id) == new_peer) {
+                                dupe = true;
+                                if (ucs.second.primary) {
+                                    if (    !ucs.second.stream->Get_local_address()->Is_loopback_address()
+                                        ||  connection.stream->Get_local_address()->Is_loopback_address()) {
+                                        ucs.second.primary = false;
+                                        connection.primary = true;
+                                        LOG("Switched primary connection for %u from %s to %s",
+                                            new_peer,
+                                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str(),
+                                            connection.stream->Get_peer_address()->Get_as_string().c_str());
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        // From now on we know that this ucs is reachable via this connection.
+                        connection.ucs_id = new_peer;
+                        if (dupe) {
+                            LOG("Another connection from known UCS %u detected", new_peer);
+                        } else {
+                            LOG("New UCS %u detected", new_peer);
+                            // We have connection from new ucs.
+                            // Send all known vehicles.
+                            connection.primary = true;
+                        }
+                        Send_vehicle_registrations(connection);
+                    } else {
+                        LOG_WARN("Got message for device %d from unregistered peer. Dropped.", vsm_msg.device_id());
+                    }
+                } else {
+                    // knwon ucs
+                    On_ucs_message(stream_id, std::move(vsm_msg));
+                }
+            } else {
+                LOG_ERR("ParseFromArray failed, closing.");
+                Close_ucs_stream(stream_id);
+                return;
+            }
+            // wait for next message header
+            connection.to_read = 1;
+            connection.reading_header = true;
+            connection.message_size = 0;
+        }
+        Schedule_next_read(iter->second);
+    } else {
+        Close_ucs_stream(stream_id);
+    }
 }
 
 void
@@ -346,477 +315,291 @@ Cucs_processor::Accept_next_connection()
 }
 
 void
-Cucs_processor::On_register_vehicle(Request::Ptr request, Vehicle::Ptr vehicle,
-        bool* success)
+Cucs_processor::On_register_vehicle(Request::Ptr request, Device::Ptr vehicle)
 {
-    if (vehicles.find(vehicle->system_id) != vehicles.end()) {
-        *success = false;
-        request->Complete();
-        return;
+    auto device_id = vehicle->Get_session_id();
+    if (vehicles.find(device_id) != vehicles.end()) {
+        VSM_EXCEPTION(Exception, "Vehicle %d already registered", device_id);
     }
 
-    Ucs_vehicle_ctx::Ptr ctx =
-            Ucs_vehicle_ctx::Create(vehicle, Shared_from_this(), completion_ctx);
-    ctx->Enable();
+    auto res = vehicles.emplace(device_id, Vehicle_context());
+    auto &ctx = res.first->second;
+    ctx.vehicle = vehicle;
 
-    vehicles.emplace(vehicle->system_id, ctx);
-    Register_vehicle_telemetry(ctx);
-    *success = true;
+    LOG("Vehicle id=%d registered", device_id);
+
+    ctx.registration_message.set_device_id(device_id);
+
+    vehicle->Fill_register_msg(ctx.registration_message);
+
+    //LOG("Vehicle registered %s",ctx.registration_message.DebugString().c_str());
+
     request->Complete();
-    if (!ucs_connections.size()) {
-        LOG_WARN("Vehicle [%s:%s] registered, but no any UCS servers connected.",
-          vehicle->Get_model_name().c_str(), vehicle->Get_serial_number().c_str());
+
+    Broadcast_message_to_ucs(ctx.registration_message);
+}
+
+void
+Cucs_processor::Send_vehicle_registrations(
+    const Server_context& ctx)
+{
+    for (auto &it : vehicles) {
+        Send_ucs_message(ctx.stream_id, it.second.registration_message);
+        ugcs::vsm::proto::Vsm_message reg;
+        reg.set_device_id(it.first);
+        // Send cached telemetry data
+        auto tf = reg.mutable_device_status()->mutable_telemetry_fields();
+        for (auto& e : it.second.telemetry_cache) {
+            // Do not send cached telemetry values which are N/A
+            if (!e.second.value().has_meta_value() || e.second.value().meta_value() != ugcs::vsm::proto::META_VALUE_NA) {
+                auto f = tf->Add();
+                f->CopyFrom(e.second);
+            }
+        }
+        auto av = reg.mutable_device_status()->mutable_command_availability();
+        for (auto& e : it.second.availability_cache) {
+            auto f = av->Add();
+            f->CopyFrom(e.second);
+        }
+        Send_ucs_message(ctx.stream_id, reg);
+    }
+}
+
+void
+Cucs_processor::On_unregister_vehicle(Request::Ptr request, uint32_t device_id)
+{
+    auto it = vehicles.find(device_id);
+    if (it == vehicles.end()) {
+        VSM_EXCEPTION(Invalid_param_exception, "Unknown device id %d", device_id);
     } else {
-        /* Immediately notify all servers about new vehicle. */
-        Send_heartbeat(vehicle.get());
+        ugcs::vsm::proto::Vsm_message reg;
+        reg.set_device_id(device_id);
+        reg.mutable_unregister_device();
+        vehicles.erase(device_id);
+        Broadcast_message_to_ucs(reg);
+    }
+    request->Complete();
+}
+
+void
+Cucs_processor::On_send_ucs_message(Request::Ptr request, uint32_t device_id, Proto_msg_ptr message)
+{
+    auto it = vehicles.find(device_id);
+    if (it == vehicles.end()) {
+        VSM_EXCEPTION(Invalid_param_exception, "Unknown device id %d", device_id);
+    } else {
+        for (int i = 0; i < message->device_status().telemetry_fields_size(); i++) {
+            auto &f = message->device_status().telemetry_fields(i);
+            auto ce = it->second.telemetry_cache.emplace(f.field_id(), f);
+            if (!ce.second) {
+                // update cache entry
+                ce.first->second.CopyFrom(f);
+            }
+        }
+        for (int i = 0; i < message->device_status().command_availability_size(); i++) {
+            auto &f = message->device_status().command_availability(i);
+            auto ce = it->second.availability_cache.emplace(f.id(), f);
+            if (!ce.second) {
+                // update cache entry
+                ce.first->second.CopyFrom(f);
+            }
+        }
+        message->set_device_id(device_id);
+        //LOG("sending msg: %s", message->DebugString().c_str());
+        Broadcast_message_to_ucs(*message);
+    }
+    request->Complete();
+}
+
+void
+Cucs_processor::Broadcast_message_to_ucs(ugcs::vsm::proto::Vsm_message& message)
+{
+    for (auto& iter: ucs_connections) {
+        // Broadcast only to primary connections.
+        if (iter.second.primary) {
+            Send_ucs_message(iter.first, message);
+        }
     }
 }
 
 void
-Cucs_processor::On_unregister_vehicle(Request::Ptr request, Vehicle::Ptr vehicle,
-        bool* success)
+Cucs_processor::Send_ucs_message_ptr(
+    uint32_t stream_id,
+    Proto_msg_ptr message)
 {
-    auto iter = vehicles.find(vehicle->system_id);
-    if (iter == vehicles.end()) {
-        *success = false;
-        request->Complete();
-        return;
+    Send_ucs_message(stream_id, *message);
+}
+
+void
+Cucs_processor::Send_ucs_message(
+    uint32_t stream_id,
+    ugcs::vsm::proto::Vsm_message& message)
+{
+    auto iter = ucs_connections.find(stream_id);
+    if (iter != ucs_connections.end()) {
+        auto & ctx = iter->second;
+
+        if (!ctx.ucs_id) {
+            // only register_peer message is allowed to be sent to unknown ucs.
+            if (!message.has_register_peer()) {
+                LOG_ERR("Must register peer before sending anything else");
+                return;
+            }
+            message.set_device_id(0);
+        }
+
+        if (   !message.has_message_id()
+            &&  message.has_response_required()
+            &&  message.response_required())
+        {
+            message.set_message_id(Get_next_id());
+        }
+
+        int header_len = 0;
+        auto payload_len = message.ByteSize();
+        auto tmp_len = payload_len;
+        std::vector<uint8_t> user_data(10 + payload_len);
+        do {
+            uint8_t byte = (tmp_len & 0x7f);
+            tmp_len >>= 7;
+            if (tmp_len) {
+                byte |= 0x80;
+            }
+            user_data[header_len] = byte;
+            header_len++;
+        } while (tmp_len);
+        message.SerializeToArray(user_data.data() + header_len, payload_len);
+        user_data.resize(header_len + payload_len);
+        Io_buffer::Ptr buffer = Io_buffer::Create(std::move(user_data));
+
+        //LOG("sending msg: %s", message.DebugString().c_str());
+        //LOG("sending msg len: %d", header_len + payload_len);
+        ctx.stream->Write(
+                buffer,
+                Make_write_callback(
+                        &Cucs_processor::Write_completed,
+                        Shared_from_this(),
+                        stream_id),
+                completion_ctx).Timeout(WRITE_TIMEOUT);
     }
-    auto ctx = iter->second;
-    vehicles.erase(iter);
-    ctx->Get_vehicle()->Unregister_telemetry_interface();
-    ctx->Disable();
-    *success = true;
-    request->Complete();
 }
 
 void
-Cucs_processor::On_send_adsb_report(
-        Adsb_report report,
-        Request::Ptr request)
+Cucs_processor::Write_completed(
+        Io_result result,
+        size_t stream_id)
 {
-    mavlink::ugcs::Pld_adsb_aircraft_report msg;
-
-    uint32_t icao = report.address.Get_address();
-    switch (report.address.Get_type()) {
-    case Adsb_frame::ICAO_address::Type::REAL:
-        icao |= mavlink::ugcs::MAV_ICAO_ADDRESS_TYPE::MAV_ICAO_ADDRESS_TYPE_REAL << 24;
-        break;
-    case Adsb_frame::ICAO_address::Type::ANONYMOUS:
-        icao |= mavlink::ugcs::MAV_ICAO_ADDRESS_TYPE::MAV_ICAO_ADDRESS_TYPE_ANONYMOUS << 24;
-        break;
+    if (result != Io_result::OK) {
+        // Write failed. Assume connection dead.
+        Close_ucs_stream(stream_id);
     }
-    auto nan = std::numeric_limits<float>::quiet_NaN();
-    msg->icao_id = icao;
-    msg->latitude = (report.position.latitude * 180) / M_PI;
-    msg->longitude = (report.position.longitude * 180) / M_PI;
-    msg->msl_altitude = report.altitude ? *report.altitude : nan;
-    msg->heading = report.heading ? (*report.heading * 180) / M_PI : -1;
-    msg->ground_speed = report.horizontal_speed ? *report.horizontal_speed : nan;
-    msg->vertical_velocity = report.vertical_speed ? *report.vertical_speed : nan;
-    msg->identification = report.identification ? *report.identification : "";
-#if 0
-    LOG_DEBUG("Sending ADS-B report about ICAO:%s",
-            report.address.To_hex_string().c_str());
-#endif
-    Broadcast_mavlink_message(msg, DEFAULT_SYSTEM_ID, DEFAULT_COMPONENT_ID);
-    request->Complete();
-    ASSERT(pending_adsb_reports.load() > 0);
-    pending_adsb_reports.fetch_sub(1);
 }
 
 void
-Cucs_processor::On_send_peripheral_register(
-		Peripheral_message::Peripheral_register report,
-        Request::Ptr request)
+Cucs_processor::Close_ucs_stream(size_t stream_id)
 {
-    mavlink::ugcs::Pld_peripheral_device_register msg;
+    auto iter = ucs_connections.find(stream_id);
+    if (iter != ucs_connections.end()) {
+        LOG("Closing UCS %u connection from %s",
+            iter->second.ucs_id?*iter->second.ucs_id:0,
+            iter->second.stream->Get_peer_address()->Get_as_string().c_str());
+        iter->second.stream->Close();
+        auto primary = iter->second.primary;
+        uint32_t ucs_id = 0;
+        if (iter->second.ucs_id) {
+            ucs_id = *iter->second.ucs_id;
+        }
+        ucs_connections.erase(iter);
 
-    msg->device_id = report.Get_id();
-    msg->device_type = static_cast<uint8_t>(report.Get_dev_type());
-    msg->device_name = report.Get_name().c_str();
-    msg->port_name = report.Get_port().c_str();
-#if 0
-    LOG_DEBUG("Sending device report for [%s]",
-            report.Get_name().c_str());
-#endif
-    Broadcast_mavlink_message(msg, DEFAULT_SYSTEM_ID, DEFAULT_COMPONENT_ID);
-    request->Complete();
-}
-
-void
-Cucs_processor::On_send_peripheral_update(
-		Peripheral_message::Peripheral_update update,
-        Request::Ptr request)
-{
-    mavlink::ugcs::Pld_peripheral_device_update msg;
-
-    msg->device_id = update.Get_id();
-    msg->device_state = static_cast<uint8_t>(update.Get_state());;
-#if 0
-    LOG_DEBUG("Sending device update for #[%d]",
-            update.Get_id());
-#endif
-    Broadcast_mavlink_message(msg, DEFAULT_SYSTEM_ID, DEFAULT_COMPONENT_ID);
-    request->Complete();
-}
-
-bool
-Cucs_processor::On_default_mavlink_message_handler(
-        mavlink::MESSAGE_ID_TYPE message_id,
-        typename mavlink::Mavlink_kind_ugcs::System_id sys_id,
-        uint8_t,
-        uint32_t,
-        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream)
-{
-    if (message_id == ugcs::vsm::mavlink::MESSAGE_ID::HEARTBEAT) {
-        auto iter = ucs_connections.find(mav_stream);
-        if (iter != ucs_connections.end()) {
-            if (iter->second.first) {
-                if (*(iter->second.first) != sys_id) {
-                    LOG_WARN("UCS changed SYS_ID from %08X to %08X", *(iter->second.first), sys_id);
-                    iter->second.first = sys_id;
+        if (primary) {
+            // Primary connection erased.
+            // Look if there is another loopback connection and make that primary.
+            auto loopback_found = false;
+            for (auto& ucs : ucs_connections) {
+                if (ucs.second.ucs_id && *(ucs.second.ucs_id) == ucs_id) {
+                    if (ucs.second.stream->Get_local_address()->Is_loopback_address()) {
+                        ucs.second.primary = true;
+                        loopback_found = true;
+                        LOG("New primary connection for UCS %u: %s",
+                            ucs_id,
+                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str());
+                    }
                 }
-            } else {
-                LOG("New UCS SYS_ID = %08X", sys_id);
-                iter->second.first = sys_id;
+            }
+            if (!loopback_found) {
+                // No other loopback connection. Make primary whichever is found first.
+                for (auto& ucs : ucs_connections) {
+                    if (ucs.second.ucs_id && *(ucs.second.ucs_id) == ucs_id) {
+                        ucs.second.primary = true;
+                        LOG("New primary connection for UCS %u: %s",
+                            ucs_id,
+                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str());
+                        break;
+                    }
+                }
             }
         }
-    } else {
-        LOG_WARN("Unsupported Mavlink message %d, closing connection.", message_id);
-        mav_stream->Get_stream()->Close();
+
+        if (ucs_connections.size() == 0) {
+            if (!transport_detector_on_when_diconnected) {
+                Transport_detector::Get_instance()->Activate(false);
+            }
+        }
     }
-    return false;
 }
 
-bool
-Cucs_processor::On_heartbeat_timer()
+Device::Ptr
+Cucs_processor::Get_device(uint32_t device_id)
 {
-    for (auto& vehicle_iter: vehicles) {
-        Send_heartbeat(vehicle_iter.second->Get_vehicle().get());
+    auto it = vehicles.find(device_id);
+    if (it == vehicles.end()) {
+        return nullptr;
     }
-    return true;
+    return it->second.vehicle;
 }
 
 void
-Cucs_processor::Send_heartbeat(Vehicle* vehicle)
+Cucs_processor::On_ucs_message(
+    uint32_t stream_id,
+    ugcs::vsm::proto::Vsm_message message)
 {
-    std::set<uint32_t> ucs_sent;
-    for (auto& iter: ucs_connections) {
-        auto id_var = iter.second.first;
-        if (id_var) {
-            if (ucs_sent.find(*id_var) == ucs_sent.end()) {
-                ucs_sent.emplace(*id_var);
-            } else {
-                // we have already sent message to this ucs instance.
-                continue;
-            }
+    auto dev_id = message.device_id();
+    auto dev = Get_device(dev_id);
+    if (message.has_response_required() && message.response_required()) {
+        // ucs will wait for response on this message.
+        // Prepare the response template and set up completion handler.
+        // Need this to send the response into the same connection as request.
+        auto resp = std::make_shared<ugcs::vsm::proto::Vsm_message>();
+        resp->set_message_id(message.message_id());
+        // by default assume failure
+        resp->mutable_device_response()->set_code(ugcs::vsm::proto::STATUS_FAILED);
+        resp->set_device_id(dev_id);
+        if (dev) {
+            // pass response message template to vehicle, default to failed.
+            auto completion_handler = Make_callback(
+                &Cucs_processor::Send_ucs_message_ptr,
+                Shared_from_this(),
+                stream_id,
+                resp);
+
+            dev->On_ucs_message(
+                std::move(message),
+                completion_handler,
+                completion_ctx);
+            return;     // completion handler will send the response.
         } else {
-            // ucs instance for this connection is not yet known.
-            continue;
+            resp->mutable_device_response()->set_code(ugcs::vsm::proto::STATUS_INVALID_SESSION_ID);
+            LOG_ERR("Received message for unknown device %d", dev_id);
         }
-
-        mavlink::Pld_heartbeat hb;
-        hb->autopilot = vehicle->autopilot;
-
-        auto status = vehicle->Get_system_status();
-        switch (status.control_mode) {
-        case Vehicle::Sys_status::Control_mode::MANUAL:
-            hb->base_mode = mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_MANUAL_INPUT_ENABLED;
-            break;
-        case Vehicle::Sys_status::Control_mode::GUIDED:
-            hb->base_mode = mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_GUIDED_ENABLED;
-            break;
-        case Vehicle::Sys_status::Control_mode::JOYSTICK:
-            hb->base_mode = mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_CUSTOM_MODE_ENABLED;
-            break;
-        case Vehicle::Sys_status::Control_mode::AUTO:
-            hb->base_mode = mavlink::MAV_MODE_FLAG::MAV_MODE_FLAG_AUTO_ENABLED;
-            break;
-        case Vehicle::Sys_status::Control_mode::UNKNOWN:
-            break;
-        }
-
-        switch (status.state) {
-        case Vehicle::Sys_status::State::DISARMED:
-            hb->system_status = mavlink::MAV_STATE::MAV_STATE_POWEROFF;
-            break;
-        case Vehicle::Sys_status::State::ARMED:
-            hb->system_status = mavlink::MAV_STATE::MAV_STATE_ACTIVE;
-            break;
-        case Vehicle::Sys_status::State::UNKNOWN:
-            hb->system_status = mavlink::MAV_STATE::MAV_STATE_UNINIT;
-            break;
-
-        }
-        int custom_mode = status.uplink_connected ?
-                mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::MAV_CUSTOM_MODE_FLAG_UPLINK_CONNECTED :
-                0;
-        custom_mode |= status.downlink_connected ?
-                mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::MAV_CUSTOM_MODE_FLAG_DOWNLINK_CONNECTED :
-                0;
-
-        if (vehicle->Read_reset_altitude_origin()) {
-            custom_mode |= mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::MAV_CUSTOM_MODE_FLAG_RESET_ALTITUDE_ORIGIN;
-        }
-
-        auto capabilities = vehicle->Get_capabilities();
-        auto capability_states = vehicle->Get_capability_states();
-
-#define __TRANSLATE_CAPABILITY(__capability, __mav_capability) \
-        capabilities.Is_set(__capability) ? \
-                mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::__mav_capability : \
-                0;
-
-#define __TRANSLATE_CAPABILITY_STATE(__capability, __mav_capability) \
-        capability_states.Is_set(__capability) ? \
-                mavlink::ugcs::MAV_CUSTOM_MODE_FLAG::__mav_capability : \
-                0;
-
-        /* Capabilities. */
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::ARM_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_ARM_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::DISARM_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_DISARM_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::AUTO_MODE_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_AUTO_MODE_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::MANUAL_MODE_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_MANUAL_MODE_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::RETURN_HOME_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_RETURN_HOME_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::TAKEOFF_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_TAKEOFF_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::LAND_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_LAND_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::EMERGENCY_LAND_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_EMERGENCY_LAND_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::CAMERA_TRIGGER_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_CAMERA_TRIGGER_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::WAYPOINT_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_WAYPOINT_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::PAUSE_MISSION_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_HOLD_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::RESUME_MISSION_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_CONTINUE_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::ADSB_TRANSPONDER_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_ADSB_AVAILABLE);
-
-        custom_mode |= __TRANSLATE_CAPABILITY(Vehicle::Capability::GUIDED_MODE_AVAILABLE,
-                MAV_CUSTOM_MODE_FLAG_GUIDED_AVAILABLE);
-
-        /* Capability states. */
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::ARM_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_ARM_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::DISARM_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_DISARM_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::AUTO_MODE_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_AUTO_MODE_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::MANUAL_MODE_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_MANUAL_MODE_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::RETURN_HOME_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_RETURN_HOME_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::TAKEOFF_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_TAKEOFF_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::LAND_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_LAND_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::EMERGENCY_LAND_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_EMERGENCY_LAND_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::CAMERA_TRIGGER_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_CAMERA_TRIGGER_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::WAYPOINT_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_WAYPOINT_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::PAUSE_MISSION_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_HOLD_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::RESUME_MISSION_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_CONTINUE_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::ADSB_TRANSPONDER_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_ADSB_ENABLED);
-
-        custom_mode |= __TRANSLATE_CAPABILITY_STATE(Vehicle::Capability_state::GUIDED_MODE_ENABLED,
-                MAV_CUSTOM_MODE_FLAG_GUIDED_ENABLED);
-
-#undef __TRANSLATE_CAPABILITY
-#undef __TRANSLATE_CAPABILITY_STATE
-
-        hb->custom_mode = static_cast<mavlink::ugcs::MAV_CUSTOM_MODE_FLAG>(custom_mode);
-        hb->type = vehicle->type;
-        Send_message(iter.first, hb, vehicle->system_id, DEFAULT_COMPONENT_ID);
-    }
-}
-
-void
-Cucs_processor::Register_vehicle_telemetry(Ucs_vehicle_ctx::Ptr ctx)
-{
-    Telemetry_interface telemetry;
-    /* Weak pointer to make sure telemetry registration does not prevent the
-     * context to be fully deleted after it is disabled from the processor
-     * context.
-     */
-    Ucs_vehicle_ctx::Weak_ptr weak_ctx = ctx;
-
-#define __REGISTER_TELEMETRY_LOCAL(PAYLOAD_TYPE, field_name) \
-    telemetry.field_name = Make_callback( \
-                &Cucs_processor::On_telemetry<mavlink::PAYLOAD_TYPE>, \
-                Shared_from_this(), \
-                static_cast<const mavlink::PAYLOAD_TYPE*>(nullptr), \
-                weak_ctx);
-
-    __REGISTER_TELEMETRY_LOCAL(Pld_global_position_int, global_position);
-    __REGISTER_TELEMETRY_LOCAL(Pld_attitude, attitude);
-    __REGISTER_TELEMETRY_LOCAL(Pld_gps_raw_int, gps_raw);
-    __REGISTER_TELEMETRY_LOCAL(Pld_raw_imu, raw_imu);
-    __REGISTER_TELEMETRY_LOCAL(Pld_scaled_pressure, scaled_pressure);
-    __REGISTER_TELEMETRY_LOCAL(Pld_vfr_hud, vfr_hud);
-    __REGISTER_TELEMETRY_LOCAL(Pld_sys_status, sys_status);
-    __REGISTER_TELEMETRY_LOCAL(ugcs::Pld_camera_attitude, camera_attitude);
-    __REGISTER_TELEMETRY_LOCAL(ugcs::Pld_home_position, home_position);
-    __REGISTER_TELEMETRY_LOCAL(ugcs::Pld_adsb_transponder_state, adsb_transponder_state);
-
-#undef __REGISTER_TELEMETRY_LOCAL
-
-    telemetry.sys_status_update = Make_callback(
-            &Cucs_processor::On_sys_status_update,
-            Shared_from_this(),
-            weak_ctx);
-
-    ctx->Get_vehicle()->Register_telemetry_interface(telemetry);
-}
-
-void
-Cucs_processor::Unregister_vehicle_telemetry(Ucs_vehicle_ctx::Ptr ctx)
-{
-    ctx->Get_vehicle()->Unregister_telemetry_interface();
-}
-
-void
-Cucs_processor::On_sys_status_update(Ucs_vehicle_ctx::Weak_ptr ctx)
-{
-    auto request = Request::Create();
-    auto proc_handler = Make_callback(
-            &Cucs_processor::On_sys_status_update_handle,
-            Shared_from_this(),
-            ctx,
-            request);
-    request->Set_processing_handler(proc_handler);
-    Submit_request(request);
-}
-
-void
-Cucs_processor::Broadcast_mavlink_message(
-        const mavlink::Payload_base& message,
-        Mavlink_demuxer::System_id system_id,
-        Mavlink_demuxer::Component_id component_id)
-{
-    std::set<uint32_t> ucs_sent;
-    for (auto& iter: ucs_connections) {
-        auto id = iter.second.first;
-        if (id) {
-            // ucs instance is known for this connection.
-            if (ucs_sent.find(*id) == ucs_sent.end()) {
-                // we have not yet sent to the given instance.
-                ucs_sent.emplace(*id);
-                Send_message(iter.first, message, system_id, component_id);
-            }
+        // Message not passed to vehicle. Send response.
+        Send_ucs_message_ptr(stream_id, resp);
+    } else {
+        // No response required.
+        if (dev) {
+            // Call vehicle handler. No completion handler needed.
+            dev->On_ucs_message(std::move(message));
+        } else {
+            LOG_ERR("Received message for unknown vehicle %d", dev_id);
         }
     }
-}
-
-void
-Cucs_processor::On_sys_status_update_handle(
-        Ucs_vehicle_ctx::Weak_ptr ctx,
-        Request::Ptr request)
-{
-    Ucs_vehicle_ctx::Ptr strong_ctx = ctx.lock();
-    if (strong_ctx) {
-        ASSERT(strong_ctx->Get_vehicle());
-        Send_heartbeat(strong_ctx->Get_vehicle().get());
-    }
-    request->Complete();
-}
-
-void
-Cucs_processor::Send_message(
-        const Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream,
-        const mavlink::Payload_base& payload,
-        typename mavlink::Mavlink_kind_ugcs::System_id system_id,
-        uint8_t component_id)
-{
-    mav_stream->Send_message(
-            payload,
-            system_id,
-            component_id,
-            WRITE_TIMEOUT,
-            Make_timeout_callback(
-                    &Cucs_processor::Write_to_ucs_timed_out,
-                    Shared_from_this(),
-                    mav_stream),
-            completion_ctx);
-}
-
-void
-Cucs_processor::Send_response_message(
-        const Ucs_vehicle_ctx::Ugcs_mavlink_stream::Ptr mav_stream,
-        const mavlink::Payload_base& payload,
-        typename mavlink::Mavlink_kind_ugcs::System_id system_id,
-        uint8_t component_id,
-        uint32_t request_id)
-{
-    mav_stream->Send_response_message(
-            payload,
-            system_id,
-            component_id,
-            request_id,
-            WRITE_TIMEOUT,
-            Make_timeout_callback(
-                    &Cucs_processor::Write_to_ucs_timed_out,
-                    Shared_from_this(),
-                    mav_stream),
-            completion_ctx);
-}
-
-void
-Cucs_processor::Write_to_ucs_timed_out(
-        const Operation_waiter::Ptr& waiter,
-        Ucs_vehicle_ctx::Ugcs_mavlink_stream::Weak_ptr mav_stream)
-{
-    auto locked = mav_stream.lock();
-    Io_stream::Ref stream = locked ? locked->Get_stream() : nullptr;
-    std::string server_info =
-            stream ? stream->Get_name() : "already disconnected";
-    LOG_DEBUG("Write timeout towards UCS server at [%s] detected from UCS processor.",
-            server_info.c_str());
-    waiter->Abort();
-    if (stream) {
-        stream->Close();
-    }
-}
-
-void
-Cucs_processor::Register_on_new_ucs_connection(Callback_proxy<void> On_new_connection_handler) {
-	LOG_DEBUG("Registering new callback proxy for 'On new CUCS connection' event.");
-	on_new_connection_callback_proxy = On_new_connection_handler;
 }

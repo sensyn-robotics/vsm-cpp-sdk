@@ -37,7 +37,19 @@ public:
         yaw(item->param3 * M_PI / 180.0),
         zoom(item->param4)
     {
-        ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_CONTROL);
+        ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_PAYLOAD_CONTROL);
+    }
+
+    /**
+     * Construct action from protobuf command.
+     */
+    Camera_control_action(const Property_list& p) :
+        Action(Type::CAMERA_CONTROL)
+    {
+        p.at("tilt")->Get_value(tilt);
+        p.at("roll")->Get_value(roll);
+        p.at("yaw")->Get_value(yaw);
+        p.at("zoom_level")->Get_value(zoom);
     }
 
     /** Target camera tilt value in radians: [-Pi/2, Pi/2], where -Pi/2 stands

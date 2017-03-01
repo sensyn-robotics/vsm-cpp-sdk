@@ -40,15 +40,9 @@ public:
     Wgs84_position
     Get_home_position() const;
 
-    /** Retrieve home position from action with the altitude relative to the
-     * ground level. Either get SET_HOME or the first MOVE action.
-     */
-    Wgs84_position
-    Get_home_position_relative() const;
-
     /** Get terrain height at home position in meters. */
     double
-    Get_home_position_elevation() const;
+    Get_home_position_altitude() const;
 
     /** Get take-off altitude, that is the absolute altitude of the position where
      * the vehicle was or will be launched.
@@ -70,7 +64,7 @@ public:
     Task_attributes_action::Ptr attributes;
 
     /** Parameter list for the task .*/
-    std::vector<Action::Ptr> parameters;
+    Property_list parameters;
 
 private:
 

@@ -231,4 +231,5 @@ ugcs::vsm::Terminate(bool save_config)
         properties->Store(*prop_stream);
     }
     properties = nullptr;
+    google::protobuf::ShutdownProtobufLibrary();
 }

@@ -33,17 +33,17 @@ typedef Vehicle_request_spec<Payload> Vsm_payload_string_request;
 
 TEST(vehicle_request_handle_copy_and_payload_access)
 {
-    auto comp_handler = Make_dummy_callback<void, Vehicle_request::Result>();
+    auto comp_handler = Make_dummy_callback<void, Vehicle_request::Result, std::string>();
     auto proc_handler = Make_dummy_callback<void>();
     auto comp_ctx = Request_completion_context::Create("UT vehicle request completion");
     comp_ctx->Enable();
-    auto req = Vehicle_clear_all_missions_request::Create(comp_handler, comp_ctx);
+    auto req = Vehicle_task_request::Create(comp_handler, comp_ctx);
     ugcs::vsm::Vehicle::Get_request(req)->Set_processing_handler(proc_handler);
     ugcs::vsm::Vehicle::Get_request(req)->Process(true);
-    Vehicle_clear_all_missions_request::Handle h1(req);
+    Vehicle_task_request::Handle h1(req);
     /* Initially NOK. */
     CHECK(Vehicle_request::Result::NOK == req->Get_completion_result());
-    Vehicle_clear_all_missions_request::Handle h2;
+    Vehicle_task_request::Handle h2;
     Vehicle_request::Handle baseh;
     /* Empty handle. */
     CHECK(!h2);
@@ -57,7 +57,7 @@ TEST(vehicle_request_handle_copy_and_payload_access)
     CHECK(h2);
     CHECK(baseh);
     /* Set result via copied handle. */
-    h2 = Vehicle_request::Result::OK;
+    h2.Succeed();
     /* Propagated to the request itself. */
     CHECK(Vehicle_request::Result::OK == req->Get_completion_result());
     CHECK(!h1);
@@ -80,7 +80,7 @@ TEST(vehicle_request_handle_copy_and_payload_access)
     CHECK(baseh);
     CHECK(!req2->Is_completed());
     /* Completion via base handle. */
-    baseh = Vehicle_request::Result::OK;
+    baseh.Succeed();
     CHECK(req2->Is_completed());
     CHECK(Vehicle_request::Result::OK == req2->Get_completion_result());
     req2->Abort();

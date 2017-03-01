@@ -202,5 +202,8 @@ Socket_address::Is_loopback_address()
     if (!is_resolved) {
         return false;
     }
-    return (As_sockaddr_in().sin_addr.s_addr == ntohl(INADDR_LOOPBACK));
+    if ((As_sockaddr_in().sin_addr.s_addr & 0x7F) == 0x7F) {
+        return true;
+    }
+    return false;
 }

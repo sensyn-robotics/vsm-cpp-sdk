@@ -463,6 +463,13 @@ typedef Socket_processor::Stream Socket_stream;
 typedef Socket_processor::Socket_listener Socket_listener;
 // @}
 
+// Supported UDP packet size. Used as default with UDP sockets for reading.
+// Read on UDP socket must reserve space for maximum payload it can possibly receive.
+// Theoretical max is 64K which will always be fragmented.
+// We use what is typically the largest unfragmented packet.
+// This number is ether_v2 MTU - IP header - UDP header.
+static constexpr int MIN_UDP_PAYLOAD_SIZE_TO_READ = 1500 - 60 - 8;
+
 /** Convenience builder for socket connect operation callbacks. */
 DEFINE_CALLBACK_BUILDER (
         Make_socket_connect_callback,

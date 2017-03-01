@@ -46,6 +46,30 @@ public:
         }
     }
 
+    /**
+     * Construct action from protobuf command.
+     */
+    Poi_action(const Property_list& p) :
+        Action(Type::POI),
+        position(Geodetic_tuple(0,0,0))
+    {
+        double lat = 0, lon = 0, alt = 0;
+        auto pi = p.find("latitude");
+        if (pi != p.end()) {
+            pi->second->Get_value(lat);
+        }
+        pi = p.find("longitude");
+        if (pi != p.end()) {
+            pi->second->Get_value(lon);
+        }
+        pi = p.find("altitude_amsl");
+        if (pi != p.end()) {
+            pi->second->Get_value(alt);
+        }
+        position = Geodetic_tuple(lat, lon, alt);
+        p.at("active")->Get_value(active);
+    }
+
     /** Position of a a POI. */
     Wgs84_position position;
 

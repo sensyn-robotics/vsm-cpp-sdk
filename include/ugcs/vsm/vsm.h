@@ -19,7 +19,6 @@
 #include <ugcs/vsm/mavlink_stream.h>
 #include <ugcs/vsm/actions.h>
 #include <ugcs/vsm/transport_detector.h>
-#include <ugcs/vsm/telemetry_manager.h>
 #include <ugcs/vsm/optional.h>
 #include <ugcs/vsm/param_setter.h>
 

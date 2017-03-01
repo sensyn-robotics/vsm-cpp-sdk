@@ -52,6 +52,17 @@ public:
         ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_TRIGGER);
     }
 
+    /**
+     * Construct action from protobuf command.
+     */
+    Camera_trigger_action(const Property_list& p) :
+        Action(Type::CAMERA_TRIGGER),
+        interval(1000) /* Currently not supported by protocol. */
+    {
+        int tmp;
+        p.at("state")->Get_value(tmp);
+        state = Mavlink_to_state(tmp);
+    }
 
     /** Camera trigger state. */
     State state;

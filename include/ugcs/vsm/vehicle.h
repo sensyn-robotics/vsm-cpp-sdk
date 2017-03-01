@@ -13,27 +13,31 @@
 
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/vehicle_requests.h>
-#include <ugcs/vsm/telemetry_manager.h>
 #include <ugcs/vsm/mavlink.h>
 #include <ugcs/vsm/enum_set.h>
+#include <ugcs/vsm/device.h>
 
 #include <stdint.h>
 #include <memory>
+#include <unordered_map>
 
 namespace ugcs {
 namespace vsm {
+
+static const std::string legacy_commands[] = {std::string("")};
 
 /** Base class for user-defined vehicles. It contains interface to SDK services
  * which can be used as base class methods calls, and abstract interface which
  * must be implemented by the device.
  * Instance creation should be done by {@link Vehicle::Create()} method.
  */
-class Vehicle: public std::enable_shared_from_this<Vehicle> {
-    DEFINE_COMMON_CLASS(Vehicle, Vehicle)
+class Vehicle: public Device {
+    DEFINE_COMMON_CLASS(Vehicle, Device)
 public:
 
     // @{
-    /** Capability of the vehicle. */
+    /** Capability of the vehicle.
+    * This is legacy enum. do not add new commands here. */
     enum class Capability {
         ARM_AVAILABLE,
         DISARM_AVAILABLE,
@@ -49,12 +53,18 @@ public:
         RESUME_MISSION_AVAILABLE,
         ADSB_TRANSPONDER_AVAILABLE,
         GUIDED_MODE_AVAILABLE,
+        JOYSTICK_MODE_AVAILABLE,
+        PAYLOAD_POWER_AVAILABLE,
+        SWITCH_VIDEO_SOURCE_AVAILABLE,
+        DIRECT_VEHICLE_CONTROL_AVAILABLE,
+        DIRECT_PAYLOAD_CONTROL_AVAILABLE,
         LAST
     };
     // @}
 
     // @{
-    /** State of the vehicle capability. */
+    /** State of the vehicle capability.
+     * This is legacy enum. do not add new commands here. */
     enum class Capability_state {
         ARM_ENABLED,
         DISARM_ENABLED,
@@ -70,6 +80,11 @@ public:
         RESUME_MISSION_ENABLED,
         ADSB_TRANSPONDER_ENABLED,
         GUIDED_MODE_ENABLED,
+        JOYSTICK_MODE_ENABLED,
+        PAYLOAD_POWER_ENABLED,
+        SWITCH_VIDEO_SOURCE_ENABLED,
+        DIRECT_VEHICLE_CONTROL_ENABLED,
+        DIRECT_PAYLOAD_CONTROL_ENABLED,
         LAST
     };
     // @}
@@ -90,6 +105,9 @@ public:
      * @param capabilities Capabilities of the vehicle.
      * @param serial_number Serial number of the vehicle.
      * @param model_name Model name of the vehicle.
+     * @param model_name_is_hardcoded tell the UCS that vehicle name is not
+     *        specified by user or taken from the autopilot but
+     *        hardcoded in VSM code instead.
      * @param create_thread If @a true, then separate thread is automatically
      * created for vehicle instance which allows to using blocking methods
      * in the context of this vehicle without blocking other vehicles, otherwise
@@ -100,27 +118,10 @@ public:
      */
     Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
             const Capabilities& capabilities,
-            const std::string& serial_number = std::string(),
-            const std::string& model_name = std::string(),
+            const std::string& serial_number,
+            const std::string& model_name,
+            int model_name_is_hardcoded = false,
     		bool create_thread = true);
-
-    /** Enable the instance. Should be called right after vehicle instance
-     * creation.
-     * @throw Invalid_param_exception If vehicle with the same model and and
-     * serial number is already registered.
-     */
-    void
-    Enable();
-
-    /** Disable the instance. Should be called prior to intention to delete
-     * the instance.
-     */
-    void
-    Disable();
-
-    /** Vehicle enable/disable status. */
-    bool
-    Is_enabled();
 
     /** Make sure class is polymorphic. */
     virtual
@@ -145,12 +146,19 @@ public:
     const std::string&
     Get_model_name() const;
 
+    /** Get port name the vehicle is connected to. */
+    const std::string&
+    Get_port_name() const;
+
+    /** Get autopilot serial number */
+    const std::string&
+    Get_autopilot_serial() const;
+
     ugcs::vsm::mavlink::MAV_AUTOPILOT
     Get_autopilot() const;
 
-    /** Get default completion context of the vehicle. */
-    Request_completion_context::Ptr
-    Get_completion_ctx();
+    const std::string&
+    Get_autopilot_type() const;
 
     /** Hasher for Vehicle shared pointer. Used when vehicle pointer is
      * stored in some container. */
@@ -169,18 +177,129 @@ public:
     };
 
 protected:
+
+    typedef enum {
+        SUBDEVICE_TYPE_FC = 1,
+        SUBDEVICE_TYPE_CAMERA = 2,
+        SUBDEVICE_TYPE_GIMBAL = 3,
+        SUBDEVICE_TYPE_ADSB_TRANSPONDER = 4,
+    } Subdevice_type;
+
+    class Subdevice {
+    public:
+        Subdevice(Subdevice_type t):type(t){};
+        Subdevice_type type;
+        // Subdevice telemetry fields.
+        std::unordered_map<std::string, Property::Ptr> telemetry_fields;
+        // Commands supported by subdevice.
+        std::unordered_map<std::string, Vsm_command::Ptr> commands;
+    };
+
     /** Serial number of the vehicle. */
     const std::string serial_number;
 
     /** Model of the vehicle, e.g. Arducopter, Mikrokopter etc. */
     const std::string model_name;
 
-    /** Type of the vehicle. */
-    const mavlink::MAV_TYPE type;
+    /** Port name the vehicle is connected to. ("COM12" or "127.0.0.1:5440")*/
+    std::string port_name;
 
-    /** Get default processing context of the vehicle. */
-    Request_processor::Ptr
-    Get_processing_ctx();
+    /** Serial number of the autopilot. (empty if not available)*/
+    std::string autopilot_serial;
+
+    /** autopilot name */
+    std::string autopilot_type;
+
+    /** Frame type */
+    std::string frame_type;
+
+    /** Type of the vehicle. */
+    const mavlink::MAV_TYPE type;   // Deprecated
+    ugcs::vsm::proto::Vehicle_type vehicle_type;
+
+    std::vector<Subdevice> subdevices;
+
+    /** vehicle subsystems */
+    typedef struct {
+        unsigned int fc;
+        unsigned int camera;
+        unsigned int gimbal;
+        unsigned int adsb_transponder;
+    } Subsystems;
+
+    Subsystems subsystems;
+
+    ugcs::vsm::Optional<ugcs::vsm::proto::Control_mode> current_control_mode;
+
+    ugcs::vsm::Property::Ptr t_control_mode = nullptr;
+    ugcs::vsm::Property::Ptr t_is_armed = nullptr;
+    ugcs::vsm::Property::Ptr t_uplink_present = nullptr;
+    ugcs::vsm::Property::Ptr t_downlink_present = nullptr;
+    ugcs::vsm::Property::Ptr t_main_voltage = nullptr;
+    ugcs::vsm::Property::Ptr t_main_current = nullptr;
+    ugcs::vsm::Property::Ptr t_gcs_link_quality = nullptr;
+    ugcs::vsm::Property::Ptr t_rc_link_quality = nullptr;
+    ugcs::vsm::Property::Ptr t_latitude = nullptr;
+    ugcs::vsm::Property::Ptr t_longitude = nullptr;
+    ugcs::vsm::Property::Ptr t_altitude_raw = nullptr;
+    ugcs::vsm::Property::Ptr t_altitude_amsl = nullptr;
+    ugcs::vsm::Property::Ptr t_ground_speed = nullptr;
+    ugcs::vsm::Property::Ptr t_air_speed = nullptr;
+    ugcs::vsm::Property::Ptr t_course = nullptr;
+    ugcs::vsm::Property::Ptr t_vertical_speed = nullptr;
+    ugcs::vsm::Property::Ptr t_pitch = nullptr;
+    ugcs::vsm::Property::Ptr t_roll = nullptr;
+    ugcs::vsm::Property::Ptr t_heading = nullptr;
+    ugcs::vsm::Property::Ptr t_gps_fix = nullptr;
+    ugcs::vsm::Property::Ptr t_satellite_count = nullptr;
+    ugcs::vsm::Property::Ptr t_altitude_origin = nullptr;
+    ugcs::vsm::Property::Ptr t_home_altitude_amsl = nullptr;
+    ugcs::vsm::Property::Ptr t_home_altitude_raw = nullptr;
+    ugcs::vsm::Property::Ptr t_home_latitude = nullptr;
+    ugcs::vsm::Property::Ptr t_home_longitude = nullptr;
+
+    ugcs::vsm::Vsm_command::Ptr c_mission_upload = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_auto = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_arm = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_disarm = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_waypoint = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_guided = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_manual = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_pause = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_resume = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_rth = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_land_command = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_joystick = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_direct_vehicle_control = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_takeoff_command = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_emergency_land = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_camera_trigger_command = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_adsb_install = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_adsb_preflight = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_adsb_operating = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_direct_payload_control = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_camera_power = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_camera_video_source = nullptr;
+
+    ugcs::vsm::Vsm_command::Ptr c_wait = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_move = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_set_speed = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_set_home = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_set_poi = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_set_heading = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_panorama = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_camera_trigger_mission = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_camera_by_time = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_camera_by_distance = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_land_mission = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_takeoff_mission = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_set_parameter = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_payload_control = nullptr;
+
+    Property::Ptr p_rc_loss_action = nullptr;
+    Property::Ptr p_gps_loss_action = nullptr;
+    Property::Ptr p_low_battery_action = nullptr;
+    Property::Ptr p_wp_turn_type = nullptr;
 
     /** Vehicle enable event handler. Can be overridden by derived class,
      * if necessary.
@@ -196,10 +315,50 @@ protected:
     On_disable()
     {};
 
+    void
+    Set_rc_loss_actions(std::initializer_list<proto::Failsafe_action> actions);
+
+    void
+    Set_gps_loss_actions(std::initializer_list<proto::Failsafe_action> actions);
+
+    void
+    Set_low_battery_actions(std::initializer_list<proto::Failsafe_action> actions);
+
+    /** Tell server that current altitude origin must be dropped.
+     * (calibration needed to match reported altitude to real world)
+     *
+     * Use this when VSM knows that currently reported Rel_altitude
+     * changed unexpectedly. For example if vehicle resets the reported
+     * altitude on ARM. */
+    void
+    Reset_altitude_origin();
+
+    /** Tell server that Vehicle knows its altitude_origin.
+     * Use this when VSM knows that reported Rel_altitude origin
+     * has changed. Ardupilot does that on home location change. */
+    void
+    Set_altitude_origin(float altitude_amsl);
+
     /*
      * Below are methods which are called by VSM SDK in vehicle context and
      * should be overridden by user code.
      */
+
+    /**
+     * Message from ucs arrived
+     */
+
+    // Translates incoming message to old style Vehicle_request
+    virtual void
+    Handle_ucs_command(
+        Ucs_request::Ptr ucs_request);
+
+    // old style completion handler
+    void
+    Command_completed(
+        ugcs::vsm::Vehicle_request::Result result,
+        std::string status_text,
+        Ucs_request::Ptr ucs_request);
 
     /**
      * Task has arrived from UCS and should be uploaded to the vehicle.
@@ -208,16 +367,15 @@ protected:
     Handle_vehicle_request(Vehicle_task_request::Handle request);
 
     /**
-     * UCS requesting to clear up all the missions on a vehicle.
-     */
-    virtual void
-    Handle_vehicle_request(Vehicle_clear_all_missions_request::Handle request);
-
-    /**
      * UCS sending a command to the vehicle.
      */
     virtual void
     Handle_vehicle_request(Vehicle_command_request::Handle request);
+
+    // Used by Cucs_processor only.
+    // Derived class must override.
+    virtual void
+    Fill_register_msg(ugcs::vsm::proto::Vsm_message&);
 
     /* End of methods called by VSM SDK. */
 
@@ -305,15 +463,6 @@ protected:
     void
     Set_capabilities(const Capabilities& capabilities);
 
-    /** Tell server that current altitude origin must be dropped.
-     * (calibration needed to match reported altitude to real world)
-     *
-     * Use this when VSM knows that currently reported Rel_altitude
-     * changed unexpectedly. For example if vehicle resets the reported
-     * altitude on ARM. */
-    void
-    Reset_altitude_origin();
-
     /** Get vehicle capability states. */
     Capability_states
     Get_capability_states() const;
@@ -322,27 +471,48 @@ protected:
     void
     Set_capability_states(const Capability_states& capability_states);
 
-    /** Open context for telemetry reporting. */
-    Telemetry_manager::Report::Ptr
-    Open_telemetry_report();
+    unsigned int
+    Add_subdevice(Subdevice_type);
+
+    Property::Ptr
+    Add_telemetry(
+        unsigned int subdevice,
+        const std::string& name,
+        ugcs::vsm::proto::Field_semantic semantic = ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT,
+        uint32_t timeout = 0);
+
+    Property::Ptr
+    Add_telemetry(
+        unsigned int subdevice,
+        const std::string& name,
+        ugcs::vsm::Property::Value_type type,
+        uint32_t timeout = 0);
+
+    // Remove telemetry field from default set created in Vehicle ctor.
+    // Used for vehicles which do not support default fields.
+    void
+    Remove_telemetry(Property::Ptr&);
+
+    Vsm_command::Ptr
+    Add_command(
+        unsigned int subdevice,
+        const std::string& name,
+        bool as_command,
+        bool in_mission);
+
 
     /* End of user callable methods. */
 
 private:
 
-    /** Register vehicle instance to UCS processor. After registration is done,
-     * UCS servers sees that vehicle is available as such.
-     */
-    void
-    Register();
-
-    /** Unregister vehicle instance from UCS processor. */
-    void
-    Unregister();
-
     /** Calculate system id for this Vehicle. */
     void
     Calculate_system_id();
+
+    Property::Ptr
+    Add_telemetry(
+        unsigned int subdevice,
+        Property::Ptr t);
 
     /** Submit vehicle request to be processed by this vehicle. Conversion to
      * appropriate user handle type is automatic.
@@ -363,18 +533,8 @@ private:
         processor->Submit_request(vehicle_request->request);
     }
 
-    /** Register new telemetry interface towards UCS server. */
-    void
-    Register_telemetry_interface(Telemetry_interface& telemetry);
-
-    /** Unregister existing telemetry interface towards UCS server. */
-    void
-    Unregister_telemetry_interface();
-
-    /** Read and reset the "reset_altitude_origin" flag. */
     bool
-    Read_reset_altitude_origin();
-
+    Is_model_name_hardcoded();
     /** Type of the autopilot. */
     const mavlink::MAV_AUTOPILOT autopilot;
 
@@ -392,23 +552,16 @@ private:
     /** Current capability states. */
     Capability_states capability_states;
 
-    /** Trigger altitude origin reset on sever. */
-    bool reset_altitude_origin;
-
     /** System id of this vehicle as seen by UCS server. */
     mavlink::Mavlink_kind_ugcs::System_id system_id;
 
-    /** Is vehicle enabled. */
-    bool is_enabled = false;
-
-    Request_completion_context::Ptr completion_ctx;
-    Request_processor::Ptr processor;
-    Request_worker::Ptr worker;
-
-    Telemetry_manager telemetry;
+    bool model_name_is_hardcoded;
 
     /** Vehicle state access mutex. */
     static std::mutex state_mutex;
+
+    /** If vehicle is able to know it own altitude origin.*/
+    Optional<float> current_altitude_origin;
 
     /* Friend classes mostly for accessing system_id variable which we want
      * to hide from SDK user.

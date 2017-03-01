@@ -58,6 +58,24 @@ public:
         ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_PANORAMA);
     }
 
+    /**
+     * Construct action from protobuf command.
+     */
+    Panorama_action(const Property_list& p) :
+        Action(Type::PANORAMA)
+    {
+        int tmp;
+        float time;
+        p.at("mode")->Get_value(tmp);
+        trigger_state = Mavlink_to_trigger_state(tmp);
+        p.at("angle")->Get_value(angle);
+        p.at("step")->Get_value(step);
+        p.at("delay")->Get_value(time);
+        tmp = time * 1000;
+        delay = std::chrono::milliseconds(tmp);
+        p.at("speed")->Get_value(speed);
+    }
+
     /** Trigger state. */
     Trigger_state trigger_state;
 

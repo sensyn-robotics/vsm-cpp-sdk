@@ -6,25 +6,17 @@
  * Implementation of ugcs::vsm::Vehicle_request.
  */
 #include <ugcs/vsm/vehicle_request.h>
+#include <vector>
 
 using namespace ugcs::vsm;
 
 Vehicle_request::Handle::Handle()
 {
-
 }
 
 Vehicle_request::Handle::Handle(Vehicle_request::Ptr vehicle_request):
         vehicle_request(vehicle_request)
 {
-
-}
-
-Vehicle_request::Handle&
-Vehicle_request::Handle::operator =(Vehicle_request::Result result)
-{
-    Assign_result(result);
-    return *this;
 }
 
 Vehicle_request::Handle::operator bool() const
@@ -34,9 +26,9 @@ Vehicle_request::Handle::operator bool() const
 }
 
 void
-Vehicle_request::Handle::Assign_result(Result result)
+Vehicle_request::Handle::Assign_result(Result result, const std::string& status_text)
 {
-    vehicle_request->Set_completion_result(result);
+    vehicle_request->Set_completion_result(result, status_text);
     vehicle_request->Complete();
 }
 
@@ -58,9 +50,54 @@ Vehicle_request::~Vehicle_request()
 }
 
 void
-Vehicle_request::Set_completion_result(Result result)
+Vehicle_request::Handle::Fail(const char *format, ...)
 {
-    completion_handler.Set_args(result);
+    va_list args;
+    va_start(args, format);
+    Fail_v(format, args);
+    va_end(args);
+}
+
+void
+Vehicle_request::Handle::Fail_v(const char *format, va_list fmt_args)
+{
+    if (vehicle_request == nullptr || vehicle_request->request->Is_completed()) {
+        return;
+    }
+
+    if (format) {
+        va_list fmt_copy;
+        va_copy(fmt_copy, fmt_args);
+        int size = vsnprintf(nullptr, 0, format, fmt_args);
+        auto buf = std::unique_ptr<std::vector<char>>(new std::vector<char>(size + 1));
+        vsnprintf(&buf->front(), size + 1, format, fmt_copy);
+        va_end(fmt_copy);
+        Assign_result(Result::NOK, &buf->front());
+    } else {
+        Assign_result(Result::NOK);
+    }
+}
+
+void
+Vehicle_request::Handle::Fail(const std::string& reason)
+{
+    if (vehicle_request && !vehicle_request->request->Is_completed()) {
+        Assign_result(Result::NOK, reason);
+    }
+}
+
+void
+Vehicle_request::Handle::Succeed()
+{
+    if (vehicle_request && !vehicle_request->request->Is_completed()) {
+        Assign_result(Result::OK);
+    }
+}
+
+void
+Vehicle_request::Set_completion_result(Result result, const std::string& text)
+{
+    completion_handler.Set_args(result, text);
 }
 
 void

@@ -10,6 +10,7 @@
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/mavlink.h>
+#include <ugcs/vsm/property.h>
 
 namespace ugcs {
 namespace vsm {
@@ -39,6 +40,31 @@ public:
                 Action(Type::TASK_ATTRIBUTES),
                 safe_altitude(safe_altitude), rc_loss(rc_loss),
                 gnss_loss(gnss_loss), low_battery(low_battery) {}
+
+    /** Construct action from new style params. */
+    Task_attributes_action(const Property_list& params):
+        Action(Type::TASK_ATTRIBUTES)
+    {
+        params.at("safe_altitude")->Get_value(safe_altitude);
+
+        int tmp;
+        if (params.at("rc_loss_action")->Get_value(tmp)) {
+            rc_loss = static_cast<Emergency_action>(tmp);
+        } else {
+            rc_loss = CONTINUE;
+        }
+        if (params.at("gps_loss_action")->Get_value(tmp)) {
+            gnss_loss = static_cast<Emergency_action>(tmp);
+        } else {
+            gnss_loss = CONTINUE;
+        }
+        if (params.at("low_battery_action")->Get_value(tmp)) {
+            low_battery = static_cast<Emergency_action>(tmp);
+        } else {
+            low_battery = CONTINUE;
+        }
+
+    }
 
 
     /**

@@ -43,6 +43,23 @@ public:
         ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_DISTANCE);
     }
 
+    /**
+     * Construct action from protobuf command.
+     */
+    Camera_series_by_distance_action(const Property_list& p) :
+        Action(Type::CAMERA_SERIES_BY_DISTANCE)
+    {
+        int tmp;
+        float time;
+        if (p.at("count")->Get_value(tmp)) {
+            count = tmp;
+        }
+        p.at("distance")->Get_value(interval);
+        p.at("delay")->Get_value(time);
+        tmp = time * 1000;
+        initial_delay = std::chrono::milliseconds(tmp);
+    }
+
     /** Distance interval between two consequent shots in meters. */
     double interval;
     /** Total number of shots to perform. */

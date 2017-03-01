@@ -41,12 +41,17 @@ Find_platform_sources(${CMAKE_SOURCE_DIR}
 # Setup MavLink compilation
 Build_mavlink(${CMAKE_SOURCE_DIR} MAVLINK_INCLUDES MAVLINK_SOURCES MAVLINK_HEADERS MAVLINK_LUA)
 
+Compile_protobuf_definitions(
+    "ucs_vsm.proto;ucs_vsm_defs.proto"
+    "${CMAKE_SOURCE_DIR}/resources/protobuf"
+    "ucs_vsm_proto.h")
+
 # Platform includes and shared includes
 set (SDK_INCLUDES "${CMAKE_SOURCE_DIR}/include" ${PLATFORM_INCLUDES} ${MAVLINK_INCLUDES})
 
-set (SDK_SOURCES ${SOURCES} ${PLATFORM_SOURCES} ${MAVLINK_SOURCES})
+set (SDK_SOURCES ${SOURCES} ${PLATFORM_SOURCES} ${MAVLINK_SOURCES} ${PROTOBUF_AUTO_SOURCES})
 
-set (SDK_HEADERS ${HEADERS} ${PLATFORM_HEADERS} ${MAVLINK_HEADERS})
+set (SDK_HEADERS ${HEADERS} ${PLATFORM_HEADERS} ${MAVLINK_HEADERS} ${PROTOBUF_AUTO_HEADERS})
 
 # Process DLL module definitions on Windows
 Process_dll_defs("src/platform/win")
@@ -54,6 +59,58 @@ Process_dll_defs("src/platform/win")
 include_directories(${SDK_INCLUDES})
 
 if (ANDROID)
+    # Add protobuf include directories.
+    set (SDK_INCLUDES
+        ${SDK_INCLUDES}
+        "${CMAKE_BINARY_DIR}/protobuf_generated"
+        "${CMAKE_SOURCE_DIR}/third-party/protobuf/src")
+
+    # Add protobuf sources to vsm-sdk library
+    set(PROTO_ROOT "${CMAKE_SOURCE_DIR}/third-party/protobuf/src/google/protobuf")    
+    set(SDK_SOURCES ${SDK_SOURCES} ${SDK_HEADERS}
+        ${PROTO_ROOT}/stubs/atomicops_internals_x86_gcc.cc         
+        ${PROTO_ROOT}/stubs/atomicops_internals_x86_msvc.cc        
+        ${PROTO_ROOT}/stubs/common.cc                              
+        ${PROTO_ROOT}/stubs/once.cc                                
+        ${PROTO_ROOT}/stubs/hash.h                                 
+        ${PROTO_ROOT}/stubs/map-util.h                             
+        ${PROTO_ROOT}/stubs/stl_util.h                             
+        ${PROTO_ROOT}/stubs/stringprintf.cc                        
+        ${PROTO_ROOT}/stubs/stringprintf.h                         
+        ${PROTO_ROOT}/extension_set.cc                             
+        ${PROTO_ROOT}/generated_message_util.cc                    
+        ${PROTO_ROOT}/message_lite.cc                              
+        ${PROTO_ROOT}/repeated_field.cc                            
+        ${PROTO_ROOT}/wire_format_lite.cc                          
+        ${PROTO_ROOT}/io/coded_stream.cc                           
+        ${PROTO_ROOT}/io/coded_stream_inl.h                        
+        ${PROTO_ROOT}/io/zero_copy_stream.cc                       
+        ${PROTO_ROOT}/io/zero_copy_stream_impl_lite.cc
+        ${PROTO_ROOT}/stubs/strutil.cc                             
+        ${PROTO_ROOT}/stubs/strutil.h                              
+        ${PROTO_ROOT}/stubs/substitute.cc                          
+        ${PROTO_ROOT}/stubs/substitute.h                           
+        ${PROTO_ROOT}/stubs/structurally_valid.cc                  
+        ${PROTO_ROOT}/descriptor.cc                                
+        ${PROTO_ROOT}/descriptor.pb.cc                             
+        ${PROTO_ROOT}/descriptor_database.cc                       
+        ${PROTO_ROOT}/dynamic_message.cc                           
+        ${PROTO_ROOT}/extension_set_heavy.cc                       
+        ${PROTO_ROOT}/generated_message_reflection.cc              
+        ${PROTO_ROOT}/message.cc                                   
+        ${PROTO_ROOT}/reflection_ops.cc                            
+        ${PROTO_ROOT}/service.cc                                   
+        ${PROTO_ROOT}/text_format.cc                               
+        ${PROTO_ROOT}/unknown_field_set.cc                         
+        ${PROTO_ROOT}/wire_format.cc                               
+        ${PROTO_ROOT}/io/gzip_stream.cc                            
+        ${PROTO_ROOT}/io/printer.cc                                
+        ${PROTO_ROOT}/io/tokenizer.cc                              
+        ${PROTO_ROOT}/io/zero_copy_stream_impl.cc                  
+        ${PROTO_ROOT}/compiler/importer.cc                         
+        ${PROTO_ROOT}/compiler/parser.cc
+    )
+
     # Add target "android"
     Create_android_build("${ANDROID_ABI_LIST}" "${ANDROID_PLATFORM}" "${SDK_SOURCES}" "${SDK_INCLUDES}")
     add_custom_target(${CMAKE_PROJECT_NAME} ALL)
@@ -69,6 +126,7 @@ else()
             )
         set (LIBRARY_INSTALL_DIR "${UGCS_INSTALL_DIR}/beaglebone/lib")
     else()
+
         add_library(${CMAKE_PROJECT_NAME} STATIC
             ${SDK_SOURCES} ${SDK_HEADERS} ${DLL_IMPORT_LIBS}
             $<TARGET_OBJECTS:protobuf_objlib>
@@ -87,14 +145,19 @@ endif()
 add_dependencies(${CMAKE_PROJECT_NAME} mavlink_lua)
 
 add_dependencies (${CMAKE_PROJECT_NAME} protobuf_compiler)
-      
+
 # Install common includes
-install (DIRECTORY include/ugcs  
+install (DIRECTORY include/ugcs
         DESTINATION "${UGCS_INSTALL_DIR}/include")
 
 # Install mavlink includes
-install (DIRECTORY ${MAVLINK_INCLUDES}/ugcs  
+install (DIRECTORY ${MAVLINK_INCLUDES}/ugcs
         DESTINATION "${UGCS_INSTALL_DIR}/include")
+
+# Install protobuf includes
+install (DIRECTORY ${CMAKE_BINARY_DIR}/protobuf_generated/
+        DESTINATION "${UGCS_INSTALL_DIR}/include/generated"
+        FILES_MATCHING PATTERN *.h)
 
 # Install platform specific header for sockets.
 #XXX eliminate this
