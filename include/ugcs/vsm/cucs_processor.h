@@ -102,7 +102,7 @@ private:
         ugcs::vsm::proto::Vsm_message registration_message;
     } Vehicle_context;
 
-    /** Currently established UCS server connections. Indexed by stream_id*/
+    /** Currently established UCS server connections. */
     std::unordered_map<
         uint32_t,
         Server_context> ucs_connections;
@@ -183,8 +183,6 @@ private:
     void
     Send_ucs_message_ptr(uint32_t stream_id, Proto_msg_ptr message);
 
-    // Send message to all connected ucs.
-    // Prefers locally connected.
     void
     Broadcast_message_to_ucs(ugcs::vsm::proto::Vsm_message& message);
 

@@ -229,31 +229,20 @@ Cucs_processor::Read_completed(
                         for (auto& ucs : ucs_connections) {
                             if (ucs.second.ucs_id && *(ucs.second.ucs_id) == new_peer) {
                                 dupe = true;
-                                if (ucs.second.primary) {
-                                    if (    !ucs.second.stream->Get_local_address()->Is_loopback_address()
-                                        ||  connection.stream->Get_local_address()->Is_loopback_address()) {
-                                        ucs.second.primary = false;
-                                        connection.primary = true;
-                                        LOG("Switched primary connection for %u from %s to %s",
-                                            new_peer,
-                                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str(),
-                                            connection.stream->Get_peer_address()->Get_as_string().c_str());
-                                    }
-                                    break;
-                                }
+                                break;
                             }
                         }
                         // From now on we know that this ucs is reachable via this connection.
                         connection.ucs_id = new_peer;
                         if (dupe) {
-                            LOG("Another connection from known UCS %u detected", new_peer);
+                            LOG("Another connection from known UCS=%d detected", new_peer);
                         } else {
-                            LOG("New UCS %u detected", new_peer);
+                            LOG("New UCS=%d detected", new_peer);
                             // We have connection from new ucs.
                             // Send all known vehicles.
+                            Send_vehicle_registrations(connection);
                             connection.primary = true;
                         }
-                        Send_vehicle_registrations(connection);
                     } else {
                         LOG_WARN("Got message for device %d from unregistered peer. Dropped.", vsm_msg.device_id());
                     }
@@ -500,46 +489,9 @@ Cucs_processor::Close_ucs_stream(size_t stream_id)
 {
     auto iter = ucs_connections.find(stream_id);
     if (iter != ucs_connections.end()) {
-        LOG("Closing UCS %u connection from %s",
-            iter->second.ucs_id?*iter->second.ucs_id:0,
-            iter->second.stream->Get_peer_address()->Get_as_string().c_str());
+        LOG("Closing ucs connection");
         iter->second.stream->Close();
-        auto primary = iter->second.primary;
-        uint32_t ucs_id = 0;
-        if (iter->second.ucs_id) {
-            ucs_id = *iter->second.ucs_id;
-        }
         ucs_connections.erase(iter);
-
-        if (primary) {
-            // Primary connection erased.
-            // Look if there is another loopback connection and make that primary.
-            auto loopback_found = false;
-            for (auto& ucs : ucs_connections) {
-                if (ucs.second.ucs_id && *(ucs.second.ucs_id) == ucs_id) {
-                    if (ucs.second.stream->Get_local_address()->Is_loopback_address()) {
-                        ucs.second.primary = true;
-                        loopback_found = true;
-                        LOG("New primary connection for UCS %u: %s",
-                            ucs_id,
-                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str());
-                    }
-                }
-            }
-            if (!loopback_found) {
-                // No other loopback connection. Make primary whichever is found first.
-                for (auto& ucs : ucs_connections) {
-                    if (ucs.second.ucs_id && *(ucs.second.ucs_id) == ucs_id) {
-                        ucs.second.primary = true;
-                        LOG("New primary connection for UCS %u: %s",
-                            ucs_id,
-                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str());
-                        break;
-                    }
-                }
-            }
-        }
-
         if (ucs_connections.size() == 0) {
             if (!transport_detector_on_when_diconnected) {
                 Transport_detector::Get_instance()->Activate(false);

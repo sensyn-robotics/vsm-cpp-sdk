@@ -188,9 +188,6 @@ enum Field_semantic {
     // Time interval, milliseconds, numeric, represented as time
     FIELD_SEMANTIC_MILLISECONDS = 33;
 
-    // Battery capacity percentage, numeric, [0..1]
-    FIELD_SEMANTIC_CAPACITY_LEVEL = 34;
-
     // Generic types used for user-defined telemetry fields.
 
     // Generic number type. Exact type (float, int, etc...) will be detected automatically

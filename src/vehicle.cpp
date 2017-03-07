@@ -486,20 +486,11 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
 
     auto reg = dev->mutable_register_vehicle();
 
-
+    reg->set_vehicle_serial(serial_number);
+    reg->set_vehicle_name(model_name);
+    reg->set_port_name(port_name);
+    reg->set_frame_type(frame_type);
     reg->set_vehicle_type(vehicle_type);
-    if (!serial_number.empty()) {
-        reg->set_vehicle_serial(serial_number);
-    }
-    if (!model_name.empty()) {
-        reg->set_vehicle_name(model_name);
-    }
-    if (!port_name.empty()) {
-        reg->set_port_name(port_name);
-    }
-    if (!frame_type.empty()) {
-        reg->set_frame_type(frame_type);
-    }
 
     for (auto p : properties) {
         p.second->Write_as_property(dev->add_properties());
