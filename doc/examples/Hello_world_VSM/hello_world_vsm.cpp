@@ -14,7 +14,7 @@
 
 /* Custom vehicle defined by VSM developer. */
 /** [custom vehicle] */
-class Custom_vehicle:public ugcs::vsm::Vehicle
+class Custom_vehicle:public ugcs::vsm::Device
 {
     /* To add shared pointer capability to this class. */
     DEFINE_COMMON_CLASS(Custom_vehicle, ugcs::vsm::Vehicle)
@@ -24,17 +24,76 @@ public:
      * but serial number and model name are passed to the constructor.
      */
     /** [vehicle constructor] */
-    Custom_vehicle(
-            const std::string& serial_number):
-                ugcs::vsm::Vehicle(
-                        ugcs::vsm::mavlink::MAV_TYPE::MAV_TYPE_GENERIC,
-                        ugcs::vsm::mavlink::MAV_AUTOPILOT::MAV_AUTOPILOT_GENERIC,
-                        ugcs::vsm::Vehicle::Capabilities(
-                                ugcs::vsm::Vehicle::Capability::ARM_AVAILABLE,
-                                ugcs::vsm::Vehicle::Capability::DISARM_AVAILABLE),
-                        serial_number,
-                        "MyDrone") {}
+    Custom_vehicle(const std::string& serial_number): serial_number(serial_number)
+    {
     /** [vehicle constructor] */
+        /* Create telemetry fields
+         * The exact type of the field is derived from name. */
+        t_control_mode = Add_telemetry("control_mode");
+        t_main_voltage = Add_telemetry("main_voltage");
+        t_heading = Add_telemetry("heading");
+        t_altitude_raw = Add_telemetry("altitude_raw");
+
+        /* For telemetry fields without hardcoded type it can be specified explicitly. */
+        t_uplink_present = Add_telemetry("uplink_present", ugcs::vsm::proto::FIELD_SEMANTIC_BOOL);
+        t_is_armed = Add_telemetry("is_armed", ugcs::vsm::proto::FIELD_SEMANTIC_BOOL);
+        t_downlink_present = Add_telemetry("downlink_present", ugcs::vsm::Property::VALUE_TYPE_BOOL);
+
+        /* Create commands which are available as standalone commands */
+        c_mission_upload = Add_command("mission_upload", true, false);
+        c_arm = Add_command("arm", true, false);
+        c_disarm = Add_command("disarm", true, false);
+
+        /* Create commands which can be issued as part of mission */
+        c_move = Add_command("move", false, true);
+        c_move->Add_parameter("latitude");
+        c_move->Add_parameter("longitude");
+        c_move->Add_parameter("altitude_amsl");
+        c_move->Add_parameter("acceptance_radius");
+        c_move->Add_parameter("loiter_radius", ugcs::vsm::Property::VALUE_TYPE_FLOAT);
+        c_move->Add_parameter("wait_time", ugcs::vsm::Property::VALUE_TYPE_FLOAT);
+        c_move->Add_parameter("heading");
+        c_move->Add_parameter("ground_elevation");
+    }
+
+    virtual void
+    Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
+    {
+        auto dev = msg.mutable_register_device();
+
+        // Set up the begin of epoch. This is required to maintain correct timestamps for telemetry.
+        dev->set_begin_of_epoch(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                begin_of_epoch.time_since_epoch()).count());
+
+        auto reg = dev->mutable_register_vehicle();
+
+        // Set vehicle specific properties.
+        reg->set_vehicle_type(ugcs::vsm::proto::VEHICLE_TYPE_MULTICOPTER);
+        reg->set_vehicle_serial(serial_number);
+        reg->set_port_name("simulation");
+
+        // Register "flight controller" subsystem.
+        auto sd = reg->add_register_flight_controller();
+
+        // autopilot_type is mandatory.
+        sd->set_autopilot_type("my_t");
+
+        // Associate telemetry fields with flight controller.
+        t_control_mode->Register(sd->add_telemetry_fields());
+        t_main_voltage->Register(sd->add_telemetry_fields());
+        t_heading->Register(sd->add_telemetry_fields());
+        t_altitude_raw->Register(sd->add_telemetry_fields());
+        t_is_armed->Register(sd->add_telemetry_fields());
+        t_uplink_present->Register(sd->add_telemetry_fields());
+        t_downlink_present->Register(sd->add_telemetry_fields());
+
+        // Associate commands with flight controller.
+        c_mission_upload->Register(sd->add_commands());
+        c_disarm->Register(sd->add_commands());
+        c_arm->Register(sd->add_commands());
+        c_move->Register(sd->add_commands());
+    }
 
     /* Override enable method to perform initialization. In this example -
      * just start telemetry simulation timer.
@@ -58,16 +117,25 @@ public:
                  */
                 Get_completion_ctx());
 
-        Set_system_status(
-                ugcs::vsm::Vehicle::Sys_status(
-                        /* Uplink & downlink connected. */
-                        true, true,
-                        /* Manual control. */
-                        ugcs::vsm::Vehicle::Sys_status::Control_mode::MANUAL,
-                        /* Armed. */
-                        ugcs::vsm::Vehicle::Sys_status::State::ARMED,
-                        /* Uptime is always 1 second, as an example only. */
-                        std::chrono::seconds(1)));
+        /* Report current control mode to the UgCS */
+        t_control_mode->Set_value(ugcs::vsm::proto::CONTROL_MODE_MANUAL);
+
+        /* Report link state to the UgCS */
+        t_downlink_present->Set_value(true);
+        t_uplink_present->Set_value(true);
+
+        /* Tell UgCS about available commands.
+         * Command availability can be changed during runtime via this call and
+         * VSM can determine which command buttons to show in the client UI. */
+        c_arm->Set_available();
+        c_disarm->Set_available();
+        c_mission_upload->Set_available();
+
+        /* Mission upload is always enabled.
+        * Command state (enabled/disabled) can be changed during runtime via this call and
+        * VSM can determine which command buttons to show as enabled in the client UI. */
+        c_mission_upload->Set_enabled();
+        Commit_to_ucs();
     }
     /** [on enable] */
 
@@ -80,69 +148,79 @@ public:
     }
     /** [on disable] */
 
-    /* Handler for a task submitted for the vehicle by UgCS. */
-    /** [task request] */
-    virtual void
-    Handle_vehicle_request(ugcs::vsm::Vehicle_task_request::Handle request) override
-    {
-        /* Just print out all actions to the log. Here pointer access semantics
-         * of the handle is used. */
-        for (auto &action: request->actions) {
-            LOG_DEBUG("Action %s received.", action->Get_name().c_str());
-            /* Specific processing of move action. */
-            if (action->Get_type() == ugcs::vsm::Action::Type::MOVE) {
-                /* Get move action class. */
-                ugcs::vsm::Move_action::Ptr move = action->Get_action<ugcs::vsm::Action::Type::MOVE>();
-                /* Get movement position as geodetic tuple. */
-                ugcs::vsm::Geodetic_tuple pos = move->position.Get_geodetic();
-                /* And output the altitude only. */
-                LOG_DEBUG("Move to altitude of %.2f meters.", pos.altitude);
-            }
-        }
-        /* Indicate successful request processing by the vehicle. */
-        request = ugcs::vsm::Vehicle_request::Result::OK;
-    }
-    /** [task request] */
-
-    /* Handler for a clear mission request submitted for the vehicle by UgCS. */
-    /** [clear all missions] */
-    virtual void
-    Handle_vehicle_request(ugcs::vsm::Vehicle_clear_all_missions_request::Handle request) override
-    {
-        /* Mimic operation execution. */
-        LOG_DEBUG("All missions cleared.");
-        /* Indicate successful request processing by the vehicle. */
-        request = ugcs::vsm::Vehicle_request::Result::OK;
-    }
-    /** [clear all missions] */
-
-
     /* Handler for a command submitted for the vehicle by UgCS. */
     /** [command request] */
-    virtual void
-    Handle_vehicle_request(ugcs::vsm::Vehicle_command_request::Handle request) override
+    void
+    Handle_ucs_command(ugcs::vsm::Ucs_request::Ptr ucs_request)
     {
-        /* Mimic command execution. Here dereference access semantics of the
-         * handle is used. */
-        switch ((*request).Get_type()) {
-        case ugcs::vsm::Vehicle_command::Type::ARM:
-            LOG_DEBUG("Vehicle armed!");
-            /* Start yaw spinning and climbing. */
-            yaw_speed = 0.1;
-            climb_speed = 0.5;
-            break;
-        case ugcs::vsm::Vehicle_command::Type::DISARM:
-            LOG_DEBUG("Vehicle disarmed.");
-            /* Stop yaw spinning and climbing. */
-            yaw_speed = 0;
-            climb_speed = 0;
-            break;
-        default:
-            /* Not supported. */
-            return;
+        for (int c = 0; c < ucs_request->request.device_commands_size(); c++) {
+            auto &vsm_cmd = ucs_request->request.device_commands(c);
+
+            auto cmd = Get_command(vsm_cmd.command_id());
+
+            LOG("COMMAND %s (%d) received",
+                cmd->Get_name().c_str(),
+                vsm_cmd.command_id());
+
+            ugcs::vsm::Property_list params;
+
+            try {
+                if        (cmd == c_arm) {
+
+                    LOG_DEBUG("Vehicle armed!");
+                    /* Start yaw spinning and climbing. */
+                    yaw_speed = 0.1;
+                    climb_speed = 0.5;
+
+                    /* Simulate armed vehicle */
+                    is_armed = true;
+
+                } else if (cmd == c_disarm) {
+
+                    LOG_DEBUG("Vehicle disarmed.");
+                    /* Stop yaw spinning and climbing. */
+                    yaw_speed = 0;
+                    climb_speed = 0;
+
+                    /* Simulate disarmed vehicle */
+                    is_armed = false;
+
+                } else if (cmd == c_disarm) {
+
+                    LOG_DEBUG("Vehicle disarmed.");
+                    /* Stop yaw spinning and climbing. */
+                    yaw_speed = 0;
+                    climb_speed = 0;
+
+                    /* Simulate disarmed vehicle */
+                    is_armed = false;
+
+                } else if (cmd == c_mission_upload) {
+
+                    /* Iterate over all mission commands */
+                    for (int item_count = 0; item_count < vsm_cmd.sub_commands_size(); item_count++) {
+                        auto vsm_scmd = vsm_cmd.sub_commands(item_count);
+                        auto cmd = Get_command(vsm_scmd.command_id());
+                        if (cmd == c_move) {
+                            /* Only move is supported by this vehicle */
+                            LOG("MISSION item %d %s (%d)",
+                                item_count, cmd->Get_name().c_str(),
+                                vsm_scmd.command_id());
+                            params = cmd->Build_parameter_list(vsm_scmd);
+                            float alt;
+                            params.Get_value("altitude", alt);
+                            LOG_DEBUG("Move to altitude of %.2f meters.", alt);
+                        }
+                    }
+
+                } else {
+                    VSM_EXCEPTION(ugcs::vsm::Action::Format_exception, "Unsupported command");
+                }
+                ucs_request->Complete();
+            } catch (const std::exception& ex) {
+                ucs_request->Complete(ugcs::vsm::proto::STATUS_INVALID_PARAM, std::string(ex.what()));
+            }
         }
-        /* Indicate successful request processing by the vehicle. */
-        request = ugcs::vsm::Vehicle_request::Result::OK;
     }
     /** [command request] */
 
@@ -153,8 +231,10 @@ private:
     bool
     Send_telemetry()
     {
-        auto report = Open_telemetry_report();
-        report->Set<ugcs::vsm::telemetry::Attitude::Yaw>(yaw);
+
+        /* Report current heading. */
+        t_heading->Set_value(yaw);
+
         /* Simulate some spinning between [-Pi;+Pi]. */
         if ((yaw += yaw_speed) >= M_PI) {
             yaw = -M_PI;
@@ -162,16 +242,30 @@ private:
 
         /* Simulate climbing high to the sky. */
         altitude += climb_speed;
-        report->Set<ugcs::vsm::telemetry::Abs_altitude>(altitude);
+        t_altitude_raw->Set_value(altitude);
 
         /* Report also some battery value. */
-        report->Set<ugcs::vsm::telemetry::Battery_voltage>(13.5);
+        t_main_voltage->Set_value(13.5);
+
+        /* Enable ARM command if vehicle is disarmed. */
+        c_arm->Set_enabled(!is_armed);
+
+        /* Enable DISARM command if vehicle is armed. */
+        c_disarm->Set_enabled(is_armed);
+
+        /* Report armed state to the UgCS */
+        t_is_armed->Set_value(is_armed);
+
+        /* Send the updated telemetry fields and command states to UgCS
+         * SDK will send only modified values thus saving bandwidth */
+        Commit_to_ucs();
 
         /* Return true to reschedule the same timer again. */
         return true;
     }
     /** [telemetry] */
 
+    std::string serial_number;
     /** Timer for telemetry simulation. */
     ugcs::vsm::Timer_processor::Timer::Ptr timer;
 
@@ -186,6 +280,23 @@ private:
 
     /** Climb speed. */
     double climb_speed = 0;
+
+    bool is_armed = false;
+
+    /* Define supported telemetry fields */
+    ugcs::vsm::Property::Ptr t_control_mode = nullptr;
+    ugcs::vsm::Property::Ptr t_is_armed = nullptr;
+    ugcs::vsm::Property::Ptr t_uplink_present = nullptr;
+    ugcs::vsm::Property::Ptr t_downlink_present = nullptr;
+    ugcs::vsm::Property::Ptr t_main_voltage = nullptr;
+    ugcs::vsm::Property::Ptr t_heading = nullptr;
+    ugcs::vsm::Property::Ptr t_altitude_raw = nullptr;
+
+    /* Define supported commands */
+    ugcs::vsm::Vsm_command::Ptr c_mission_upload = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_move = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_arm = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_disarm = nullptr;
 };
 
 int main(int, char* [])
@@ -197,7 +308,7 @@ int main(int, char* [])
     /** [instance creation] */
     /** [instance creation and enable] */
     /* Create vehicle instance with hard-coded serial number. */
-    Custom_vehicle::Ptr vehicle = Custom_vehicle::Create("123456");
+    Custom_vehicle::Ptr vehicle = Custom_vehicle::Create("asd123456");
     /** [instance creation] */
     /* Should be always called right after vehicle instance creation. */
     vehicle->Enable();
