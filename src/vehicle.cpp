@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,6 +7,7 @@
  */
 
 #include <ugcs/vsm/vehicle.h>
+#include <ugcs/vsm/properties.h>
 #include <ugcs/vsm/log.h>
 #include <ugcs/vsm/actions.h>
 
@@ -100,11 +101,21 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
     ADD_T(pitch);
     ADD_T(roll);
     ADD_T(main_voltage);
-
     ADD_TS(home_latitude, proto::FIELD_SEMANTIC_LATITUDE);
     ADD_TS(home_longitude, proto::FIELD_SEMANTIC_LONGITUDE);
     ADD_TS(home_altitude_amsl, proto::FIELD_SEMANTIC_ALTITUDE_AMSL);
     ADD_TS(home_altitude_raw, proto::FIELD_SEMANTIC_ALTITUDE_RAW);
+
+    ADD_T(flight_mode);
+    ADD_T(native_flight_mode);
+    ADD_T(autopilot_status);
+    ADD_TS(current_command, Property::VALUE_TYPE_INT);
+    ADD_TS(current_mission_id, Property::VALUE_TYPE_INT);
+    ADD_TS(target_latitude, proto::FIELD_SEMANTIC_LATITUDE);
+    ADD_TS(target_longitude, proto::FIELD_SEMANTIC_LONGITUDE);
+    ADD_TS(target_altitude_amsl, proto::FIELD_SEMANTIC_ALTITUDE_AMSL);
+    ADD_TS(target_altitude_raw, proto::FIELD_SEMANTIC_ALTITUDE_RAW);
+    ADD_TS(fence_enabled, proto::FIELD_SEMANTIC_BOOL);
 
     // Create command definitions.
 
@@ -149,7 +160,7 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
     p_low_battery_action = c_mission_upload->Add_parameter("low_battery_action", Property::VALUE_TYPE_ENUM);
     // Additional parameters should be added by derived classes.
 
-    c_pause = Add_command(fc, "mission_pause", true, false);
+    c_pause = Add_command(fc, "mission_pause", true, true);
 
     c_resume = Add_command(fc, "mission_resume", true, false);
 
@@ -166,6 +177,27 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
     c_waypoint->Add_parameter("ground_speed");
     c_waypoint->Add_parameter("vertical_speed");
     c_waypoint->Add_parameter("heading");
+
+    c_set_servo = Add_command(fc, "set_servo", true, true);
+    c_set_servo->Add_parameter("servo_id", Property::VALUE_TYPE_INT);
+    c_set_servo->Add_parameter("pwm", Property::VALUE_TYPE_INT);
+
+    c_repeat_servo = Add_command(fc, "repeat_servo", true, true);
+    c_repeat_servo->Add_parameter("servo_id", Property::VALUE_TYPE_INT);
+    c_repeat_servo->Add_parameter("pwm", Property::VALUE_TYPE_INT);
+    c_repeat_servo->Add_parameter("count", Property::VALUE_TYPE_INT);
+    c_repeat_servo->Add_parameter("delay", Property::VALUE_TYPE_FLOAT);
+
+    c_set_fence = Add_command(fc, "set_fence", true, false);
+    c_set_fence->Add_parameter("altitude_origin");
+    c_set_fence->Add_parameter("altitude_amsl");
+    c_set_fence->Add_parameter("radius", Property::VALUE_TYPE_FLOAT);
+    c_set_fence->Add_parameter("longitudes", Property::VALUE_TYPE_LIST);
+    c_set_fence->Add_parameter("latitudes", Property::VALUE_TYPE_LIST);
+
+    c_trigger_calibration = Add_command(fc, "trigger_calibration", true, false);
+
+    c_trigger_reboot = Add_command(fc, "trigger_reboot", true, false);
 
 // Legacy mission items
 
@@ -289,6 +321,33 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
 
     Set_capabilities(capabilities); // this should be after all commands are created.
     Calculate_system_id();
+
+    auto props = ugcs::vsm::Properties::Get_instance().get();
+
+    if (props->Exists("vehicle.command_try_count")) {
+        command_try_count = props->Get_int("vehicle.command_try_count");
+        if (command_try_count < 1) {
+            command_try_count = DEFAULT_COMMAND_TRY_COUNT;
+        } else {
+            LOG_INFO("[%s:%s] Setting command try count to %d",
+                    model_name.c_str(),
+                    serial_number.c_str(),
+                    command_try_count);
+        }
+    }
+    if (props->Exists("vehicle.command_timeout")) {
+        command_timeout =
+            std::chrono::milliseconds(
+                static_cast<int>(props->Get_float("vehicle.command_timeout") * 1000));
+        if (command_timeout.count() < 1) {
+            command_timeout = DEFAULT_COMMAND_TIMEOUT;
+        } else {
+            LOG_INFO("[%s:%s] Setting command timeout to %ld ms",
+                    model_name.c_str(),
+                    serial_number.c_str(),
+                    command_timeout.count());
+        }
+    }
 }
 
 void
@@ -317,10 +376,7 @@ Vehicle::Handle_ucs_command(
     Ucs_request::Ptr ucs_request)
 {
     if (ucs_request->request.device_commands_size() != 1) {
-        LOG_ERR("Only one command allowed in ucs message, got %d", ucs_request->request.device_commands_size());
-        ucs_request->Complete(
-            ugcs::vsm::proto::STATUS_FAILED,
-            "Only one command allowed in ucs message");
+        Command_failed(ucs_request, "Only one command allowed in ucs message, got " + std::to_string(ucs_request->request.device_commands_size()));
         return;
     }
 
@@ -333,19 +389,25 @@ Vehicle::Handle_ucs_command(
 
     auto &vsm_cmd = ucs_request->request.device_commands(0);
     auto cmd = Get_command(vsm_cmd.command_id());
-    Property_list params;
+
     if (cmd) {
         VEHICLE_LOG_INF((*this), "COMMAND %s (%d) received",
             cmd->Get_name().c_str(),
             vsm_cmd.command_id());
+    } else {
+        Command_failed(
+                ucs_request,
+                "Unknown command id " + std::to_string(vsm_cmd.command_id()),
+                ugcs::vsm::proto::STATUS_INVALID_COMMAND);
+        return;
     }
 
     Vehicle_task_request::Ptr task = nullptr;
+    Property_list params;
 
     try {
         params = cmd->Build_parameter_list(vsm_cmd);
-
-        if (cmd == c_mission_upload) {
+        if (cmd == c_mission_upload || cmd == c_get_native_route) {
             task = Vehicle_task_request::Create(
                 completion_handler,
                 completion_ctx,
@@ -360,13 +422,16 @@ Vehicle::Handle_ucs_command(
             }
 
             task->payload.attributes = Task_attributes_action::Create(params);
+            if (cmd == c_get_native_route) {
+                task->payload.return_native_route = true;
+                params.at("use_crlf")->Get_value(task->payload.use_crlf_in_native_route);
+            }
 
             auto item_count = 0;
             for (int i = 0; i < vsm_cmd.sub_commands_size(); i++) {
                 auto vsm_scmd = vsm_cmd.sub_commands(i);
                 auto cmd = Get_command(vsm_scmd.command_id());
                 if (cmd) {
-                    item_count++;
                     VEHICLE_LOG_INF((*this),
                         "MISSION item %d %s (%d)",
                         item_count, cmd->Get_name().c_str(), vsm_scmd.command_id());
@@ -374,47 +439,62 @@ Vehicle::Handle_ucs_command(
                     if (!cmd->Is_mission_item()) {
                         VSM_EXCEPTION(Action::Format_exception, "Command not allowed in mission");
                     }
+                    Action::Ptr action = nullptr;
                     float tmp = std::nanf("");
                     if (cmd == c_set_parameter) {
                         // Used only by arduplane params ("LANDING_FLARE_TIME" and friends)
                         task->payload.parameters = std::move(params);
                     } else if (cmd == c_move) {
-                        task->payload.actions.push_back(Move_action::Create(params));
+                        action = Move_action::Create(params);
                     } else if (cmd == c_land_mission) {
-                        task->payload.actions.push_back(Landing_action::Create(params));
+                        action = Landing_action::Create(params);
                     } else if (cmd == c_takeoff_mission) {
-                        task->payload.actions.push_back(Takeoff_action::Create(params));
+                        action = Takeoff_action::Create(params);
                     } else if (cmd == c_wait) {
-                        params.at("time")->Get_value(tmp);
-                        task->payload.actions.push_back(Wait_action::Create(tmp));
+                        if (!params.at("time")->Get_value(tmp)) {
+                            tmp = -1;
+                        }
+                        action = Wait_action::Create(tmp);
+                    } else if (cmd == c_pause) {
+                        action = Wait_action::Create(-1);
                     } else if (cmd == c_set_speed) {
-                        task->payload.actions.push_back(Change_speed_action::Create(params));
+                        action = Change_speed_action::Create(params);
                     } else if (cmd == c_set_home) {
-                        task->payload.actions.push_back(Set_home_action::Create(params));
+                        action = Set_home_action::Create(params);
                     } else if (cmd == c_set_poi) {
-                        task->payload.actions.push_back(Poi_action::Create(params));
+                        action = Poi_action::Create(params);
                     } else if (cmd == c_set_heading) {
                         params.at("heading")->Get_value(tmp);
-                        task->payload.actions.push_back(Heading_action::Create(tmp));
+                        action = Heading_action::Create(tmp);
                     } else if (cmd == c_panorama) {
-                        task->payload.actions.push_back(Panorama_action::Create(params));
+                        action = Panorama_action::Create(params);
                     } else if (cmd == c_camera_trigger_mission) {
-                        task->payload.actions.push_back(Camera_trigger_action::Create(params));
+                        action = Camera_trigger_action::Create(params);
                     } else if (cmd == c_camera_by_time) {
-                        task->payload.actions.push_back(Camera_series_by_time_action::Create(params));
+                        action = Camera_series_by_time_action::Create(params);
                     } else if (cmd == c_camera_by_distance) {
-                        task->payload.actions.push_back(Camera_series_by_distance_action::Create(params));
+                        action = Camera_series_by_distance_action::Create(params);
                     } else if (cmd == c_payload_control) {
-                        task->payload.actions.push_back(Camera_control_action::Create(params));
+                        action = Camera_control_action::Create(params);
+                    } else if (cmd == c_set_servo) {
+                        action = Set_servo_action::Create(params);
+                    } else if (cmd == c_repeat_servo) {
+                        action = Repeat_servo_action::Create(params);
                     } else {
                         VSM_EXCEPTION(Action::Format_exception, "Unsupported mission item '%s'", cmd->Get_name().c_str());
+                    }
+                    if (action) {
+                        action->Set_id(item_count);
+                        task->payload.actions.push_back(action);
                     }
                 } else {
                     VSM_EXCEPTION(Action::Format_exception, "Unregistered mission item %d", vsm_scmd.command_id());
                 }
+                item_count++;
             }
+            task->payload.ucs_response = ucs_request->response;
             Submit_vehicle_request(task);
-        } else if (cmd) {
+        } else {
             Vehicle_command::Type ctype;
             if (cmd == c_arm) {
                 ctype = Vehicle_command::Type::ARM;
@@ -444,12 +524,6 @@ Vehicle::Handle_ucs_command(
                 ctype = Vehicle_command::Type::WAYPOINT;
             } else if (cmd == c_emergency_land) {
                 ctype = Vehicle_command::Type::EMERGENCY_LAND;
-            } else if (cmd == c_adsb_install) {
-                ctype = Vehicle_command::Type::ADSB_INSTALL;
-            } else if (cmd == c_adsb_preflight) {
-                ctype = Vehicle_command::Type::ADSB_PREFLIGHT;
-            } else if (cmd == c_adsb_operating) {
-                ctype = Vehicle_command::Type::ADSB_OPERATING;
             } else if (cmd == c_camera_trigger_command) {
                 ctype = Vehicle_command::Type::CAMERA_TRIGGER;
             } else if (cmd == c_direct_payload_control) {
@@ -464,8 +538,6 @@ Vehicle::Handle_ucs_command(
             }
             auto task = Vehicle_command_request::Create(completion_handler, completion_ctx, ctype, params);
             Submit_vehicle_request(task);
-        } else {
-            ucs_request->Complete(ugcs::vsm::proto::STATUS_INVALID_COMMAND, "Unknown command id");
         }
     } catch (const std::exception& ex) {
         ucs_request->Complete(ugcs::vsm::proto::STATUS_INVALID_COMMAND, ex.what());
@@ -486,11 +558,21 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
 
     auto reg = dev->mutable_register_vehicle();
 
-    reg->set_vehicle_serial(serial_number);
-    reg->set_vehicle_name(model_name);
-    reg->set_port_name(port_name);
-    reg->set_frame_type(frame_type);
+    auto is_command_porcessor = reg->has_is_command_processor() && reg->is_command_processor();
+
     reg->set_vehicle_type(vehicle_type);
+    if (!serial_number.empty()) {
+        reg->set_vehicle_serial(serial_number);
+    }
+    if (!model_name.empty()) {
+        reg->set_vehicle_name(model_name);
+    }
+    if (!port_name.empty()) {
+        reg->set_port_name(port_name);
+    }
+    if (!frame_type.empty()) {
+        reg->set_frame_type(frame_type);
+    }
 
     for (auto p : properties) {
         p.second->Write_as_property(dev->add_properties());
@@ -503,8 +585,10 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
             auto sd = reg->add_register_flight_controller();
             sd->set_autopilot_serial(autopilot_serial);
             sd->set_autopilot_type(autopilot_type);
-            for (auto it: subdevice.telemetry_fields) {
-                it.second->Register(sd->add_telemetry_fields());
+            if (!is_command_porcessor) {
+                for (auto it: subdevice.telemetry_fields) {
+                    it.second->Register(sd->add_telemetry_fields());
+                }
             }
             for (auto it: subdevice.commands) {
                 it.second->Register(sd->add_commands());
@@ -525,8 +609,10 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
         case SUBDEVICE_TYPE_ADSB_TRANSPONDER:
         {
             auto sd = reg->add_register_adsb_transponder();
-            for (auto it: subdevice.telemetry_fields) {
-                it.second->Register(sd->add_telemetry_fields());
+            if (!is_command_porcessor) {
+                for (auto it: subdevice.telemetry_fields) {
+                    it.second->Register(sd->add_telemetry_fields());
+                }
             }
             for (auto it: subdevice.commands) {
                 it.second->Register(sd->add_commands());
@@ -536,8 +622,10 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
         case SUBDEVICE_TYPE_GIMBAL:
         {
             auto sd = reg->add_register_gimbal();
-            for (auto it: subdevice.telemetry_fields) {
-                it.second->Register(sd->add_telemetry_fields());
+            if (!is_command_porcessor) {
+                for (auto it: subdevice.telemetry_fields) {
+                    it.second->Register(sd->add_telemetry_fields());
+                }
             }
             for (auto it: subdevice.commands) {
                 it.second->Register(sd->add_commands());
@@ -552,19 +640,45 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
 void
 Vehicle::Command_completed(
     ugcs::vsm::Vehicle_request::Result result,
-    std::string status_text,
+    const std::string& status_text,
     Ucs_request::Ptr ucs_request)
 {
     if (result == Vehicle_request::Result::OK) {
-        ucs_request->Complete(ugcs::vsm::proto::STATUS_OK, status_text);
         if (ucs_request->response) {
             VEHICLE_LOG_INF((*this), "COMMAND OK");
         }
+        ucs_request->Complete();
     } else {
-        ucs_request->Complete(ugcs::vsm::proto::STATUS_FAILED, status_text);
         if (ucs_request->response) {
             VEHICLE_LOG_WRN((*this), "COMMAND FAILED: %s", status_text.c_str());
         }
+        ucs_request->Complete(ugcs::vsm::proto::STATUS_FAILED, status_text);
+    }
+}
+
+void
+Vehicle::Command_succeeded(
+    Ucs_request::Ptr ucs_request)
+{
+    if (ucs_request && !ucs_request->Is_completed()) {
+        if (ucs_request->response) {
+            VEHICLE_LOG_WRN((*this), "COMMAND OK");
+        }
+        ucs_request->Complete();
+    }
+}
+
+void
+Vehicle::Command_failed(
+    Ucs_request::Ptr ucs_request,
+    const std::string& status_text,
+    proto::Status_code code)
+{
+    if (ucs_request && !ucs_request->Is_completed()) {
+        if (ucs_request->response) {
+            VEHICLE_LOG_WRN((*this), "COMMAND FAILED: %s", status_text.c_str());
+        }
+        ucs_request->Complete(code, status_text);
     }
 }
 
@@ -718,9 +832,6 @@ Vehicle::Set_capabilities(const Capabilities& capabilities)
         }
 
         SET_STATE(c_arm, ARM_AVAILABLE);
-        SET_STATE(c_adsb_install, ADSB_TRANSPONDER_AVAILABLE);
-        SET_STATE(c_adsb_operating, ADSB_TRANSPONDER_AVAILABLE);
-        SET_STATE(c_adsb_preflight, ADSB_TRANSPONDER_AVAILABLE);
         SET_STATE(c_auto, AUTO_MODE_AVAILABLE);
         SET_STATE(c_disarm, DISARM_AVAILABLE);
         SET_STATE(c_waypoint, WAYPOINT_AVAILABLE);
@@ -769,9 +880,6 @@ Vehicle::Set_capability_states(const Capability_states& capability_states)
         }
 
         SET_STATE(c_arm, ARM_ENABLED);
-        SET_STATE(c_adsb_install, ADSB_TRANSPONDER_ENABLED);
-        SET_STATE(c_adsb_operating, ADSB_TRANSPONDER_ENABLED);
-        SET_STATE(c_adsb_preflight, ADSB_TRANSPONDER_ENABLED);
         SET_STATE(c_auto, AUTO_MODE_ENABLED);
         SET_STATE(c_disarm, DISARM_ENABLED);
         SET_STATE(c_waypoint, WAYPOINT_ENABLED);
@@ -913,33 +1021,6 @@ Vehicle::Is_model_name_hardcoded()
     return model_name_is_hardcoded;
 }
 
-namespace {
-void
-Set_failsafe_actions(Property::Ptr p, std::initializer_list<proto::Failsafe_action> actions)
-{
-    for (auto a : actions) {
-        switch (a) {
-        case proto::FAILSAFE_ACTION_CONTINUE:
-            p->Add_enum("continue", a);
-            break;
-        case proto::FAILSAFE_ACTION_WAIT:
-            p->Add_enum("wait", a);
-            break;
-        case proto::FAILSAFE_ACTION_LAND:
-            p->Add_enum("land", a);
-            break;
-        case proto::FAILSAFE_ACTION_RTH:
-            p->Add_enum("rth", a);
-            break;
-        }
-    }
-    auto i = actions.begin();
-    if (i != actions.end()) {
-        p->Default_value()->Set_value(*i);
-    }
-}
-}
-
 void
 Vehicle::Set_rc_loss_actions(std::initializer_list<proto::Failsafe_action> actions)
 {
@@ -956,4 +1037,77 @@ void
 Vehicle::Set_gps_loss_actions(std::initializer_list<proto::Failsafe_action> actions)
 {
     Set_failsafe_actions(p_gps_loss_action, actions);
+}
+
+void
+Vehicle::Command_map::Fill_command_mapping_response(Proto_msg_ptr msg)
+{
+    if (msg) {
+        auto res = msg->mutable_device_response();
+        res->set_mission_id(mission_id.Get());
+        for (auto i : mission_command_map) {
+            auto m = res->add_mission_command_map();
+            m->set_vehicle_command_id(i.first);
+            m->set_mission_command_idx(i.second);
+        }
+    }
+}
+
+void
+Vehicle::Command_map::Reset()
+{
+    mission_command_map.clear();
+    mission_id.Reset();
+    current_mission_command = -1;
+}
+
+void
+Vehicle::Command_map::Set_current_command(int mission_command_id)
+{
+    current_mission_command = mission_command_id;
+}
+
+void
+Vehicle::Command_map::Add_command_mapping(int vehicle_specific_id)
+{
+    if (current_mission_command >= 0) {
+        mission_command_map.emplace(vehicle_specific_id, current_mission_command);
+    }
+}
+
+
+void
+Vehicle::Command_map::Accumulate_route_id(uint32_t hash)
+{
+    mission_id.Add_int(hash);
+}
+
+uint32_t
+Vehicle::Command_map::Get_route_id()
+{
+    return mission_id.Get();
+}
+
+bool
+Vehicle::Is_flight_mode(ugcs::vsm::proto::Flight_mode m)
+{
+    return (current_flight_mode && *current_flight_mode == m);
+}
+
+bool
+Vehicle::Is_control_mode(ugcs::vsm::proto::Control_mode m)
+{
+//    return (current_control_mode && *current_control_mode == m);
+    switch (m) {
+    case proto::CONTROL_MODE_AUTO:
+        return sys_status.control_mode == Sys_status::Control_mode::AUTO;
+    case proto::CONTROL_MODE_CLICK_GO:
+        return sys_status.control_mode == Sys_status::Control_mode::GUIDED;
+    case proto::CONTROL_MODE_JOYSTICK:
+        return sys_status.control_mode == Sys_status::Control_mode::JOYSTICK;
+    case proto::CONTROL_MODE_MANUAL:
+        return sys_status.control_mode == Sys_status::Control_mode::MANUAL;
+    default:
+        return false;
+    }
 }

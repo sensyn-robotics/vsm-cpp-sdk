@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -22,3 +22,5 @@
 #include <ugcs/vsm/panorama_action.h>
 #include <ugcs/vsm/camera_series_by_time_action.h>
 #include <ugcs/vsm/camera_series_by_distance_action.h>
+#include <ugcs/vsm/set_servo_action.h>
+#include <ugcs/vsm/repeat_servo_action.h>

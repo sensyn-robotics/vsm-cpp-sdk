@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -265,7 +265,7 @@ Timer_processor::On_disable()
         std::string ctx_name = "absent";
         if (req) {
             auto locker = req->Lock();
-            if (req->Get_completion_context()) {
+            if (req->Get_completion_context(std::move(locker))) {
                 ctx_name = req->Get_completion_context()->Get_name();
             }
         }

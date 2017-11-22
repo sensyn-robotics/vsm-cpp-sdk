@@ -1,4 +1,4 @@
-// Copyright (c) 2015, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 /*
@@ -119,7 +119,7 @@ Service_discovery_processor::On_read(
     std::istringstream buf(buffer->Get_string());
     parser.Parse(buf);
 
-//    LOG("read(%s)=%s", stream_id.c_str(), buffer->Get_string().c_str());
+//    LOG("read(%s)=%s", addr->Get_as_string().c_str(), buffer->Get_string().c_str());
 
     if (parser.Get_method() == SEARCH_METHOD_STRING) {
         auto type = parser.Get_header_value("st");
@@ -231,6 +231,13 @@ Service_discovery_processor::On_sender_bound(Socket_processor::Stream::Ref strea
     auto sender = sender_sockets.find(stream->Get_local_address()->Get_address_as_string());
     if (sender != sender_sockets.end()) {
         if (result == Io_result::OK) {
+            // Add newly found interface to multicast group.
+            // Adding 0.0.0.0 to multicast group is not enough.
+            if (receiver.second) {
+                receiver.second->Add_multicast_group(stream->Get_local_address(), multicast_adress);
+            } else {
+                LOG_ERR("No receiver socket!");
+            }
             sender->second.second = stream;
             for (auto &service : my_services) {
                 Send_notify(stream, multicast_adress, std::get<0>(service), std::get<1>(service), std::get<2>(service), true);
@@ -256,15 +263,19 @@ Service_discovery_processor::On_timer()
     auto locals = Socket_processor::Enumerate_local_interfaces();
 
     // Remove outgoing streams of removed interfaces.
-    bool found = false;
     for (auto sender = sender_sockets.begin(); sender != sender_sockets.end();) {
+        auto found = false;
         for (auto& iface : locals) {
             if (iface.is_multicast && !iface.is_loopback) {
                 for (auto& local : iface.adresses) {
                     if ((*sender).first == local->Get_address_as_string()) {
                         found = true;
+                        break;
                     }
                 }
+            }
+            if (found) {
+                break;
             }
         }
         if (found) {
@@ -272,6 +283,9 @@ Service_discovery_processor::On_timer()
         } else {
             LOG("Lost local address %s", (*sender).first.c_str());
             if ((*sender).second.second) {
+                if (receiver.second) {
+                    receiver.second->Remove_multicast_group((*sender).second.second->Get_local_address(), multicast_adress);
+                }
                 (*sender).second.second->Close();
             }
             sender = sender_sockets.erase(sender);
@@ -282,7 +296,7 @@ Service_discovery_processor::On_timer()
     for (auto& iface : locals) {
         if (iface.is_multicast && !iface.is_loopback)
         {
-            found = false;
+            auto found = false;
             for (auto& local : iface.adresses) {
                 if (sender_sockets.find(local->Get_address_as_string()) != sender_sockets.end()) {
                     found = true;
@@ -477,7 +491,6 @@ Service_discovery_processor::Activate()
                 {
                     if (result == Io_result::OK) {
                         receiver.second = s;
-                        s->Add_multicast_group(multicast_listener_address, multicast_adress);
                         Schedule_read(MC_IDENTIFIER);
                     } else {
                         LOG_ERR("Failed to bind multicast listener on port %s", multicast_adress->Get_service_as_c_str());
@@ -528,11 +541,13 @@ Service_discovery_processor::Deactivate_if_no_services()
     receiver.first.Abort();
     if (receiver.second) {
         receiver.second->Close();
+        receiver.second = nullptr;
     }
     for (auto &stream : sender_sockets) {
         stream.second.first.Abort();
         if (stream.second.second) {
             stream.second.second->Close();
+            stream.second.second = nullptr;
         }
     }
     sender_sockets.clear();

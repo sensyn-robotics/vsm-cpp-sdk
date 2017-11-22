@@ -1,4 +1,4 @@
-// Copyright (c) 2015, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -18,7 +18,7 @@ ugcs::vsm::Socket_processor::Enumerate_local_interfaces()
     struct ifaddrs *ifaddr, *ifa;
     if (getifaddrs(&ifaddr) == 0) {
         for (ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
-            if (ifa->ifa_addr) {
+            if (ifa->ifa_addr && (ifa->ifa_flags & IFF_UP)) {
                 auto iface = ret.begin();
                 for (; iface != ret.end(); iface++) {
                     if (iface->name == ifa->ifa_name) {

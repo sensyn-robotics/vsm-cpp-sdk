@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -59,7 +59,11 @@ public:
         /** Continuously shot camera in regular distance intervals. */
         CAMERA_SERIES_BY_DISTANCE,
         /** Set mission parameter. see enum MAV_MISSION_PARAMETER_TYPE */
-        SET_PARAMETER
+        SET_PARAMETER,
+        /** Set servo PWM*/
+        SET_SERVO,
+        /** Repeat servo movement between given PWM and 1500 */
+        REPEAT_SERVO,
     };
 
     /** Construct action of specific type. */
@@ -73,6 +77,11 @@ public:
     Get_type() const
     {
         return type;
+    }
+
+    void
+    Set_id(int id) {
+        command_id = id;
     }
 
     /** Get human readable name of the action. */
@@ -96,6 +105,8 @@ public:
         case Type::CAMERA_SERIES_BY_TIME: return "CAMERA SERIES BY TIME";
         case Type::CAMERA_SERIES_BY_DISTANCE: return "CAMERA SERIES BY DISTANCE";
         case Type::SET_PARAMETER: return "SET_PARAMETER";
+        case Type::SET_SERVO: return "SET_SERVO";
+        case Type::REPEAT_SERVO: return "REPEAT_SERVO";
         }
         VSM_EXCEPTION(Internal_error_exception, "Action type %d unknown.",
                       static_cast<int>(type));
@@ -123,6 +134,8 @@ public:
             return nullptr;
         }
     }
+
+    int command_id = -1;
 
 private:
 

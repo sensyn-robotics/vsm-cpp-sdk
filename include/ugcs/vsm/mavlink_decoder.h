@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -83,9 +83,8 @@ public:
 
 
     /** Default constructor. */
-    Mavlink_decoder(const mavlink::Extension& extension = mavlink::Extension::Get()):
-        stats(),
-        extension(extension)
+    Mavlink_decoder():
+        stats()
     {}
 
     /** Delete copy constructor. */
@@ -297,9 +296,20 @@ private:
             sum.Accumulate(payload);
 
             mavlink::Extra_byte_length_pair crc_byte_len_pair;
-            if (!sum.Get_extra_byte_length_pair(header_ptr->message_id, crc_byte_len_pair, extension)) {
+            // Try all extensions.
+            if (    !sum.Get_extra_byte_length_pair(header_ptr->message_id, crc_byte_len_pair, mavlink::Extension::Get())
+                &&  !sum.Get_extra_byte_length_pair(header_ptr->message_id, crc_byte_len_pair, mavlink::apm::Extension::Get())
+                &&  !sum.Get_extra_byte_length_pair(header_ptr->message_id, crc_byte_len_pair, mavlink::sph::Extension::Get())) {
                 stats.unknown_id++;
                 LOG_DEBUG("Unknown Mavlink message id: %d", header_ptr->message_id.Get());
+                /* Save remaining bytes. */
+                segments.push_back(buffer->Slice(buffer->Get_length() - len));
+                /* And terminate the decoding of current buffer. */
+                return Io_buffer::Create();
+            }
+
+            if (header_ptr->message_id.Get() == mavlink::MESSAGE_ID::GPS_RTCM_DATA) {
+                // GPS_RTCM_DATA is not supported by SDK.
                 /* Save remaining bytes. */
                 segments.push_back(buffer->Slice(buffer->Get_length() - len));
                 /* And terminate the decoding of current buffer. */
@@ -328,12 +338,9 @@ private:
                     stats.no_handler++;
                     LOG_DEBUG("Mavlink message %d handler not registered.", message_id);
                 }
-
             } else {
                 if (!cksum_ok) {
                     stats.bad_checksum++;
-                    LOG_DEBUG("Mavlink checksum mismatch, recv=%x calc=%x.",
-                            sum_recv->Get(), sum_calc);
                 } else {
                     stats.bad_length++;
                     LOG_DEBUG("Mavlink payload length mismatch, recv=%d wanted=%d.",
@@ -377,8 +384,6 @@ private:
      * inner packet in case of STX synchronization is lost. */
     std::list<Io_buffer::Ptr> segments;
 
-    /** Mavlink extension. */
-    const mavlink::Extension& extension;
 };
 
 } /* namespace vsm */

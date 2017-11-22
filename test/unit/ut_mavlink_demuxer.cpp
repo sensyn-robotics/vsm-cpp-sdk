@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -13,7 +13,7 @@ mavlink::MESSAGE_ID_TYPE def_msg_id;
 typename Mavlink_kind::System_id def_sys_id;
 uint8_t def_com_id;
 bool resubmit;
-bool hb_handler_called;
+int hb_handler_called = 0;
 
 void
 Heartbeat_handler(mavlink::Message<mavlink::MESSAGE_ID::HEARTBEAT>::Ptr message)
@@ -21,7 +21,7 @@ Heartbeat_handler(mavlink::Message<mavlink::MESSAGE_ID::HEARTBEAT>::Ptr message)
     def_msg_id = message->payload.Get_id();
     def_sys_id = message->Get_sender_system_id();
     def_com_id = message->Get_sender_component_id();
-    hb_handler_called = true;
+    hb_handler_called++;
 }
 
 Mavlink_demuxer::Key* hb_reg_key = nullptr;
@@ -77,24 +77,24 @@ TEST(basic_test)
 
     Mavlink_demuxer::Key hb10;
     hb_reg_key = &hb10;
-    hb_handler_called = false;
+    hb_handler_called = 0;
     CHECK(!demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 1, 0, 0));
-    /* Not called, because resubmit is false and different system it provided. */
+    /* Not called, because resubmit is false and different system is provided. */
     CHECK(!hb_handler_called);
 
-    hb_handler_called = false;
+    hb_handler_called = 0;
     CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 0, 0, 0));
     /* Called, because HB handler for (0,0) is already registered. */
     CHECK(hb_handler_called);
 
-    hb_handler_called = false;
+    hb_handler_called = 0;
     CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 1, 0, 0));
     /* Called, because HB handler for (1,0) is already registered. */
     CHECK(hb_handler_called);
 
     Mavlink_demuxer::Key hb23;
     hb_reg_key = &hb23;
-    hb_handler_called = false;
+    hb_handler_called = 0;
     resubmit = true;
     CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 2, 3, 0));
     /* Called, because HB handler for (2,3) should be registered and
@@ -108,7 +108,7 @@ TEST(basic_test)
     /* Unregister 00 and 10. */
     demuxer.Unregister_handler(hb00);
     demuxer.Unregister_handler(hb10);
-    hb_handler_called = false;
+    hb_handler_called = 0;
     resubmit = false;
     /* 23 should still be registered. */
     CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 2, 3, 0));
@@ -116,7 +116,7 @@ TEST(basic_test)
 
     /* Unregister all. */
     demuxer.Unregister_handler(hb23);
-    hb_handler_called = false;
+    hb_handler_called = 0;
     CHECK(!demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 1, 0, 0));
     /* Not called, because all handlers were unregistered. */
     CHECK(!hb_handler_called);
@@ -140,7 +140,7 @@ TEST(handler_from_dedicated_processor)
     mavlink::Pld_heartbeat hb;
     Io_buffer::Ptr buffer = Io_buffer::Create(&hb, sizeof(hb));
 
-    hb_handler_called = false;
+    hb_handler_called = 0;
     CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 42, 43, 0));
     CHECK(!hb_handler_called);
     processor->Process_requests();
@@ -165,4 +165,41 @@ TEST(handler_key_reg_unreg)
 
         demuxer.Unregister_handler(key);
     }
+}
+
+TEST(duplicate_handlers)
+{
+    Mavlink_demuxer demuxer;
+    mavlink::Pld_heartbeat hb;
+    auto buffer = Io_buffer::Create(&hb, sizeof(hb));
+
+    // Register handler
+    hb_handler_called = 0;
+    auto hb1 = demuxer.Register_handler
+            <mavlink::MESSAGE_ID::HEARTBEAT, mavlink::Extension>(
+                    Mavlink_demuxer::Make_handler
+                    <mavlink::MESSAGE_ID::HEARTBEAT,mavlink::Extension>
+                    (Heartbeat_handler),
+                    1, 1);
+    CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 1, 1, 0));
+    CHECK(hb_handler_called == 1);
+
+    // Register once more. Two handlers should be called.
+    hb_handler_called = 0;
+    auto hb2 = demuxer.Register_handler
+            <mavlink::MESSAGE_ID::HEARTBEAT, mavlink::Extension>(
+                    Mavlink_demuxer::Make_handler
+                    <mavlink::MESSAGE_ID::HEARTBEAT,mavlink::Extension>
+                    (Heartbeat_handler),
+                    1, 1);
+    CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 1, 1, 0));
+    CHECK(hb_handler_called == 2);
+
+    // Unregister one. One handler should be called.
+    demuxer.Unregister_handler(hb1);
+    hb_handler_called = 0;
+    CHECK(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 1, 1, 0));
+    CHECK(hb_handler_called == 1);
+
+    demuxer.Unregister_handler(hb2);
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -88,6 +88,13 @@ private:
         // This is primary connection with this server.
         // VSM will use this as primary connection.
         bool primary = false;
+
+        // List of device_ids which has successfully registered on this connection.
+        // Used to avoid sending telemetry to connections which are not ready for it.
+        std::unordered_set<uint32_t> registered_devices;
+
+        // Map request_id -> device_id used to keep track of pending registrations.
+        std::unordered_map<uint32_t, uint32_t> pending_registrations;
     } Server_context;
 
     typedef struct {
@@ -102,7 +109,7 @@ private:
         ugcs::vsm::proto::Vsm_message registration_message;
     } Vehicle_context;
 
-    /** Currently established UCS server connections. */
+    /** Currently established UCS server connections. Indexed by stream_id*/
     std::unordered_map<
         uint32_t,
         Server_context> ucs_connections;
@@ -183,6 +190,8 @@ private:
     void
     Send_ucs_message_ptr(uint32_t stream_id, Proto_msg_ptr message);
 
+    // Send message to all connected ucs.
+    // Prefers locally connected.
     void
     Broadcast_message_to_ucs(ugcs::vsm::proto::Vsm_message& message);
 
@@ -198,7 +207,7 @@ private:
 
     void
     Send_vehicle_registrations(
-        const Server_context& ctx);
+        Server_context& ctx);
 
     Device::Ptr
     Get_device(uint32_t device_id);

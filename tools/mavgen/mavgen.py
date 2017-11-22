@@ -51,7 +51,8 @@ def FilterName(name):
 
 # Map between extension file name and resulted namespace name
 namespaceMap = {
-    'ardupilotmega': 'apm'
+    'ardupilotmega': 'apm',
+    'sphengineering': 'sph'
 }
 
 ################################################################################

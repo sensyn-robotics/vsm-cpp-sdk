@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -77,13 +77,14 @@ public:
     class Key {
     public:
         /** Construct non-empty key. */
-        Key(mavlink::MESSAGE_ID_TYPE message_id, System_id system_id,
-                Component_id component_id) :
-                    message_id(message_id), system_id(system_id),
-                    component_id(component_id), valid(true) {}
+        Key(mavlink::MESSAGE_ID_TYPE message_id, System_id system_id, Component_id component_id) :
+            message_id(message_id),
+            system_id(system_id),
+            component_id(component_id) {
+        }
 
         /** Construct empty key. */
-        Key() : valid(false) {}
+        Key() {}
 
         /** Hasher class for a key type. */
         class Hasher {
@@ -104,13 +105,13 @@ public:
         void
         Reset()
         {
-            valid = false;
+            id = 0;
         }
 
         /** Check for key validness. */
         explicit operator bool() const
         {
-            return valid;
+            return id != 0;
         }
 
         /** Equality operator. */
@@ -130,7 +131,15 @@ public:
 
         Component_id component_id;
 
-        bool valid;
+        static std::atomic_int generator;
+        int id = 0;
+
+        // used only when inserting into handlers.
+        void
+        Generate_id()
+        {
+            id = std::atomic_fetch_add(&Key::generator, 1);
+        }
 
         friend class Mavlink_demuxer;
     };
@@ -162,8 +171,6 @@ public:
      * thread which calls @ref Demux method.
      * @return Valid registration key which can be used to unregister the
      * handler later.
-     * @throw Duplicate_handler if handler for the given filtering combination
-     * is already registered.
      */
     template<mavlink::MESSAGE_ID_TYPE message_id, class Extention_type>
     Key
@@ -176,13 +183,9 @@ public:
         auto callback = Callback<message_id, Extention_type>::Create(
                 handler, processor);
         Key key(message_id, system_id, component_id);
+        key.Generate_id();
         std::unique_lock<std::mutex> lock(mutex);
-        auto result = handlers.insert(std::make_pair(key, std::move(callback)));
-        if (!result.second) {
-            VSM_EXCEPTION(Duplicate_handler, "Duplicate handler for message id "
-                    "[%d] system id [%" PRId64 "] component id [%d]",
-                    message_id, system_id, component_id);
-        }
+        handlers.insert(std::make_pair(key, std::move(callback)));
         return key;
     }
 
@@ -274,7 +277,7 @@ private:
 
             } else {
                 /* Invoke from the calling thread. */
-                Invoke(std::move(message));
+                handler(message);
             }
         }
 
@@ -284,7 +287,7 @@ private:
 
         /** Invoke the handler. */
         void
-        Invoke(typename Message_type::Ptr message, Request::Ptr request = nullptr)
+        Invoke(typename Message_type::Ptr message, Request::Ptr request)
         {
             handler(message);
             if (request) {
@@ -297,7 +300,7 @@ private:
     Default_handler default_handler;
 
     /** Handlers for specific Mavlink messages. */
-    std::unordered_map<Key, Callback_base::Ptr, Key::Hasher> handlers;
+    std::unordered_multimap<Key, Callback_base::Ptr, Key::Hasher> handlers;
 
     /** Mutex should be acquired when reading/writing handlers. */
     std::mutex mutex;

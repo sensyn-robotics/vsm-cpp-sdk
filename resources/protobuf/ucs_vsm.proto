@@ -49,10 +49,18 @@ message Vsm_message {
     optional Device_status device_status = 9;
 }
 
-// Used to tell the unique application ID to detect concurrent connections.
+// Used to tell the unique application ID to detect concurrent connections and for version compatibility.
 message Register_peer {
 
     required uint32 peer_id = 1;
+
+    // Type and version of peer. 
+    // Application can use this information to detect the level of compatibility.
+    // It can decide to continue to use, close or ignore the connection.
+    optional Peer_type peer_type = 2;
+    optional uint32 version_minor = 3;
+    optional uint32 version_major = 4;
+    optional string version_build = 5;
 }
 
 // Register various kinds of devices.
@@ -97,7 +105,7 @@ message Device_status {
 
 message Device_response {
 
-    // Response code. on previously sent request. Can be omitted for telemetry messages.
+    // Response code. on previously sent request.
     required Status_code code = 1;
 
     // array of values to create localized error string for given Status_code.
@@ -105,8 +113,34 @@ message Device_response {
 
     // place to put raw data received from vehicle or debug messages from VSM.
     optional string status = 3;
+
+    // VSM generated mission ID which is later reported in telemetry as current_mission_id
+    // It is used to tell the server the validity of mission_command_map.
+    // Server should drop the mission map as soon as VSM reports different current_mission_id.
+    // Server must ignore the reported curent_command values until it gets a valid current_mission_id.
+    optional uint32 mission_id = 4;
+
+    // Command mapping between mission uploaded to the vehicle and mission received by server.
+    // Server must keep this map tied to specific vehicle instance until vehicle
+    // explicitly reports current_mission_id different from this one.
+    // Server should use this map to map reported current_command only while VSM reports the same current_mission_id.
+    // I.e. server should keep the map but not use it if VSM reports current_mission_id==N/A.
+    repeated Mission_command_map mission_command_map = 5;
+    
+    // Used to report progress of a pending command.
+    // Peer can send this any number of times before sending final response.
+    // Range: [0..1]
+    optional float progress = 6;
 }
 
+message Mission_command_map {
+
+    // Current command ID reported by the VSM as current_command telemetry field.
+    required uint32 vehicle_command_id = 1;
+
+    // Corresponding command index in mission_upload sub_commands array. 0-based.
+    required uint32 mission_command_idx = 2;
+}
 
 // VSM must send this message before any other device specific payloads can be sent.
 message Register_vehicle {
@@ -133,6 +167,13 @@ message Register_vehicle {
     repeated Register_camera register_camera = 8;
 
     repeated Register_adsb_transponder register_adsb_transponder = 9;
+
+    repeated Register_winch register_winch = 10;
+
+    // Registers virtual vehicle
+    // Used to provide vehicle specific functionality without an actual vehicle.
+    // The native route file is returned via Device_response.status field.
+    optional bool is_command_processor = 11;
 }
 
 message Device_command {
@@ -191,7 +232,15 @@ message Field_value {
     optional string string_value = 5;
 
     optional bool bool_value = 6;
+
+    optional List_value list_value = 7;
 }
+
+message List_value {
+
+    repeated Field_value values = 1;
+}
+
 
 // VSM can enable/disable specific command at runtime
 message Command_availability {
@@ -267,6 +316,18 @@ message Register_gimbal {
 message Register_adsb_transponder {
 
     // Transponder name if available
+    optional string name = 1;
+
+    // Telemetry fields supported by device
+    repeated Register_field telemetry_fields = 2;
+
+    // Commands supported by the payload
+    repeated Register_command commands = 3;
+}
+
+message Register_winch {
+
+    // Winch name if available
     optional string name = 1;
 
     // Telemetry fields supported by device

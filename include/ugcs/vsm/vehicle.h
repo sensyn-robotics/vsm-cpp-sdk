@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -16,6 +16,7 @@
 #include <ugcs/vsm/mavlink.h>
 #include <ugcs/vsm/enum_set.h>
 #include <ugcs/vsm/device.h>
+#include <ugcs/vsm/crc32.h>
 
 #include <stdint.h>
 #include <memory>
@@ -25,6 +26,9 @@ namespace ugcs {
 namespace vsm {
 
 static const std::string legacy_commands[] = {std::string("")};
+
+static constexpr int DEFAULT_COMMAND_TRY_COUNT = 3;
+static constexpr std::chrono::milliseconds DEFAULT_COMMAND_TIMEOUT(1000);
 
 /** Base class for user-defined vehicles. It contains interface to SDK services
  * which can be used as base class methods calls, and abstract interface which
@@ -51,7 +55,6 @@ public:
         WAYPOINT_AVAILABLE,
         PAUSE_MISSION_AVAILABLE,
         RESUME_MISSION_AVAILABLE,
-        ADSB_TRANSPONDER_AVAILABLE,
         GUIDED_MODE_AVAILABLE,
         JOYSTICK_MODE_AVAILABLE,
         PAYLOAD_POWER_AVAILABLE,
@@ -78,7 +81,6 @@ public:
         WAYPOINT_ENABLED,
         PAUSE_MISSION_ENABLED,
         RESUME_MISSION_ENABLED,
-        ADSB_TRANSPONDER_ENABLED,
         GUIDED_MODE_ENABLED,
         JOYSTICK_MODE_ENABLED,
         PAYLOAD_POWER_ENABLED,
@@ -229,7 +231,7 @@ protected:
 
     Subsystems subsystems;
 
-    ugcs::vsm::Optional<ugcs::vsm::proto::Control_mode> current_control_mode;
+    ugcs::vsm::Optional<ugcs::vsm::proto::Flight_mode> current_flight_mode;
 
     ugcs::vsm::Property::Ptr t_control_mode = nullptr;
     ugcs::vsm::Property::Ptr t_is_armed = nullptr;
@@ -257,6 +259,16 @@ protected:
     ugcs::vsm::Property::Ptr t_home_altitude_raw = nullptr;
     ugcs::vsm::Property::Ptr t_home_latitude = nullptr;
     ugcs::vsm::Property::Ptr t_home_longitude = nullptr;
+    ugcs::vsm::Property::Ptr t_target_altitude_amsl = nullptr;
+    ugcs::vsm::Property::Ptr t_target_altitude_raw = nullptr;
+    ugcs::vsm::Property::Ptr t_target_latitude = nullptr;
+    ugcs::vsm::Property::Ptr t_target_longitude = nullptr;
+    ugcs::vsm::Property::Ptr t_current_command = nullptr;
+    ugcs::vsm::Property::Ptr t_current_mission_id = nullptr;
+    ugcs::vsm::Property::Ptr t_flight_mode = nullptr;
+    ugcs::vsm::Property::Ptr t_autopilot_status = nullptr;
+    ugcs::vsm::Property::Ptr t_native_flight_mode = nullptr;
+    ugcs::vsm::Property::Ptr t_fence_enabled = nullptr;
 
     ugcs::vsm::Vsm_command::Ptr c_mission_upload = nullptr;
     ugcs::vsm::Vsm_command::Ptr c_auto = nullptr;
@@ -274,12 +286,18 @@ protected:
     ugcs::vsm::Vsm_command::Ptr c_takeoff_command = nullptr;
     ugcs::vsm::Vsm_command::Ptr c_emergency_land = nullptr;
     ugcs::vsm::Vsm_command::Ptr c_camera_trigger_command = nullptr;
-    ugcs::vsm::Vsm_command::Ptr c_adsb_install = nullptr;
-    ugcs::vsm::Vsm_command::Ptr c_adsb_preflight = nullptr;
-    ugcs::vsm::Vsm_command::Ptr c_adsb_operating = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_adsb_set_ident = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_adsb_set_mode = nullptr;
     ugcs::vsm::Vsm_command::Ptr c_direct_payload_control = nullptr;
     ugcs::vsm::Vsm_command::Ptr c_camera_power = nullptr;
     ugcs::vsm::Vsm_command::Ptr c_camera_video_source = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_adsb_set_parameter = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_set_servo = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_repeat_servo = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_set_fence = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_trigger_calibration = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_trigger_reboot = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_get_native_route = nullptr;
 
     ugcs::vsm::Vsm_command::Ptr c_wait = nullptr;
     ugcs::vsm::Vsm_command::Ptr c_move = nullptr;
@@ -300,6 +318,9 @@ protected:
     Property::Ptr p_gps_loss_action = nullptr;
     Property::Ptr p_low_battery_action = nullptr;
     Property::Ptr p_wp_turn_type = nullptr;
+
+    int command_try_count = DEFAULT_COMMAND_TRY_COUNT;
+    std::chrono::milliseconds command_timeout = DEFAULT_COMMAND_TIMEOUT;
 
     /** Vehicle enable event handler. Can be overridden by derived class,
      * if necessary.
@@ -357,7 +378,17 @@ protected:
     void
     Command_completed(
         ugcs::vsm::Vehicle_request::Result result,
-        std::string status_text,
+        const std::string& status_text,
+        Ucs_request::Ptr ucs_request);
+
+    void
+    Command_failed(
+        Ucs_request::Ptr ucs_request,
+        const std::string& status_text,
+        proto::Status_code code = ugcs::vsm::proto::STATUS_FAILED);
+
+    void
+    Command_succeeded(
         Ucs_request::Ptr ucs_request);
 
     /**
@@ -444,6 +475,76 @@ protected:
         std::chrono::seconds uptime;
     };
 
+    // Convenience function to check current flight mode.
+    bool
+    Is_flight_mode(ugcs::vsm::proto::Flight_mode);
+
+    bool
+    Is_control_mode(ugcs::vsm::proto::Control_mode m);
+
+    // Mission command mapping interface. Used to support current command reporting
+    // During mission flight.
+    //
+    // Here is how it works:
+    // 1. mission_upload command contains a list of sub_commands. VSM enumerates it as zero-based.
+    //    This becomes the mission_command_id
+    // 2. Each mission command can produce any number of vehicle specific commands.
+    // 3. The mapping is sent back to server as a response to mission_upload command together with generated mission_id.
+    // 4. VSM reports current_vehicle_command to the server during mission flight.
+    // 5. Server uses this mapping maps vehicle_specific commands back to mission_commands.
+    // 6. mission_id is used to synchronize the command mapping with the server when
+    //    the mapping is unknown to VSM (eg. after restart).
+    // 7. Server uses the command map only if the map exists and the reported mission_id in telemetry is equal to the
+    //    mission_id received together with the map.
+    // 8. If server receives different mission_id it drops the current mapping.
+    class Command_map
+    {
+    public:
+        // Clear the command mapping and reset mission_id.
+        void
+        Reset();
+
+        // Set the current_mission_command id as received from ucs.
+        // All vehicle specific commands produced by this mission command
+        // will map to this ID.
+        void
+        Set_current_command(int mission_command_id);
+
+        // Map current_mission_command to this vehicle_command_id
+        // VSM must call this on each mission item it uploads to the vehicle.
+        // Or more precisely: on each command the vehicle is going to report as current command.
+        void
+        Add_command_mapping(int vehicle_specific_id);
+
+        // Use this function to build mission_id.
+        // Used in two scenarios:
+        // 1) To report newly uploaded mission_id to server.
+        // 2) To calculate mission_id from downloaded mission from the vehicle.
+        //    And report as telemetry when VSM has not seen the mission_upload.
+        // CRC32 algorithm is used to create a 32bit hash.
+        // IMPORTANT:
+        // Mission ID is calculated as hash from uploaded vehicle commands
+        // in such way that it can be recreated if vehicle supports mission
+        // download.
+        void
+        Accumulate_route_id(uint32_t hash);
+
+        // Get the generated mission_id.
+        uint32_t
+        Get_route_id();
+
+        // Fill in the mission_upload response payload with accumulated map and mission_id.
+        void
+        Fill_command_mapping_response(Proto_msg_ptr response);
+
+    private:
+        // Mission mapper state.
+        int current_mission_command = -1;
+        // Current native command mapping to mission subcommands (zero based).
+        std::unordered_map<int, int> mission_command_map;
+        ugcs::vsm::Crc32 mission_id;
+    };
+
     /** Set system status of this vehicle. Should be called when system
      * status changes, but at least with reasonable granularity to update
      * system uptime.
@@ -499,7 +600,6 @@ protected:
         const std::string& name,
         bool as_command,
         bool in_mission);
-
 
     /* End of user callable methods. */
 

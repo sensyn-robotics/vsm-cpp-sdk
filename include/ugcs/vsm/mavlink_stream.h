@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -33,12 +33,9 @@ public:
     typedef Mavlink_decoder<Mavlink_kind> Decoder;
 
     /** Construct Mavlink stream using a I/O stream. */
-    Mavlink_stream(
-            Io_stream::Ref stream,
-            const mavlink::Extension& extension = mavlink::ugcs::Extension::Get()) :
-                stream(stream), decoder(extension)
+    Mavlink_stream(Io_stream::Ref stream) :
+        stream(stream), decoder()
     {
-
     }
 
     /** Disable copy constructor. */

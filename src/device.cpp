@@ -92,7 +92,7 @@ Vsm_command::Set_available(bool value)
 Property_list
 Vsm_command::Build_parameter_list(const ugcs::vsm::proto::Device_command &cmd)
 {
-    std::unordered_map<std::string, Property::Ptr> ret;
+    Property_list ret;
     for (int i = 0; i < cmd.parameters_size(); i++) {
         auto fid = cmd.parameters(i).field_id();
         auto pit = parameters.find(fid);
@@ -171,7 +171,18 @@ Device::Enable()
         worker->Enable();
     }
     is_enabled = true;
-    On_enable();
+    // Make sure On_enable is always called in vehicle context/thread.
+    auto req = ugcs::vsm::Request::Create();
+    req->Set_processing_handler(
+            Make_callback(
+                [this](ugcs::vsm::Request::Ptr request)
+                {
+                    On_enable();
+                    request->Complete();
+                },
+                req));
+    processor->Submit_request(req);
+    req->Wait_done(false);
     Register();
 }
 
@@ -181,7 +192,18 @@ Device::Disable()
     Unregister();
     ASSERT(is_enabled);
     is_enabled = false;
-    On_disable();
+    // Make sure On_disable is always called in vehicle context/thread.
+    auto req = ugcs::vsm::Request::Create();
+    req->Set_processing_handler(
+            Make_callback(
+                [this](ugcs::vsm::Request::Ptr request)
+                {
+                    On_disable();
+                    request->Complete();
+                },
+                req));
+    processor->Submit_request(req);
+    req->Wait_done(false);
     completion_ctx->Disable();
     processor->Disable();
     if (worker) {
@@ -381,4 +403,29 @@ void
 Device::Add_status_message(const std::string& m)
 {
     device_status_messages.push_back(m);
+}
+
+void
+Device::Set_failsafe_actions(Property::Ptr p, std::initializer_list<proto::Failsafe_action> actions)
+{
+    for (auto a : actions) {
+        switch (a) {
+        case proto::FAILSAFE_ACTION_CONTINUE:
+            p->Add_enum("continue", a);
+            break;
+        case proto::FAILSAFE_ACTION_WAIT:
+            p->Add_enum("wait", a);
+            break;
+        case proto::FAILSAFE_ACTION_LAND:
+            p->Add_enum("land", a);
+            break;
+        case proto::FAILSAFE_ACTION_RTH:
+            p->Add_enum("rth", a);
+            break;
+        }
+    }
+    auto i = actions.begin();
+    if (i != actions.end()) {
+        p->Default_value()->Set_value(*i);
+    }
 }

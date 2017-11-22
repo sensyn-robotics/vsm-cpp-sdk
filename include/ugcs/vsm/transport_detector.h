@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -58,9 +58,9 @@ public:
     /** Add port to ports list with a protocol detector
      * Parses the serial port detection part of given \<properties\> instance.
      *
-     * @param prefix  String used as prefix for serial port config in properties file
      * @param handler Callback with signature void Handler(string port, int baud_rate, stream)
      * @param context Context in which the handler will execute
+     * @param prefix prefix
      * @param properties Properties instance to get the config from. If not given then
      *                   it is read global from Properties::Get_instance()
      * @param tokenizer  character used as tokenizer in parameters file
@@ -69,48 +69,61 @@ public:
      * The function recognizes the following patterns from config file:
      *
      * # for serial connections:
-     * \<prefix\>.use_serial_arbiter = yes|no (default=yes)
-     * \<prefix\>.exclude.\<exclude_id\> = \<regexp\>
-     * \<prefix\>.\<port_id\>.name = \<regexp\>
-     * \<prefix\>.\<port_id\>.baud[.baud_id] = \<integer\>
+     * connection.serial.use_arbiter = yes|no (default=yes)
+     * connection.serial.exclude.\<exclude_id\> = \<regexp\>
+     * connection.serial.\<conn_id\>.name = \<regexp\>
+     * connection.serial.\<conn_id\>.baud[.baud_id] = \<integer\>
      *
      * # for outgoing tcp connections:
-     * \<prefix\>.\<port_id\>.address = \<ip address\>|\<dns name\>
-     * \<prefix\>.\<port_id\>.tcp_port = \<1..65535\>|\<common tcp port name\>
+     * connection.tcp_out.\<conn_id\>.address = \<ip address\>|\<dns name\>
+     * connection.tcp_out.\<conn_id\>.port = \<1..65535\>|\<common tcp port name\>
      *
-     * # for incoming udp connections:
-     * \<prefix\>.\<port_id\>.udp_local_port = \<1..65535\>|\<common tcp port name\>
-     * \<prefix\>.\<port_id\>.udp_local_address = \<ip address\>|\<dns name\>
-     * \<prefix\>.\<port_id\>.udp_address = \<ip address\>|\<dns name\>
-     * \<prefix\>.\<port_id\>.udp_port = \<1..65535\>|\<common tcp port name\>
+     * # for incoming tcp connections:
+     * connection.tcp_in.\<conn_id\>.local_address = \<ip address\>
+     * connection.tcp_in.\<conn_id\>.local_port = \<1..65535\>|\<common tcp port name\>
+     *
+     * # for incoming udp connections (will accept packets from any peer):
+     * # in this case Write function cannot be used on the returned stream. Only Write_to().
+     * connection.udp_any.\<conn_id\>.local_port = \<1..65535\>|\<common udp port name\>
+     * connection.udp_any.\<conn_id\>.local_address = \<ip address\>
+     *
+     * # for incoming udp connections (each remote peer will be treated as separate connection):
+     * connection.udp_in.\<conn_id\>.local_port = \<1..65535\>|\<common udp port name\>
+     * connection.udp_in.\<conn_id\>.local_address = \<ip address\>
+     *
+     * # for outgoing udp connections:
+     * connection.udp_out.\<conn_id\>.port = \<1..65535\>|\<common udp port name\>
+     * connection.udp_out.\<conn_id\>.address = \<ip address\>|\<dns name\>
+     * connection.udp_out.\<conn_id\>.local_port = \<1..65535\>|\<common udp port name\>
+     * connection.udp_out.\<conn_id\>.local_address = \<ip address\>
      *
      * # for outgoing tcp proxy connections:
-     * \<prefix\>.\<port_id\>.proxy = \<ip address\>|\<dns name\>
-     * \<prefix\>.\<port_id\>.port = \<1..65535\>|\<common tcp port name\>
+     * connection.proxy.\<conn_id\>.address = \<ip address\>|\<dns name\>
+     * connection.proxy.\<conn_id\>.port = \<1..65535\>|\<common tcp port name\>
      *
      * # for CAN bus connections:
-     * \<prefix\>.\<port_id\>.can_interface = \<can interface name\>
+     * connection.can.\<conn_id\>.name = \<can interface name\>
      *
      *
      * Example ardupilot config file for linux:
      *
      * # Exclude native serial ports from detection of ArduPilot vehicles.
-     * vehicle.apm.serial_port.exclude.1 = /dev/ttyS.*
+     * connection.serial.exclude.1 = /dev/ttyS.*
      *
      * # Direct USB link to APM appears as port /dev/ttyACM0, with baud rate 115k
-     * vehicle.apm.serial_port.1.name = /dev/ttyACM0
-     * vehicle.apm.serial_port.1.baud = 115200
+     * connection.serial.1.name = /dev/ttyACM0
+     * connection.serial.1.baud = 115200
      *
      * # Radio link to APM via 3DRadio appears as generic USB port.
-     * vehicle.apm.serial_port.2.name = /dev/ttyUSB.*
-     * vehicle.apm.serial_port.2.baud.1 = 57600
-     * vehicle.apm.serial_port.2.baud.2 = 34800
+     * connection.serial.2.name = /dev/ttyUSB.*
+     * connection.serial.2.baud.1 = 57600
+     * connection.serial.2.baud.2 = 34800
      */
     void
     Add_detector(
-            const std::string& prefix,
             Connect_handler handler,
             Request_processor::Ptr context,
+            const std::string& prefix = std::string("connection"),
             Properties::Ptr properties = nullptr,
             char tokenizer = '.');
 
@@ -169,8 +182,11 @@ public:
 
         typedef enum{
             SERIAL,
+            TCP_IN,
             TCP_OUT,
             UDP_IN,
+            UDP_IN_ANY,
+            UDP_OUT,
             PROXY,  // outgoing TCP connection to a vehicle proxy.
             CAN     // can bus
         } Type;
@@ -215,6 +231,11 @@ public:
                 Io_result res);
 
         void
+        Listener_ready(
+                Socket_stream::Ref str,
+                Io_result res);
+
+        void
         On_proxy_data_received(
                 ugcs::vsm::Io_buffer::Ptr buf,
                 ugcs::vsm::Io_result result,
@@ -246,16 +267,19 @@ public:
         Detector_list::iterator  current_detector;
 
         /** Opened stream if the port available. */
-        Io_stream::Ref stream;
+        Io_stream::Ref stream = nullptr;
 
-        /** Currently connected and handed off proxy streams. */
-        std::list<Io_stream::Ref> proxy_streams;
+        /** Currently connected and handed off proxy/incoming streams. */
+        std::list<Io_stream::Ref> sub_streams;
 
         /** Ongoing socket connecting (including udp) operation. */
         Operation_waiter socket_connecting_op;
 
         /** Ongoing proxy socket reading operation. */
         Operation_waiter proxy_stream_reader_op;
+
+        /** Listener for TCP_IN and UDP_IN */
+        Socket_stream::Ref listener_stream;
 
         /** Regular expression for this entry. */
         regex::regex re;

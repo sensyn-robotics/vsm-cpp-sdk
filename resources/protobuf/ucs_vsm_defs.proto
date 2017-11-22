@@ -3,6 +3,13 @@ package ugcs.vsm.proto;
 option java_package = "com.ugcs.ucs.vsm.proto";
 option java_outer_classname = "VsmDefinitionsProto";
 
+enum Peer_type {
+    PEER_TYPE_SERVER = 0;
+    PEER_TYPE_VSM = 1;
+    PEER_TYPE_VSM_ANDROID = 2;
+    PEER_TYPE_VSM_IOS = 3;
+}
+
 // Response code sent by VSM tu UCS
 enum Status_code {
     STATUS_OK = 0;
@@ -11,9 +18,12 @@ enum Status_code {
     // Command is not supported 
     STATUS_INVALID_COMMAND = 2;
     // Command parameters are invalid 
-    STATUS_INVALID_PARAMETER = 3;
+    // Cannot use STATUS_INVALID_PARAMETER because it clashes with define in winnt.h
+    STATUS_INVALID_PARAM = 3;
     // Invalid session id
     STATUS_INVALID_SESSION_ID = 4;
+    // Used to notify peer that command is in progress.
+    STATUS_IN_PROGRESS = 5;
 }
 
 enum Vehicle_type {
@@ -34,7 +44,8 @@ enum Gps_fix_type {
     GPS_FIX_TYPE_2D = 1;
     GPS_FIX_TYPE_3D = 2;
     GPS_FIX_TYPE_DIFF = 3;
-    GPS_FIX_TYPE_RTK = 4;
+    GPS_FIX_TYPE_RTK_FIXED = 4;
+    GPS_FIX_TYPE_RTK_FLOAT = 5;
 }
 
 enum Control_mode {
@@ -42,6 +53,21 @@ enum Control_mode {
     CONTROL_MODE_AUTO = 1;
     CONTROL_MODE_CLICK_GO = 2;
     CONTROL_MODE_JOYSTICK = 3;
+}
+
+enum Flight_mode {
+    FLIGHT_MODE_WAYPOINTS = 0;  // Vehicle is navigating mission waypoints
+    FLIGHT_MODE_RTH = 1;        // Vehicle is returning home
+    FLIGHT_MODE_LAND = 2;       // Vehicle is landing
+    FLIGHT_MODE_TAKEOFF = 3;    // Vehicle is taking off
+    FLIGHT_MODE_HOLD = 4;       // Vehicle is holding position.
+}
+
+enum Autopilot_status {
+    AUTOPILOT_STATUS_STANDBY = 0;   // Vehicle is standby, grounded
+    AUTOPILOT_STATUS_ACTIVE = 1;    // Vehicle is active, airborne
+    AUTOPILOT_STATUS_CRITICAL = 2;  // Vehicle is in critical state, failsafe is on
+    AUTOPILOT_STATUS_EMERGENCY = 3; // Vehicle is in emergency or crashed
 }
 
 // Built in command parameter enums
@@ -188,6 +214,15 @@ enum Field_semantic {
     // Time interval, milliseconds, numeric, represented as time
     FIELD_SEMANTIC_MILLISECONDS = 33;
 
+    // Battery capacity percentage, numeric, [0..1]
+    FIELD_SEMANTIC_CAPACITY_LEVEL = 34;
+
+    // Vehicle flight mode, enum, Flight_mode
+    FIELD_SEMANTIC_FLIGHT_MODE = 35;
+
+    // Autopilot status, enum 
+    FIELD_SEMANTIC_AUTOPILOT_STATUS = 36; 
+
     // Generic types used for user-defined telemetry fields.
 
     // Generic number type. Exact type (float, int, etc...) will be detected automatically
@@ -201,5 +236,7 @@ enum Field_semantic {
 
     // enum. Possible values defined via Register_enumeration message.
     FIELD_SEMANTIC_ENUM = 106;
-}
 
+    // list.
+    FIELD_SEMANTIC_LIST = 107;
+}

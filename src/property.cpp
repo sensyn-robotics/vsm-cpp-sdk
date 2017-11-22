@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -66,6 +66,12 @@ Get_default_semantic(std::string name)
         return ugcs::vsm::proto::FIELD_SEMANTIC_VERTICAL_SPEED;
     } else if (name == "descent_rate") {
         return ugcs::vsm::proto::FIELD_SEMANTIC_VERTICAL_SPEED;
+    } else if (name == "flight_mode") {
+        return ugcs::vsm::proto::FIELD_SEMANTIC_FLIGHT_MODE;
+    } else if (name == "native_flight_mode") {
+        return ugcs::vsm::proto::FIELD_SEMANTIC_STRING;
+    } else if (name == "autopilot_status") {
+        return ugcs::vsm::proto::FIELD_SEMANTIC_AUTOPILOT_STATUS;
     } else {
         return ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT;
     }
@@ -82,6 +88,8 @@ Get_type_from_semantic(ugcs::vsm::proto::Field_semantic sem)
         return ugcs::vsm::Property::VALUE_TYPE_BOOL;
     case ugcs::vsm::proto::FIELD_SEMANTIC_ENUM:
     case ugcs::vsm::proto::FIELD_SEMANTIC_ADSB_MODE:
+    case ugcs::vsm::proto::FIELD_SEMANTIC_AUTOPILOT_STATUS:
+    case ugcs::vsm::proto::FIELD_SEMANTIC_FLIGHT_MODE:
     case ugcs::vsm::proto::FIELD_SEMANTIC_CONTROL_MODE:
     case ugcs::vsm::proto::FIELD_SEMANTIC_GPS_FIX_TYPE:
         return ugcs::vsm::Property::VALUE_TYPE_ENUM;
@@ -113,7 +121,9 @@ Get_type_from_semantic(ugcs::vsm::proto::Field_semantic sem)
         return ugcs::vsm::Property::VALUE_TYPE_INT;
     case ugcs::vsm::proto::FIELD_SEMANTIC_STRING:
         return ugcs::vsm::Property::VALUE_TYPE_STRING;
-    default:
+    case ugcs::vsm::proto::FIELD_SEMANTIC_LIST:
+        return ugcs::vsm::Property::VALUE_TYPE_LIST;
+        default:
         VSM_EXCEPTION(Invalid_param_exception, "No internal type for semantic %d", sem);
     }
 }
@@ -171,7 +181,10 @@ Property::Property(int id, const std::string& name, Value_type type):
     case VALUE_TYPE_ENUM:
         semantic = ugcs::vsm::proto::FIELD_SEMANTIC_ENUM;
         break;
-    default:
+    case VALUE_TYPE_LIST:
+        semantic = ugcs::vsm::proto::FIELD_SEMANTIC_LIST;
+        break;
+        default:
         VSM_EXCEPTION(Invalid_param_exception, "Invalid enum id %s", name.c_str());
         break;
     }
@@ -253,7 +266,13 @@ Property::Set_value(const ugcs::vsm::proto::Field_value& v)
             return true;
         }
         break;
-    default:
+    case VALUE_TYPE_LIST:
+        if (v.has_list_value()) {
+            list_value.CopyFrom(v.list_value());
+            return true;
+        }
+        break;
+        default:
         break;
     }
     return false;
@@ -293,6 +312,12 @@ Property::Set_value(double v)
     case VALUE_TYPE_INT:
         if (int_value != v || value_spec != VALUE_SPEC_REGULAR) {
             int_value = v;
+            is_changed = true;
+        }
+        break;
+    case VALUE_TYPE_BOOL:
+        if (bool_value != (v == 0) || value_spec != VALUE_SPEC_REGULAR) {
+            bool_value = (v != 0);
             is_changed = true;
         }
         break;
@@ -379,16 +404,20 @@ Property::Set_value(bool v)
 void
 Property::Set_value(const char* v)
 {
-    if (type == VALUE_TYPE_STRING) {
-        if (string_value != std::string(v) || value_spec != VALUE_SPEC_REGULAR) {
-            string_value = std::string(v);
-            is_changed = true;
-            value_spec = VALUE_SPEC_REGULAR;
+    if (v) {
+        if (type == VALUE_TYPE_STRING) {
+            if (string_value != std::string(v) || value_spec != VALUE_SPEC_REGULAR) {
+                string_value = std::string(v);
+                is_changed = true;
+                value_spec = VALUE_SPEC_REGULAR;
+            }
+        } else {
+            VSM_EXCEPTION(Invalid_param_exception, "Property %s type (%d) not string", name.c_str(), type);
         }
+        update_time = std::chrono::system_clock::now();
     } else {
-        VSM_EXCEPTION(Invalid_param_exception, "Property %s type (%d) not string", name.c_str(), type);
+        Set_value_na();
     }
-    update_time = std::chrono::system_clock::now();
 }
 
 void
@@ -405,6 +434,33 @@ Property::Set_value(const std::string& v)
     }
     update_time = std::chrono::system_clock::now();
 }
+
+void
+Property::Set_value(ugcs::vsm::proto::List_value &v)
+{
+    if (type == VALUE_TYPE_LIST) {
+        bool is_equal = false;
+        if (v.values_size() != list_value.values_size()) {
+            is_equal = false;
+        } else {
+            for (int i = 0; i < v.values_size(); i++) {
+                if (!Fields_are_equal(v.values(i), list_value.values(i))){
+                    is_equal = false;
+                    break;
+                }
+            }
+        }
+        if (!is_equal || value_spec != VALUE_SPEC_REGULAR) {
+            list_value.CopyFrom(v);
+            is_changed = true;
+            value_spec = VALUE_SPEC_REGULAR;
+        }
+    } else {
+        VSM_EXCEPTION(Invalid_param_exception, "Property %s type (%d) not list", name.c_str(), type);
+    }
+    update_time = std::chrono::system_clock::now();
+}
+
 
 void
 Property::Set_value_na()
@@ -502,6 +558,19 @@ Property::Get_value(int &v)
         default:
             return false;
         }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool
+Property::Get_value(ugcs::vsm::proto::List_value &v)
+{
+    if (value_spec == VALUE_SPEC_REGULAR
+            &&  type == VALUE_TYPE_LIST)
+    {
+                v.CopyFrom(list_value);
         return true;
     } else {
         return false;
@@ -635,7 +704,10 @@ Property::Write_value(ugcs::vsm::proto::Field_value* field)
         case VALUE_TYPE_STRING:
             field->set_string_value(string_value);
             break;
-        default:
+        case VALUE_TYPE_LIST:
+            field->set_allocated_list_value(&list_value);
+            break;
+            default:
             VSM_EXCEPTION(Invalid_param_exception, "Property %s type not set", name.c_str());
             break;
         }
@@ -667,7 +739,76 @@ Property::Dump_value()
             return name + "(" + std::to_string(field_id) + ")='" + string_value + "'";
         case VALUE_TYPE_NONE:
             return name + "(" + std::to_string(field_id) + ")=<none>";
+        case VALUE_TYPE_LIST:
+            return name + "(" + std::to_string(field_id) + ")=<size:" + std::to_string(list_value.values_size()) + ">";
         }
     }
     return name + "=<invalid>";
 }
+
+
+bool
+Property::Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs::vsm::proto::Field_value& val2) {
+
+    // do not check lists & meta
+    if (val1.has_list_value() || val2.has_list_value() || val1.has_meta_value() || val2.has_meta_value()) {
+        return false;
+    }
+
+    // double value
+    if (val1.has_double_value()){
+        if (val2.has_double_value()){
+            if (val1.double_value() != val2.double_value()) {
+                return false;
+            }
+        } else {
+          return false;
+        }
+    }
+
+    //bool
+    if (val1.has_bool_value()){
+        if (val2.has_bool_value()){
+            if (val1.bool_value() != val2.bool_value()) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+    //float
+    if (val1.has_float_value()){
+        if (val2.has_float_value()){
+            if (val1.float_value() != val2.float_value()) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    // int
+    if (val1.has_int_value()){
+        if (val2.has_int_value()){
+            if (val1.int_value() != val2.int_value()) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+    // string
+    if (val1.has_string_value()){
+        if (val2.has_string_value()){
+            if (val1.string_value() != val2.string_value()) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    return true;
+
+}
+

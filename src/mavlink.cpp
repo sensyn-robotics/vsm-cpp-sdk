@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -280,18 +280,10 @@ Checksum::Get_extra_byte_length_pair(
         Extra_byte_length_pair& ret,
         const Extension &ext)
 {
-    const auto *base_map = Extension::Get().Get_crc_extra_byte_map();
+    const auto *base_map = ext.Get_crc_extra_byte_map();
     auto it = base_map->find(message_id);
     if (it == base_map->end()) {
-        /* Check extension. */
-        if (ext.Get_name().empty()) {
-            return false;
-        }
-        const auto *ext_map = ext.Get_crc_extra_byte_map();
-        it = ext_map->find(message_id);
-        if (it == ext_map->end()) {
-            return false;
-        }
+        return false;
     }
     ret = it->second;
     return true;

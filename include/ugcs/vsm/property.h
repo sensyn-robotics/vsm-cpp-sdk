@@ -27,8 +27,9 @@ public:
         VALUE_TYPE_DOUBLE = 3,
         VALUE_TYPE_STRING = 4,
         VALUE_TYPE_BOOL = 5,
-        VALUE_TYPE_ENUM = 6,
-        VALUE_TYPE_NONE = 7,
+        VALUE_TYPE_LIST = 6,
+        VALUE_TYPE_ENUM = 7,
+        VALUE_TYPE_NONE = 8,
     } Value_type;
 
     typedef enum {
@@ -87,6 +88,9 @@ public:
     Set_value(unsigned int v);
 
     void
+    Set_value(ugcs::vsm::proto::List_value &v);
+
+    void
     Set_value_na();
 
     // Set value from incoming message
@@ -133,6 +137,9 @@ public:
     Get_value(int &v);
 
     bool
+    Get_value(ugcs::vsm::proto::List_value &v);
+
+    bool
     Is_value_na();
 
     // true if value has been changed.
@@ -160,6 +167,9 @@ public:
     std::string
     Dump_value();
 
+    bool
+    Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs::vsm::proto::Field_value& val2);
+
 private:
 
     void
@@ -177,6 +187,8 @@ private:
     bool bool_value = false;
     double double_value = 0;
     int int_value = 0;
+    ugcs::vsm::proto::List_value list_value;
+
 
     Property::Ptr default_value;
     Property::Ptr min_value;
@@ -188,7 +200,21 @@ private:
     std::chrono::time_point<std::chrono::system_clock> update_time;
 };
 
-typedef std::unordered_map<std::string, Property::Ptr> Property_list;
+class Property_list : public std::unordered_map<std::string, Property::Ptr>
+{
+public:
+    template<typename Type>
+    bool
+    Get_value(const std::string& name, Type& value)
+    {
+        auto it = find(name);
+        if (it != end() && !it->second->Is_value_na()) {
+            return it->second->Get_value(value);
+        }
+        return false;
+    }
+};
+
 
 } /* namespace vsm */
 } /* namespace ugcs */

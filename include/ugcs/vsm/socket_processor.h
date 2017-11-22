@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -17,7 +17,7 @@
 
 #include <thread>
 #include <unordered_map>
-#include <unordered_set>
+#include <vector>
 
 namespace ugcs {
 namespace vsm {
@@ -127,6 +127,9 @@ public:
         bool
         Add_multicast_group(Socket_address::Ptr interface, Socket_address::Ptr multicast);
 
+        bool
+        Remove_multicast_group(Socket_address::Ptr interface, Socket_address::Ptr multicast);
+
         /* Enable/disable sending of broadcast packets.
          * Valid for SOCK_DGRAM streams only
          * @param enable true - enable sending of broadcast packets
@@ -135,7 +138,75 @@ public:
         bool
         Enable_broadcast(bool enable);
 
+        typedef std::unique_ptr<std::vector<uint8_t>> Buf_ptr;
+
     private:
+
+        template<typename T>
+        class Circular_buffer
+        {
+        public:
+            bool
+            Push(T&& item){
+                bool ret = true;
+                if (writer == reader) {
+                    if (is_empty) {
+                        if (buffer.size() < MAX_CACHED_COUNT) {
+                            buffer.resize(MAX_CACHED_COUNT);
+                        }
+                        is_empty = false;
+                    } else {
+                        // buffer full.
+                        reader++;
+                        if (reader == buffer.size()) {
+                            reader = 0;
+                        }
+                        ret = true;
+                    }
+                }
+                buffer[writer] = std::move(item);
+                writer++;
+                if (writer == buffer.size()) {
+                    writer = 0;
+                }
+                return ret;
+            };
+
+            bool
+            Pull(T& ret)
+            {
+                if (is_empty) {
+                    return false;
+                }
+                ret = std::move(buffer[reader]);
+                reader++;
+                if (reader == buffer.size()) {
+                    reader = 0;
+                }
+                if (reader == writer) {
+                    is_empty = true;
+                }
+                return true;
+            };
+            bool
+            Is_empty()
+            {
+                return is_empty;
+            }
+            void
+            Clear()
+            {
+                writer = 0;
+                reader = 0;
+                is_empty = true;
+                buffer.clear();
+            }
+        private:
+            size_t writer = 0;
+            size_t reader = 0;
+            std::vector<T> buffer;
+            bool is_empty = true;
+        };
 
         Socket_address::Ptr peer_address = nullptr;
 
@@ -160,9 +231,21 @@ public:
 
         std::list<Io_request::Ptr> accept_requests;
 
-        std::shared_ptr<std::vector<uint8_t>> reading_buffer;
+        Buf_ptr reading_buffer;
         size_t read_bytes = 0;      // bytes read by current read request
         size_t written_bytes = 0;   // bytes written by current write request
+
+        // UDP multi-stream specific stuff.
+        typedef std::pair<Buf_ptr, Socket_address::Ptr> Cache_entry;
+        // Accepted UDP streams for this stream/socket.
+        std::unordered_map<Socket_address::Ptr, Stream::Ptr> substreams;
+        // If present then this is a substream of another stream.
+        Stream::Ptr parent_stream = nullptr;
+        // Packet cache. Keeps unread packets until Read called.
+        Circular_buffer<Cache_entry> packet_cache;
+        // maximum packet count the stream will cache.
+        // When cache is full packets will be dropped.
+        static constexpr size_t MAX_CACHED_COUNT = 50;
 
         friend class Socket_processor;
 
@@ -194,6 +277,8 @@ public:
         Close_impl(Close_handler completion_handler,
                    Request_completion_context::Ptr comp_ctx) override;
 
+        void
+        Process_udp_read_requests();
     };
 
     /** Stream type is used for listener socket type also. */
@@ -243,6 +328,18 @@ public:
             Io_stream::Type sock_type = Io_stream::Type::TCP,
             Socket_address::Ptr src_addr = nullptr);
 
+    /** Accept incoming TCP/UDP connection.
+     * TCP behavior is similar to accept() call. It returns a connected stream with its own socket.
+     *
+     * For UDP this can be called on UDP (master) stream which is bound to specific port via Bind_udp() call.
+     * It will call completion_handler on each packet which has a new peer address:port tuple.
+     * All accepted streams share the same udp socket thus closing the the master stream
+     * implicitly closes all "accepted" streams.
+     * Read on accepted stream will return only packets from one peer.
+     * All Packets which do not belong to accepted streams can be read using from the master stream.
+     * All UDP streams use circular buffer for received packets.
+     * This is to avoid reads on accepted streams blocking on each other.
+     */
     template <class Callback_ptr>
     Operation_waiter
     Accept(Socket_listener::Ref listener,
@@ -417,9 +514,6 @@ private:
 
     typedef std::unordered_map<Io_stream::Ptr, Stream::Ptr> Streams_map;
 
-    // keep all open udp streams based on "peer_address:peer_port".
-    typedef std::unordered_set<std::string> Udp_streams_map;
-
     Streams_map streams;
 
     /** Socket processor singleton instance. */
@@ -444,6 +538,9 @@ private:
 
     void
     Handle_read_requests(Stream::Ptr stream);
+
+    void
+    Handle_udp_read_requests(Stream::Ptr stream);
 
     /** Close and remove from streams. must be called with all stream requests unlocked!*/
     void

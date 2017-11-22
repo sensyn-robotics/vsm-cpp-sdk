@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -157,7 +157,18 @@ Cucs_processor::On_incoming_connection(Socket_processor::Stream::Ref stream, Io_
         ucs_connections.emplace(sc.stream_id, std::move(sc));
 
         ugcs::vsm::proto::Vsm_message msg;
-        msg.mutable_register_peer()->set_peer_id(Get_application_instance_id());
+        auto p = msg.mutable_register_peer();
+        p->set_peer_id(Get_application_instance_id());
+        p->set_peer_type(proto::PEER_TYPE_VSM);
+#ifdef SDK_VERSION_MAJOR
+        p->set_version_major(SDK_VERSION_MAJOR);
+#endif
+#ifdef SDK_VERSION_MINOR
+        p->set_version_minor(SDK_VERSION_MINOR);
+#endif
+#ifdef SDK_VERSION_BUILD
+        p->set_version_build(SDK_VERSION_BUILD);
+#endif
         msg.set_device_id(0);
         Send_ucs_message(sc.stream_id, msg);
 
@@ -212,43 +223,135 @@ Cucs_processor::Read_completed(
                 connection.shift +=7;
             } else {
                 connection.shift = 0;
-                connection.to_read = connection.message_size;
-                connection.reading_header = false;
+                if (connection.message_size) {
+                    connection.to_read = connection.message_size;
+                    connection.reading_header = false;
+                } else {
+                    // Zero len message, continue with next header.
+                    connection.to_read = 1;
+                }
             }
         } else {
             ugcs::vsm::proto::Vsm_message vsm_msg;
             if (vsm_msg.ParseFromArray(buffer->Get_data(), buffer->Get_length())) {
                 // Message parsed ok.
-                if (!connection.ucs_id) {
-                    // ucs id yet unknown.
-                    if (vsm_msg.has_register_peer()) {
-                        // message has ucs id.
-                        auto new_peer = vsm_msg.register_peer().peer_id();
-                        // Look if it is a duplicate connection
-                        auto dupe = false;
-                        for (auto& ucs : ucs_connections) {
-                            if (ucs.second.ucs_id && *(ucs.second.ucs_id) == new_peer) {
-                                dupe = true;
+                //LOG("received msg: %s", vsm_msg.DebugString().c_str());
+                if (connection.ucs_id) {
+                    // knwon ucs
+                    if (vsm_msg.has_device_response()) {
+                        // This is a response to VSM request.
+                        auto conn_it = connection.pending_registrations.find(vsm_msg.message_id());
+                        if (conn_it == connection.pending_registrations.end()) {
+                            // This response is not for Register_device. Pass it on.
+                            On_ucs_message(stream_id, std::move(vsm_msg));
+                        } else {
+                            // we have a pending registration.
+                            switch (vsm_msg.device_response().code()) {
+                            case proto::STATUS_OK: {
+                                LOG("Device %d registered with ucs %08X", conn_it->second, *connection.ucs_id);
+                                auto it = vehicles.find(conn_it->second);
+                                if (it != vehicles.end()) {
+                                    connection.registered_devices.insert(conn_it->second);
+                                    // Send cached telemetry data
+                                    ugcs::vsm::proto::Vsm_message reg;
+                                    reg.set_device_id(it->first);
+                                    auto tf = reg.mutable_device_status()->mutable_telemetry_fields();
+                                    for (auto& e : it->second.telemetry_cache) {
+                                        // Do not send cached telemetry values which are N/A
+                                        if (!e.second.value().has_meta_value() || e.second.value().meta_value() != ugcs::vsm::proto::META_VALUE_NA) {
+                                            auto f = tf->Add();
+                                            f->CopyFrom(e.second);
+                                        }
+                                    }
+                                    auto av = reg.mutable_device_status()->mutable_command_availability();
+                                    for (auto& e : it->second.availability_cache) {
+                                        auto f = av->Add();
+                                        f->CopyFrom(e.second);
+                                    }
+                                    Send_ucs_message(connection.stream_id, reg);
+                                }
+                                connection.pending_registrations.erase(conn_it);
+                            } break;
+                            case proto::STATUS_IN_PROGRESS:
+                                LOG("Device %d registration with ucs %08X in progress (%d%%)",
+                                    conn_it->second,
+                                    *connection.ucs_id,
+                                    static_cast<int>(vsm_msg.device_response().progress() * 100));
                                 break;
+                            default:
+                                LOG("Device %d registration failed with ucs %08X code: %d, reason: %s",
+                                    conn_it->second,
+                                    *connection.ucs_id,
+                                    vsm_msg.device_response().code(),
+                                    vsm_msg.device_response().status().c_str());
+                                connection.pending_registrations.erase(conn_it);
                             }
                         }
-                        // From now on we know that this ucs is reachable via this connection.
-                        connection.ucs_id = new_peer;
-                        if (dupe) {
-                            LOG("Another connection from known UCS=%d detected", new_peer);
-                        } else {
-                            LOG("New UCS=%d detected", new_peer);
-                            // We have connection from new ucs.
+                    } else {
+                        // This is not a Device_response message.
+                        On_ucs_message(stream_id, std::move(vsm_msg));
+                    }
+                } else {
+                    // ucs id still unknown.
+                    if (vsm_msg.has_register_peer()) {
+                        // message has Register_peer payload.
+                        auto& reg_peer = vsm_msg.register_peer();
+                        if (!reg_peer.has_peer_type() || reg_peer.peer_type() == proto::PEER_TYPE_SERVER)
+                        {
+                            // no peer_type assumes server.
+                            auto new_peer = reg_peer.peer_id();
+                            // Look if it is a duplicate connection
+                            auto dupe = false;
+                            for (auto& ucs : ucs_connections) {
+                                if (ucs.second.ucs_id && *(ucs.second.ucs_id) == new_peer) {
+                                    dupe = true;
+                                    if (ucs.second.primary) {
+                                        if (    !ucs.second.stream->Get_local_address()->Is_loopback_address()
+                                            ||  connection.stream->Get_local_address()->Is_loopback_address()) {
+                                            ucs.second.primary = false;
+                                            connection.primary = true;
+                                            LOG("Switched primary connection for %08X from %s to %s",
+                                                new_peer,
+                                                ucs.second.stream->Get_peer_address()->Get_as_string().c_str(),
+                                                connection.stream->Get_peer_address()->Get_as_string().c_str());
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            // From now on we know that this ucs is reachable via this connection.
+                            connection.ucs_id = new_peer;
+                            if (dupe) {
+                                LOG("Another connection from known UCS %08X detected", new_peer);
+                            } else {
+                                // We have connection from new ucs.
+                                connection.primary = true;
+
+                                std::string version;
+                                if (reg_peer.has_version_major()) {
+                                    version += std::to_string(reg_peer.version_major());
+                                }
+                                version += ".";
+                                if (reg_peer.has_version_minor()) {
+                                    version += std::to_string(reg_peer.version_minor());
+                                }
+                                version += ".";
+                                if (reg_peer.has_version_build()) {
+                                    version += reg_peer.version_build();
+                                }
+                                LOG("New UCS %08X detected, version: %s", new_peer, version.c_str());
+                            }
                             // Send all known vehicles.
                             Send_vehicle_registrations(connection);
-                            connection.primary = true;
+                        } else {
+                            // Invalid peer type.
+                            LOG_WARN("connection from invalid peer_type: %d. VSM supports connections only from server. Closing.", reg_peer.peer_type());
+                            Close_ucs_stream(stream_id);
+                            return;
                         }
                     } else {
                         LOG_WARN("Got message for device %d from unregistered peer. Dropped.", vsm_msg.device_id());
                     }
-                } else {
-                    // knwon ucs
-                    On_ucs_message(stream_id, std::move(vsm_msg));
                 }
             } else {
                 LOG_ERR("ParseFromArray failed, closing.");
@@ -315,8 +418,6 @@ Cucs_processor::On_register_vehicle(Request::Ptr request, Device::Ptr vehicle)
     auto &ctx = res.first->second;
     ctx.vehicle = vehicle;
 
-    LOG("Vehicle id=%d registered", device_id);
-
     ctx.registration_message.set_device_id(device_id);
 
     vehicle->Fill_register_msg(ctx.registration_message);
@@ -330,27 +431,10 @@ Cucs_processor::On_register_vehicle(Request::Ptr request, Device::Ptr vehicle)
 
 void
 Cucs_processor::Send_vehicle_registrations(
-    const Server_context& ctx)
+    Server_context& ctx)
 {
     for (auto &it : vehicles) {
         Send_ucs_message(ctx.stream_id, it.second.registration_message);
-        ugcs::vsm::proto::Vsm_message reg;
-        reg.set_device_id(it.first);
-        // Send cached telemetry data
-        auto tf = reg.mutable_device_status()->mutable_telemetry_fields();
-        for (auto& e : it.second.telemetry_cache) {
-            // Do not send cached telemetry values which are N/A
-            if (!e.second.value().has_meta_value() || e.second.value().meta_value() != ugcs::vsm::proto::META_VALUE_NA) {
-                auto f = tf->Add();
-                f->CopyFrom(e.second);
-            }
-        }
-        auto av = reg.mutable_device_status()->mutable_command_availability();
-        for (auto& e : it.second.availability_cache) {
-            auto f = av->Add();
-            f->CopyFrom(e.second);
-        }
-        Send_ucs_message(ctx.stream_id, reg);
     }
 }
 
@@ -359,7 +443,7 @@ Cucs_processor::On_unregister_vehicle(Request::Ptr request, uint32_t device_id)
 {
     auto it = vehicles.find(device_id);
     if (it == vehicles.end()) {
-        VSM_EXCEPTION(Invalid_param_exception, "Unknown device id %d", device_id);
+        VSM_EXCEPTION(Invalid_param_exception, "Unregister unknown device id %d", device_id);
     } else {
         ugcs::vsm::proto::Vsm_message reg;
         reg.set_device_id(device_id);
@@ -374,9 +458,7 @@ void
 Cucs_processor::On_send_ucs_message(Request::Ptr request, uint32_t device_id, Proto_msg_ptr message)
 {
     auto it = vehicles.find(device_id);
-    if (it == vehicles.end()) {
-        VSM_EXCEPTION(Invalid_param_exception, "Unknown device id %d", device_id);
-    } else {
+    if (it != vehicles.end()) {
         for (int i = 0; i < message->device_status().telemetry_fields_size(); i++) {
             auto &f = message->device_status().telemetry_fields(i);
             auto ce = it->second.telemetry_cache.emplace(f.field_id(), f);
@@ -396,6 +478,9 @@ Cucs_processor::On_send_ucs_message(Request::Ptr request, uint32_t device_id, Pr
         message->set_device_id(device_id);
         //LOG("sending msg: %s", message->DebugString().c_str());
         Broadcast_message_to_ucs(*message);
+    } else {
+        // This can happen if vehicle is removed while message is dispatched already.
+        // Nothing deadly. Ignore.
     }
     request->Complete();
 }
@@ -435,6 +520,33 @@ Cucs_processor::Send_ucs_message(
                 return;
             }
             message.set_device_id(0);
+        }
+
+        if (message.has_register_device()) {
+            // Force response_required for Register_device.
+            uint32_t msg_id = Get_next_id();
+            message.set_message_id(msg_id);
+            ctx.pending_registrations.insert(std::make_pair(msg_id, message.device_id()));
+            message.set_response_required(true);
+        } else if (message.has_register_peer()) {
+            // Register_peer does not check registered_devices
+        } else {
+            auto it = ctx.registered_devices.find(message.device_id());
+            if (it == ctx.registered_devices.end()) {
+                // Not sending telemetry if device is not registered with this connection.
+                return;
+            } else {
+                if (message.has_unregister_device()) {
+                    // clean device specific stuff from ctx on Unregister_device.
+                    ctx.registered_devices.erase(message.device_id());
+                    for (auto m : ctx.pending_registrations) {
+                        if (m.second == message.device_id()) {
+                            ctx.pending_registrations.erase(m.first);
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         if (   !message.has_message_id()
@@ -489,9 +601,46 @@ Cucs_processor::Close_ucs_stream(size_t stream_id)
 {
     auto iter = ucs_connections.find(stream_id);
     if (iter != ucs_connections.end()) {
-        LOG("Closing ucs connection");
+        LOG("Closing UCS %08X connection from %s",
+            iter->second.ucs_id?*iter->second.ucs_id:0,
+            iter->second.stream->Get_peer_address()->Get_as_string().c_str());
         iter->second.stream->Close();
+        auto primary = iter->second.primary;
+        uint32_t ucs_id = 0;
+        if (iter->second.ucs_id) {
+            ucs_id = *iter->second.ucs_id;
+        }
         ucs_connections.erase(iter);
+
+        if (primary) {
+            // Primary connection erased.
+            // Look if there is another loopback connection and make that primary.
+            auto loopback_found = false;
+            for (auto& ucs : ucs_connections) {
+                if (ucs.second.ucs_id && *(ucs.second.ucs_id) == ucs_id) {
+                    if (ucs.second.stream->Get_local_address()->Is_loopback_address()) {
+                        ucs.second.primary = true;
+                        loopback_found = true;
+                        LOG("New primary connection for UCS %08X: %s",
+                            ucs_id,
+                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str());
+                    }
+                }
+            }
+            if (!loopback_found) {
+                // No other loopback connection. Make primary whichever is found first.
+                for (auto& ucs : ucs_connections) {
+                    if (ucs.second.ucs_id && *(ucs.second.ucs_id) == ucs_id) {
+                        ucs.second.primary = true;
+                        LOG("New primary connection for UCS %08X: %s",
+                            ucs_id,
+                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str());
+                        break;
+                    }
+                }
+            }
+        }
+
         if (ucs_connections.size() == 0) {
             if (!transport_detector_on_when_diconnected) {
                 Transport_detector::Get_instance()->Activate(false);

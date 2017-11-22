@@ -91,9 +91,6 @@ public:
     Ucs_request(ugcs::vsm::proto::Vsm_message);
 
     void
-    Add_command(Vsm_command::Ptr cmd);
-
-    void
     Complete(ugcs::vsm::proto::Status_code = ugcs::vsm::proto::STATUS_OK, const std::string& description = std::string());
 
     Proto_msg_ptr response;
@@ -147,6 +144,9 @@ public:
     /** Completion handler type of the request. */
     typedef Callback_proxy<void, uint32_t, Proto_msg_ptr> Response_sender;
 
+    /**
+     * Command has arrived from UCS and should be executed by the vehicle.
+     */
     void
     On_ucs_message(
         ugcs::vsm::proto::Vsm_message message,
@@ -194,6 +194,9 @@ public:
     Request_completion_context::Ptr
     Get_completion_ctx();
 
+    static void
+    Set_failsafe_actions(Property::Ptr p, std::initializer_list<proto::Failsafe_action> actions);
+
 protected:
 
     /** Register device instance to UCS processor. After registration is done,
@@ -211,14 +214,14 @@ protected:
     Get_processing_ctx();
 
     /** Device enable event handler. Can be overridden by derived class,
-     * if necessary.
+     * if necessary. Always called in Device context.
      */
     virtual void
     On_enable()
     {};
 
     /** Device disable event handler. Can be overridden by derived class,
-     * if necessary.
+     * if necessary. Always called in Device context.
      */
     virtual void
     On_disable()

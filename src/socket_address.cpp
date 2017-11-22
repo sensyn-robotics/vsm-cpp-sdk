@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -44,6 +44,53 @@ Socket_address::Socket_address(const sockaddr_in& source)
 Socket_address::Socket_address(const std::string& address, const std::string& port)
 {
     Set(address, port);
+}
+
+size_t
+std::hash<Socket_address::Ptr>::operator() (const Socket_address::Ptr& a) const
+{
+    size_t ret;
+    auto sa = a->Get_sockaddr_ref();
+    if (sa->sa_family == AF_INET) {
+        auto si = reinterpret_cast<sockaddr_in*>(sa);
+        ret = si->sin_port;
+        ret <<= 16;
+        ret += si->sin_addr.s_addr;
+    } else if (sa->sa_family == AF_INET6) {
+        auto si6 = reinterpret_cast<sockaddr_in6*>(sa);
+        ret = si6->sin6_port;
+        ret <<= 8;
+        ret += si6->sin6_addr.s6_addr[15];
+        ret <<= 8;
+        ret += si6->sin6_addr.s6_addr[14];
+    } else {
+        VSM_EXCEPTION(Invalid_param_exception, "Only IPv4 and IPv6 supported.");
+    }
+    return ret;
+}
+
+bool
+std::equal_to<Socket_address::Ptr>::operator()(const Socket_address::Ptr& lhs, const Socket_address::Ptr& rhs) const
+{
+    auto l = lhs->Get_sockaddr_ref();
+    auto r = rhs->Get_sockaddr_ref();
+    if (l->sa_family != r->sa_family) {
+        return false;
+    }
+    if (l->sa_family == AF_INET) {
+        auto li = reinterpret_cast<sockaddr_in*>(l);
+        auto ri = reinterpret_cast<sockaddr_in*>(r);
+        return (li->sin_addr.s_addr == ri->sin_addr.s_addr && li->sin_port == ri->sin_port);
+    } else if (l->sa_family == AF_INET6) {
+        auto li = reinterpret_cast<sockaddr_in6*>(l);
+        auto ri = reinterpret_cast<sockaddr_in6*>(r);
+        if (li->sin6_port == ri->sin6_port) {
+            return memcmp(li->sin6_addr.s6_addr, ri->sin6_addr.s6_addr, 16) == 0;
+        }
+    } else {
+        VSM_EXCEPTION(Invalid_param_exception, "Only IPv4 and IPv6 supported.");
+    }
+    return false;
 }
 
 Socket_address::~Socket_address()
@@ -115,6 +162,12 @@ sockaddr_in&
 Socket_address::As_sockaddr_in()
 {
     return reinterpret_cast<sockaddr_in&>(storage);
+}
+
+sockaddr_in6&
+Socket_address::As_sockaddr_in6()
+{
+    return reinterpret_cast<sockaddr_in6&>(storage);
 }
 
 sockaddr_in
@@ -202,5 +255,8 @@ Socket_address::Is_loopback_address()
     if (!is_resolved) {
         return false;
     }
-    return (As_sockaddr_in().sin_addr.s_addr == ntohl(INADDR_LOOPBACK));
+    if ((As_sockaddr_in().sin_addr.s_addr & 0x7F) == 0x7F) {
+        return true;
+    }
+    return false;
 }

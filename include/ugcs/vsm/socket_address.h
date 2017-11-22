@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -111,6 +111,9 @@ private:
     sockaddr_in&
     As_sockaddr_in();
 
+    sockaddr_in6&
+    As_sockaddr_in6();
+
     sockaddr_storage storage;
 
     std::string name;
@@ -121,5 +124,19 @@ private:
 
 } /* namespace vsm */
 } /* namespace ugcs */
+
+namespace std
+{
+    template<> struct hash<::ugcs::vsm::Socket_address::Ptr>
+    {
+        size_t
+        operator()(::ugcs::vsm::Socket_address::Ptr const& s) const;
+    };
+    template<> struct equal_to<::ugcs::vsm::Socket_address::Ptr>
+    {
+        bool
+        operator()(::ugcs::vsm::Socket_address::Ptr const& lhs, ::ugcs::vsm::Socket_address::Ptr const& rhs) const;
+    };
+}
 
 #endif /* SOCKET_ADDRESS_H_ */

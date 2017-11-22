@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -208,7 +208,7 @@ public:
                                 vsm_scmd.command_id());
                             params = cmd->Build_parameter_list(vsm_scmd);
                             float alt;
-                            params.find("altitude")->second->Get_value(alt);
+                            params.Get_value("altitude", alt);
                             LOG_DEBUG("Move to altitude of %.2f meters.", alt);
                         }
                     }
@@ -218,7 +218,7 @@ public:
                 }
                 ucs_request->Complete();
             } catch (const std::exception& ex) {
-                ucs_request->Complete(ugcs::vsm::proto::STATUS_INVALID_PARAMETER, std::string(ex.what()));
+                ucs_request->Complete(ugcs::vsm::proto::STATUS_INVALID_PARAM, std::string(ex.what()));
             }
         }
     }

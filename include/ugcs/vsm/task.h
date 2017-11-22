@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -19,6 +19,8 @@
 
 namespace ugcs {
 namespace vsm {
+
+typedef std::shared_ptr<ugcs::vsm::proto::Vsm_message> Proto_msg_ptr;
 
 /** Action plan for a single vehicle. */
 class Task {
@@ -65,6 +67,11 @@ public:
 
     /** Parameter list for the task .*/
     Property_list parameters;
+
+    Proto_msg_ptr ucs_response;
+
+    bool return_native_route = false;
+    bool use_crlf_in_native_route = false;
 
 private:
 

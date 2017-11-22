@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -185,6 +185,25 @@ Socket_processor::Stream::Add_multicast_group(Socket_address::Ptr interface, Soc
 }
 
 bool
+Socket_processor::Stream::Remove_multicast_group(Socket_address::Ptr interface, Socket_address::Ptr multicast)
+{
+    struct ip_mreq mreq;
+    memset(&mreq, 0, sizeof(struct ip_mreq));
+    mreq.imr_interface.s_addr = inet_addr(interface->Get_name_as_c_str());
+    mreq.imr_multiaddr.s_addr = inet_addr(multicast->Get_name_as_c_str());
+    auto ret = setsockopt(
+            s,
+            IPPROTO_IP, IP_DROP_MEMBERSHIP,
+            reinterpret_cast<const char*>(&mreq),   // Win requires cast as it needs char* instead of void*
+            sizeof(struct ip_mreq));
+    if (ret) {
+        LOG("Remove_multicast_group failed: %s", Log::Get_system_error().c_str());
+        return false;
+    }
+    return true;
+}
+
+bool
 Socket_processor::Stream::Enable_broadcast(bool enable)
 {
     int broadcast = enable?1:0;
@@ -293,8 +312,10 @@ void
 Socket_processor::Stream::Close_socket()
 {
     if (s != INVALID_SOCKET) {
-        if (sockets::Close_socket(s)) {
-            LOG_ERR("close socket failure: %s", Log::Get_system_error().c_str());
+        if (parent_stream == nullptr) {
+            if (sockets::Close_socket(s)) {
+                LOG_ERR("close socket failure: %s", Log::Get_system_error().c_str());
+            }
         }
         s = INVALID_SOCKET;
     }
@@ -325,6 +346,10 @@ Socket_processor::On_read(Read_request::Ptr request, Socket_address::Ptr addr)
     {
         stream->read_requests.emplace_back(Stream::Read_requests_entry(request, addr));
         Check_for_cancel_request(request, false);
+        // Try to satisfy request from cache, first.
+        if (stream->Get_type() == Stream::Type::UDP) {
+            stream->Process_udp_read_requests();
+        }
     } else {
         request->Set_result_arg(Io_result::CLOSED);
         request->Complete();
@@ -357,6 +382,40 @@ Socket_processor::Stream::Abort_pending_requests(Io_result result)
         request->Complete();
     }
     accept_requests.clear();
+}
+
+void
+Socket_processor::Stream::Process_udp_read_requests()
+{
+    while (!read_requests.empty() && !packet_cache.Is_empty()) {
+        // Satisfy the read request of substream.
+        auto req = read_requests.front().first;
+        auto locker = req->Lock();
+        if (req->Is_processing()) {
+            // request is still valid. satisfy it.
+            Cache_entry data;
+            if (packet_cache.Pull(data)) {
+                auto readmax = req->Get_max_to_read();
+                if (readmax < data.first->size()) {
+                    data.first->resize(readmax);
+                }
+                req->Set_buffer_arg(
+                        Io_buffer::Create(std::move(data.first)),
+                        locker);
+                req->Set_result_arg(Io_result::OK, locker);
+                auto address_ptr = read_requests.front().second;
+                if (address_ptr) {
+                    *address_ptr = *data.second;
+                }
+                req->Complete(Request::Status::OK, std::move(locker));
+                read_requests.pop_front();
+            }
+        } else {
+            // aborted/cancelled requests are handled in On_cancel()
+            // Let On_cancel handle the possibly cancelled request and then get back here for other pending requests.
+            break;
+        }
+    }
 }
 
 void
@@ -467,7 +526,7 @@ Socket_processor::On_wait_and_process()
 
     for (auto stream_iter = streams.begin(); stream_iter != streams.end() && rc; ) {
         Stream::Ptr stream = stream_iter->second;
-        if (stream) {
+        if (stream && stream->parent_stream == nullptr) {
             auto sock = stream->Get_socket();
             if (sock != INVALID_SOCKET) {
                 if (FD_ISSET(sock, &wfds)) {
@@ -477,7 +536,11 @@ Socket_processor::On_wait_and_process()
                         Handle_select_connect(stream);
                         /* Start also read/write requests immediately, if any. */
                         Handle_write_requests(stream);
-                        Handle_read_requests(stream);
+                        if (stream->Get_type() == Io_stream::Type::UDP) {
+                            Handle_udp_read_requests(stream);
+                        } else {
+                            Handle_read_requests(stream);
+                        }
                         break;
                     case Io_stream::State::OPENED:
                         Handle_write_requests(stream);
@@ -492,8 +555,12 @@ Socket_processor::On_wait_and_process()
                     rc--;
                     switch (stream->Get_state()) {
                     case Io_stream::State::OPENED:
-                        Handle_select_accept(stream);
-                        Handle_read_requests(stream);
+                        if (stream->Get_type() == Io_stream::Type::UDP) {
+                            Handle_udp_read_requests(stream);
+                        } else {
+                            Handle_select_accept(stream);
+                            Handle_read_requests(stream);
+                        }
                         break;
                     default: ;
                     }
@@ -570,6 +637,9 @@ Socket_processor::Handle_select_connect(Stream::Ptr stream)
 void
 Socket_processor::Handle_select_accept(Stream::Ptr listen_stream)
 {
+    if (listen_stream->Get_type() != Io_stream::Type::TCP){
+        return;
+    }
     while (!listen_stream->accept_requests.empty())
     {// process accept requests
         auto request = listen_stream->accept_requests.front();
@@ -723,6 +793,16 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
             Close_stream(stream, false);
         // try next request
     }
+    // handle pending writes for all substreams.
+    auto it = stream->substreams.begin();
+    while (it != stream->substreams.end()) {
+        if (it->second->Is_closed()) {
+            it = stream->substreams.erase(it);
+        } else {
+            Handle_write_requests(it->second);
+            ++it;
+        }
+    }
 }
 
 void
@@ -733,7 +813,6 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
         /* Last read request which is waiting */
         auto request = stream->read_requests.front().first;
         auto address_ptr = stream->read_requests.front().second;
-        auto request_status = Request::Status::OK;
 
         // Lock the request for reading so it cannot get aborted in the middle of operation
         auto locker = request->Lock();
@@ -745,7 +824,7 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
             auto close_stream = false;
             if (!stream->reading_buffer) {
                 /* Reserve space for future reads. Copy avoided. */
-                stream->reading_buffer = std::make_shared<std::vector<uint8_t>>(readmax);
+                stream->reading_buffer = std::make_unique<std::vector<uint8_t>>(readmax);
                 stream->read_bytes = 0;
                 if (readmax == 0) {
                     LOG_WARN("Zero size read requested");
@@ -830,7 +909,7 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
                     locker);
             stream->reading_buffer = nullptr;
 
-            request->Complete(request_status, std::move(locker));
+            request->Complete(Request::Status::OK, std::move(locker));
             stream->read_requests.pop_front();
 
             if (close_stream)
@@ -841,6 +920,103 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
         {// aborted/cancelled requests are handled in On_cancel()
             // Let On_cancel handle the possibly cancelled request and then get back here for other pending requests.
             return;
+        }
+    }
+}
+
+void
+Socket_processor::Handle_udp_read_requests(Stream::Ptr stream)
+{
+    while (true) {
+        auto address_ptr = Socket_address::Create();
+        // TODO: make this value configurable
+        ssize_t read_bytes = MIN_UDP_PAYLOAD_SIZE_TO_READ;
+        auto len = address_ptr->Get_len();
+        auto buffer = std::make_unique<std::vector<uint8_t>>(read_bytes);
+        read_bytes = recvfrom(
+                stream->Get_socket(),
+                reinterpret_cast<char*>(buffer->data()),
+                read_bytes,
+                0,
+                address_ptr->Get_sockaddr_ref(),
+                &len);
+
+        if (read_bytes > 0)
+        {// Got data. Let's look which stream it belongs to...
+            buffer->resize(read_bytes);
+            address_ptr->Set_resolved(true);
+            auto ss = stream->substreams.find(address_ptr);
+            if (ss != stream->substreams.end() && ss->second->Is_closed()) {
+                stream->substreams.erase(ss);
+                ss = stream->substreams.end();
+            }
+            if (ss == stream->substreams.end()) {
+                // New peer address. See if we have accepts waiting.
+                if (stream->accept_requests.empty()) {
+                    // No accepts pending. Go over pending reads.
+                    stream->packet_cache.Push(Stream::Cache_entry{std::move(buffer), address_ptr});
+                    stream->Process_udp_read_requests();
+                } else {
+                    // Satisfy pending accept request on master stream.
+                    auto req = stream->accept_requests.front();
+                    auto locker = req->Lock();
+                    if (req->Is_processing()) {
+                        auto substream = Lookup_stream(req->Get_stream());
+                        if (substream) {
+                            substream->peer_address = Socket_address::Create(address_ptr);
+                            substream->peer_address->Set_resolved(true);
+                            substream->local_address = Socket_address::Create(stream->Get_local_address());
+                            substream->local_address->Set_resolved(true);
+                            substream->Update_name();
+                            substream->Set_socket(stream->Get_socket());
+                            substream->Set_state(Io_stream::State::OPENED);
+                            substream->parent_stream = stream;
+
+                            // Insert new stream into substreams.
+                            stream->substreams.emplace(address_ptr, substream);
+
+                            // Save data for later read.
+                            substream->packet_cache.Push(Stream::Cache_entry{std::move(buffer), address_ptr});
+
+                            req->Set_result_arg(Io_result::OK, locker);
+                        } else {
+                            req->Set_result_arg(Io_result::CLOSED, locker);
+                        }
+                        req->Complete(Request::Status::OK, std::move(locker));
+                        stream->accept_requests.pop_front();
+                        // Try reading next packet.
+                        continue;
+                    } else {
+                        // aborted/cancelled requests are handled in On_cancel()
+                        // Let On_cancel handle the possibly cancelled request and then get back here for other pending requests.
+                        return;
+                    }
+                }
+            } else {
+                // This is known substream.
+                ss->second->packet_cache.Push(Stream::Cache_entry{std::move(buffer), address_ptr});
+                ss->second->Process_udp_read_requests();
+            }
+        }
+        else if (read_bytes == 0)
+        {// zero read or other end closed. (half-closed connection)
+            // Do not close the stream as it can possibly
+            // still be used for writing...
+            LOG("0 read");
+            return;
+        }
+        else if (sockets::Is_last_operation_pending())
+        {// read pending. No more data for now.
+            return;
+        }
+        else
+        {// Socket error. assume no other operation can be performed.
+            LOG("Socket read error for stream '%s': %s. Closing",
+                stream->Get_name().c_str(),
+                Log::Get_system_error().c_str());
+            // Let the caller remove it streams.
+            Close_stream(stream, false);
+            break;
         }
     }
 }
@@ -1102,9 +1278,8 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
             &hints,
             &result);
     if (rc) {
-        LOG_INFO("getaddrinfo failed for [%s:%s]: %s",
-                addr->Get_name_as_c_str(),
-                addr->Get_service_as_c_str(),
+        LOG_INFO("getaddrinfo failed for [%s]: %s",
+                addr->Get_as_string().c_str(),
                 gai_strerror(rc));
         request->Set_result_arg(Io_result::BAD_ADDRESS);
         request->Complete();
@@ -1138,7 +1313,7 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
                     {// request status is still OK
                         streams[stream] = stream;
                         stream->local_address = Socket_address::Create(addr);
-
+                        stream->Set_name(stream->local_address->Get_as_string());
                         stream->Set_socket(s);
                         stream->Set_state(Io_stream::State::OPENED);
                         request->Set_result_arg(Io_result::OK, locker);
@@ -1163,7 +1338,7 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
             s = INVALID_SOCKET;
         }
         if (s == INVALID_SOCKET) {
-            LOG_INFO("All getaddrinfo results are unusable for connect.");
+            LOG_INFO("All getaddrinfo results for %s are unusable for bind.", addr->Get_as_string().c_str());
             request->Set_result_arg(Io_result::BAD_ADDRESS);
             request->Complete();
         }
@@ -1264,9 +1439,9 @@ Socket_processor::Accept_impl(Socket_listener::Ref listener,
         Stream::Ref& stream_arg,
         Io_result& result_arg)
 {
-    // Do not call accept on udp socket.
-    ASSERT(listener->Get_type() == Io_stream::Type::TCP);
-    Stream::Ptr stream = Stream::Create(Shared_from_this(), Io_stream::Type::TCP);
+    auto type = listener->Get_type();
+    ASSERT(type == Io_stream::Type::TCP || type == Io_stream::Type::UDP);
+    Stream::Ptr stream = Stream::Create(Shared_from_this(), type);
     stream->Set_state(Io_stream::State::OPENING_PASSIVE);
     stream_arg = Stream::Ref(stream);
     Io_request::Ptr request = Io_request::Create(stream, Io_stream::OFFSET_NONE, result_arg);
@@ -1327,10 +1502,17 @@ Socket_processor::Close_stream(Stream::Ptr stream, bool remove_from_streams)
 {
     if (stream)
     {
+        // Close all substreams.
+        for (auto s : stream->substreams) {
+            Close_stream(s.second);
+        }
+        stream->substreams.clear();
         stream->Close_socket();
         stream->Abort_pending_requests();
-        if (remove_from_streams)
+        stream->packet_cache.Clear();
+        if (remove_from_streams) {
             streams.erase(stream);
+        }
     }
 }
 
@@ -1352,7 +1534,6 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
 
     // prevent aborting request in the middle here.
     auto locker = request->Lock();
-    auto found = false;
     if (    (request->Is_processing() && force_cancel)
         ||  request->Get_status() == Io_request::Status::CANCELING    // request got canceled before entering processing.
         )
@@ -1372,11 +1553,11 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
                 request->Set_result_arg(result, locker);
                 request->Complete(Request::Status::OK, std::move(locker));
                 Close_stream(stream);   // Connect canceled, close and complete any pending operations...
-                found = true;
+                return true;
             }
 
             // Check for read request.
-            if (!found && !stream->read_requests.empty())
+            if (!stream->read_requests.empty())
             {
                 auto iter = stream->read_requests.begin();
                 auto first_request = (*iter).first;
@@ -1403,15 +1584,14 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
                         }
                         request->Set_result_arg(result, locker);
                         request->Complete(Request::Status::OK, std::move(locker));
-                        found = true;
-                        break;
+                        return true;
                     }
                     iter++;
                 }
             }// read requests.
 
             // Check for write request.
-            if (!found && !stream->write_requests.empty())
+            if (!stream->write_requests.empty())
             {
                 auto iter = stream->write_requests.begin();
                 auto first_request = (*iter).first;
@@ -1434,15 +1614,14 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
                         request->Complete(Request::Status::OK, std::move(locker));
                         if (close_stream)
                             Close_stream(stream);
-                        found = true;
-                        break;
+                        return true;
                     }
                     iter++;
                 }
             }// write requests.
 
             // Check for accept request.
-            if (!found && !stream->accept_requests.empty())
+            if (!stream->accept_requests.empty())
             {
                 auto iter = stream->accept_requests.begin();
                 while (iter != stream->accept_requests.end())
@@ -1453,25 +1632,22 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
                         stream->accept_requests.erase(iter);
                         request->Set_result_arg(result, locker);
                         request->Complete(Request::Status::OK, std::move(locker));
-                        found = true;
-                        break;
+                        return true;
                     }
                     iter++;
                 }
             }// accept requests.
         }
 
-        if (!found)
-        {// if we are here the request was not found in our system. probably closed before we got here.
-            auto ctx = request->Get_completion_context(std::move(locker));
-            LOG_DEBUG("Canceling unknown request in state %d, completion context "
-                    "[%s] stream %s.",
-                    static_cast<int>(request->Get_status()),
-                    ctx ? ctx->Get_name().c_str() : "empty",
-                    stream ? stream->Get_name().c_str() : "[already closed]");
-        }
+        // if we are here the request was not found in our system. probably closed before we got here.
+        auto ctx = request->Get_completion_context(std::move(locker));
+        LOG_DEBUG("Canceling unknown request in state %d, completion context "
+                "[%s] stream %s.",
+                static_cast<int>(request->Get_status()),
+                ctx ? ctx->Get_name().c_str() : "empty",
+                stream ? stream->Get_name().c_str() : "[already closed]");
     }
-    return found;
+    return false;
 }
 
 Socket_processor::Stream::Ptr

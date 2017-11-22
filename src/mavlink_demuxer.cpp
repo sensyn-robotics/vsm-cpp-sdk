@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -15,6 +15,8 @@ constexpr Mavlink_demuxer::Message_id Mavlink_demuxer::MESSAGE_ID_ANY;
 constexpr Mavlink_demuxer::System_id Mavlink_demuxer::SYSTEM_ID_ANY;
 
 constexpr Mavlink_demuxer::Component_id Mavlink_demuxer::COMPONENT_ID_ANY;
+
+std::atomic_int Mavlink_demuxer::Key::generator = ATOMIC_VAR_INIT(1);
 
 void
 Mavlink_demuxer::Disable()
@@ -51,7 +53,13 @@ Mavlink_demuxer::Unregister_handler(Key& key)
 {
     ASSERT(key);
     std::unique_lock<std::mutex> lock(mutex);
-    VERIFY(handlers.erase(key), 1);
+    auto range = handlers.equal_range(key);
+    for (auto it = range.first; it != range.second; it++) {
+        if (it->first.id == key.id) {
+            handlers.erase(it);
+            break;
+        }
+    }
     key.Reset();
 }
 
@@ -99,22 +107,25 @@ Mavlink_demuxer::Demux_try_one(Io_buffer::Ptr buffer,
                                uint8_t real_component_id,
                                uint32_t request_id)
 {
-    Callback_base::Ptr cb;
+    std::vector<Callback_base::Ptr> cbs;
 
     Key key(message_id, system_id, component_id);
     {
         std::unique_lock<std::mutex> lock(mutex);
-        auto iter = handlers.find(key);
-        if (iter == handlers.end()) {
-            return false;
+        auto range = handlers.equal_range(std::move(key));
+        for (auto it = range.first; it != range.second; it++) {
+            // copy callbacks from handlers
+            cbs.push_back(it->second);
         }
-
-        cb = iter->second;
     }
-
-    (*cb)(buffer, real_system_id, real_component_id, request_id);
-
-    return true;
+    if (cbs.empty()) {
+        return false;
+    } else {
+        for (auto cb : cbs) {
+            (*cb)(buffer, real_system_id, real_component_id, request_id);
+        }
+        return true;
+    }
 }
 
 

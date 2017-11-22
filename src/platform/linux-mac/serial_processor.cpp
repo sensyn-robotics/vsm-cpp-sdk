@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -58,24 +58,42 @@ Linux_serial_mode::Set_serial_config(int fd, uint8_t min_read)
 
     /* Clear all offending output and input flags. */
     tio.c_oflag = 0;
+    if (tcsetattr(fd, TCSANOW, &tio)) {
+        LOG_ERR("tcsetattr() oflag=%d failed, %s", tio.c_oflag, Log::Get_system_error().c_str());
+    }
     tio.c_iflag = IGNBRK;
+    if (tcsetattr(fd, TCSANOW, &tio)) {
+        LOG_ERR("tcsetattr() iflag=%d failed, %s", tio.c_iflag, Log::Get_system_error().c_str());
+    }
     tio.c_cflag = Map_char_size(char_size) | (stop_bit ? CSTOPB : 0) | CREAD |
             (parity_check ? PARENB : 0) | (parity ? PARODD : 0);
-    /* Minimum read size for immediate read completion. */
-    tio.c_cc[VMIN] = min_read;
-    ssize_t vtime = read_timeout.count() / 100;
-    if (vtime > MAX_VTIME) {
-        vtime = MAX_VTIME;
+    if (tcsetattr(fd, TCSANOW, &tio)) {
+        LOG_ERR("tcsetattr() cflag=%d failed, %s", tio.c_cflag, Log::Get_system_error().c_str());
     }
-    cfsetispeed(&tio, Map_baud_rate(baud));
-    cfsetospeed(&tio, Map_baud_rate(baud));
     /* Clear all local flags to disable special processing of data, like
      * canonical mode, echoing, special characters, signals etc. We want clean
      * data stream. */
     tio.c_lflag = 0;
+    if (tcsetattr(fd, TCSANOW, &tio)) {
+        LOG_ERR("tcsetattr() lflag=%d failed, %s", tio.c_lflag, Log::Get_system_error().c_str());
+    }
+    /* Minimum read size for immediate read completion. */
+    tio.c_cc[VMIN] = min_read;
+    if (tcsetattr(fd, TCSANOW, &tio)) {
+        LOG_ERR("tcsetattr() VMIN=%d failed, %s", min_read, Log::Get_system_error().c_str());
+    }
+    ssize_t vtime = read_timeout.count() / 100;
+    if (vtime > MAX_VTIME) {
+        vtime = MAX_VTIME;
+    }
     tio.c_cc[VTIME] = vtime;
     if (tcsetattr(fd, TCSANOW, &tio)) {
-        VSM_SYS_EXCEPTION("tcsetattr() failed");
+        LOG_ERR("tcsetattr() VTIME=%zu failed, %s", vtime, Log::Get_system_error().c_str());
+    }
+    cfsetispeed(&tio, Map_baud_rate(baud));
+    cfsetospeed(&tio, Map_baud_rate(baud));
+    if (tcsetattr(fd, TCSANOW, &tio)) {
+        LOG_ERR("tcsetattr() baud rate %d failed", baud);
     }
 }
 

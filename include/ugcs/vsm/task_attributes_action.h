@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -32,6 +32,8 @@ public:
         WAIT,
         /** Continue the task. */
         CONTINUE,
+        /** do not change */
+        DO_NOT_CHANGE,
     };
 
     /** Construct task attributes action explicitly. */
@@ -45,27 +47,28 @@ public:
     Task_attributes_action(const Property_list& params):
         Action(Type::TASK_ATTRIBUTES)
     {
-        params.at("safe_altitude")->Get_value(safe_altitude);
-
+        if (params.at("safe_altitude")->Is_value_na()) {
+            safe_altitude = NAN;
+        } else {
+            params.at("safe_altitude")->Get_value(safe_altitude);
+        }
         int tmp;
         if (params.at("rc_loss_action")->Get_value(tmp)) {
             rc_loss = static_cast<Emergency_action>(tmp);
         } else {
-            rc_loss = CONTINUE;
+            rc_loss = DO_NOT_CHANGE;
         }
         if (params.at("gps_loss_action")->Get_value(tmp)) {
             gnss_loss = static_cast<Emergency_action>(tmp);
         } else {
-            gnss_loss = CONTINUE;
+            gnss_loss = DO_NOT_CHANGE;
         }
         if (params.at("low_battery_action")->Get_value(tmp)) {
             low_battery = static_cast<Emergency_action>(tmp);
         } else {
-            low_battery = CONTINUE;
+            low_battery = DO_NOT_CHANGE;
         }
-
     }
-
 
     /**
      * Construct task attributes action from Mavlink mission item.

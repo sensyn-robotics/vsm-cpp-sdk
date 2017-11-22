@@ -1,4 +1,4 @@
-// Copyright (c) 2015, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 #include <ugcs/vsm/vehicle_command.h>
@@ -73,39 +73,6 @@ Vehicle_command::Vehicle_command(Type type, const Property_list& p):
         } else {
             p.at("heading")->Get_value(heading);
         }
-        break;
-    case Type::ADSB_OPERATING:
-        if (p.at("mode")->Is_value_na()) {
-            integer1.Reset();
-        } else {
-            p.at("mode")->Get_value(i);
-            integer1 = i;
-        }
-        if (p.at("ident_on")->Is_value_na()) {
-            integer2.Reset();
-        } else {
-            p.at("ident_on")->Get_value(i);
-            integer2 = i;
-        }
-        if (p.at("squawk")->Is_value_na()) {
-            integer3.Reset();
-        } else {
-            p.at("squawk")->Get_value(i);
-            integer3 = i;
-        }
-        break;
-    case Type::ADSB_INSTALL:
-        if (p.at("icao_code")->Is_value_na()) {
-            integer1.Reset();
-        } else {
-            int i;
-            p.at("icao_code")->Get_value(i);
-            integer1 = i;
-        }
-        p.at("registration")->Get_value(string1);
-        break;
-    case Type::ADSB_PREFLIGHT:
-        p.at("flight_id")->Get_value(string1);
         break;
     default:
         // Other commands do not have parameters.
@@ -183,42 +150,8 @@ Vehicle_command::Vehicle_command(Type type, const mavlink::ugcs::Pld_command_lon
         speed = cmd->param3.Get();
         heading = cmd->param4 * M_PI / 180.0;
         break;
-    case Type::ADSB_OPERATING:
-        if (cmd->param1.Is_reset()) {
-            integer1.Reset();
-        } else {
-            integer1 = cmd->param1.Get();
-        }
-        if (cmd->param2.Is_reset()) {
-            integer2.Reset();
-        } else {
-            integer2 = cmd->param2.Get();
-        }
-        if (cmd->param3.Is_reset()) {
-            integer3.Reset();
-        } else {
-            integer3 = cmd->param3.Get();
-        }
-        break;
     default:
         // Other commands do not have parameters.
         break;
     }
-}
-
-/** Construct install message. */
-Vehicle_command::Vehicle_command(const mavlink::ugcs::Pld_adsb_transponder_install& cmd):
-    type(Type::ADSB_INSTALL),
-    position(Geodetic_tuple(0, 0, 0))
-{
-    integer1 = cmd->icao_code;
-    string1 = cmd->registration;
-}
-
-/** Construct preflight message. */
-Vehicle_command::Vehicle_command(const mavlink::ugcs::Pld_adsb_transponder_preflight& cmd):
-    type(Type::ADSB_PREFLIGHT),
-    position(Geodetic_tuple(0, 0, 0))
-{
-    string1 = cmd->flight;
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -61,7 +61,7 @@ Read_ucs_message(
 
     if (vsm_msg.ParseFromArray(ucs_buf->Get_data(), ucs_buf->Get_length())) {
         LOG("Got message len=%zu", ucs_buf->Get_length());
-        LOG("msg=%s", vsm_msg.DebugString().c_str());
+        //LOG("msg=%s", vsm_msg.DebugString().c_str());
     } else {
         LOG_ERR("ParseFromArray failed.");
     }
@@ -118,6 +118,13 @@ TEST(basic_usage)
 
     // read device register
     Read_ucs_message(vsm_msg);
+
+    // Send Device_register response
+    uint32_t id = vsm_msg.message_id();
+    vsm_msg.Clear();
+    vsm_msg.set_message_id(id);
+    vsm_msg.mutable_device_response()->set_code(proto::STATUS_OK);
+    Send_ucs_message(vsm_msg);
 
     // send some telemetry
     v->Test_ucs();

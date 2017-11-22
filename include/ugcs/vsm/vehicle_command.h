@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -68,12 +68,6 @@ public:
         PAUSE_MISSION,
         /** Resume the mission. */
         RESUME_MISSION,
-        /** Set transponder ICAO and registration ID */
-        ADSB_INSTALL,
-        /** Set transponder flight ID */
-        ADSB_PREFLIGHT,
-        /** Set transponder mode */
-        ADSB_OPERATING,
         /** Direct vehicle control. */
         DIRECT_VEHICLE_CONTROL,
         /** Direct gimbal control. */
@@ -89,12 +83,6 @@ public:
 
     /** Construct command of a specific type. */
     Vehicle_command(Type type, const mavlink::ugcs::Pld_command_long_ex& cmd);
-
-    /** Construct install message. */
-    Vehicle_command(const mavlink::ugcs::Pld_adsb_transponder_install&);
-
-    /** Construct preflight message. */
-    Vehicle_command(const mavlink::ugcs::Pld_adsb_transponder_preflight& );
 
     /** Get type of the command. */
     Type

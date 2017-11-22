@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Smart Projects Holdings Ltd
+// Copyright (c) 2017, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -47,8 +47,8 @@ TEST(vsm_proxy)
     };
 
     // Set up dummy configuration
-    pr->Set("p.1.proxy","127.0.0.1");
-    pr->Set("p.1.port","12345");
+    pr->Set("connection.proxy.1.address","127.0.0.1");
+    pr->Set("connection.proxy.1.port","12345");
 
     // Simulate proxy endpoint.
     sp->Listen("127.0.0.1", "12345",
@@ -60,12 +60,10 @@ TEST(vsm_proxy)
 
     // Add two detectors for the proxy connection
     td->Add_detector(
-            "p",
             Transport_detector::Make_connect_handler(h, 1),
             proccer);
 
     td->Add_detector(
-            "p",
             Transport_detector::Make_connect_handler(h, 2),
             proccer);
 
