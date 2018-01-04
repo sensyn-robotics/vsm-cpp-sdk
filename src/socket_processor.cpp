@@ -476,7 +476,7 @@ Socket_processor::On_wait_and_process()
     FD_SET(wait_pipe, &rfds);
     max_handle = wait_pipe;
 
-    for (auto &stream_iter: streams) {
+    for (auto &stream_iter : streams) {
         Stream::Ptr &stream = stream_iter.second;
         if (stream)
         {
@@ -503,8 +503,8 @@ Socket_processor::On_wait_and_process()
                     is_set = true;
                 }
                 break;
-
-            default: ;
+            default:
+                break;
             }
             if (is_set && s > max_handle) {
                 max_handle = s;
@@ -562,7 +562,8 @@ Socket_processor::On_wait_and_process()
                             Handle_read_requests(stream);
                         }
                         break;
-                    default: ;
+                    default:
+                        break;
                     }
                 }
 
@@ -574,8 +575,7 @@ Socket_processor::On_wait_and_process()
 
             if (stream->Is_closed()) {
                 stream_iter = streams.erase(stream_iter);
-            }
-            else {
+            } else {
                 stream_iter++;
             }
         } else {
@@ -589,7 +589,7 @@ Socket_processor::Handle_select_connect(Stream::Ptr stream)
 {
     Io_request::Ptr request = stream->Get_connect_request();
     if (request == nullptr) {
-    	return;	// connect request got cancelled before we got here.
+        return; // connect request got cancelled before we got here.
     }
     stream->Set_connect_request(nullptr);
     int err;
@@ -637,11 +637,11 @@ Socket_processor::Handle_select_connect(Stream::Ptr stream)
 void
 Socket_processor::Handle_select_accept(Stream::Ptr listen_stream)
 {
-    if (listen_stream->Get_type() != Io_stream::Type::TCP){
+    if (listen_stream->Get_type() != Io_stream::Type::TCP) {
         return;
     }
-    while (!listen_stream->accept_requests.empty())
-    {// process accept requests
+    while (!listen_stream->accept_requests.empty()) {
+        // process accept requests
         auto request = listen_stream->accept_requests.front();
 
         auto locker = request->Lock();
@@ -660,10 +660,10 @@ Socket_processor::Handle_select_accept(Stream::Ptr listen_stream)
                 sockets::Socket_handle s1;
 
                 s1 = accept(listen_stream->Get_socket(), reinterpret_cast<sockaddr*>(&peer_addr), &ss_len);
-                if (s1 == INVALID_SOCKET)
-                {// accept failed or pending
-                    if (sockets::Is_last_operation_pending())
-                    {// got the signal from select but there are no connections pending any more!
+                if (s1 == INVALID_SOCKET) {
+                    // accept failed or pending
+                    if (sockets::Is_last_operation_pending()) {
+                        // got the signal from select but there are no connections pending any more!
                         // leave the request in the list and wait for next signal.
                         break;
                     }
@@ -671,9 +671,8 @@ Socket_processor::Handle_select_accept(Stream::Ptr listen_stream)
                     LOG_INFO("socket accept failed: %s", Log::Get_system_error().c_str());
                     close_stream = true;
                     request->Set_result_arg(Io_result::OTHER_FAILURE, locker);
-                }
-                else
-                {// success, got new connection. stream and request are still valid.
+                } else {
+                    // success, got new connection. stream and request are still valid.
                     if (sockets::Make_nonblocking(s1) != 0)
                     {/* Fatal here. */
                         sockets::Close_socket(s1);
@@ -691,14 +690,12 @@ Socket_processor::Handle_select_accept(Stream::Ptr listen_stream)
                     stream->Set_state(Io_stream::State::OPENED);
                     request->Set_result_arg(Io_result::OK, locker);
                 }
-            }
-            else
-            {// request has no stream.
+            } else {
+                // request has no stream.
                 request->Set_result_arg(Io_result::CLOSED, locker);
             }
-        }
-        else
-        {// request aborted or cancelled
+        } else {
+            // request aborted or cancelled
             request->Set_result_arg(Io_result::CANCELED, locker);
         }
 
@@ -729,8 +726,8 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
         auto buffer = request->Data_buffer();
         auto close_stream = false;
         request->Set_result_arg(Io_result::OK, locker);
-        if (request->Is_processing())
-        {// Request is still fine to process.
+        if (request->Is_processing()) {
+            // Request is still fine to process.
             do {
                 ssize_t written;
                 if (dest_address) {
@@ -748,40 +745,35 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
                             buffer->Get_length(),
                             sockets::SEND_FLAGS);
                 }
-                if (written > 0)
-                {// Success. Update Bytes_written and try again if there is more data. */
+                if (written > 0) {
+                    // Success. Update Bytes_written and try again if there is more data. */
                     buffer = buffer->Slice(written);
                     stream->written_bytes += written;
-                }
-                else if (written == 0)
-                {// zero bytes written. no error
-                    if (buffer->Get_length() == 0)
+                } else if (written == 0) {
+                    // zero bytes written. no error
+                    if (buffer->Get_length() == 0) {
                         break;  // this request wanted to write zero bytes. complete it.
-                    else
-                    {   /* Not really sure about written == 0 here. I assume that select will trigger writable
+                    } else {
+                        /* Not really sure about written == 0 here. I assume that select will trigger writable
                          * event when socket becomes ready to accept new data to be written.
                          * Maybe some timeout is needed to avoid busy loop in this case...
                          */
                         LOG_WARN("send wrote 0 bytes!");
                         return; // will continue later.
                     }
-                }
-                else if (sockets::Is_last_operation_pending())
-                {// write pending
+                } else if (sockets::Is_last_operation_pending()) {
+                    // write pending
                     return;     // will continue later.
-                }
-                else
-                {// socket error. assume no other operations can be performed.
+                } else {
+                    // socket error. assume no other operations can be performed.
                     LOG_DEBUG("socket send error=%s", Log::Get_system_error().c_str());
                     close_stream = true;
                     request->Set_result_arg(Io_result::CLOSED, locker);
                     break;
                 }
-            }
-            while (buffer->Get_length());
-        }
-        else
-        {// aborted/cancelled requests are handled in On_cancel()
+            } while (buffer->Get_length());
+        } else {
+            // aborted/cancelled requests are handled in On_cancel()
             // Let On_cancnel handle the possibly cancelled request and then get back here for other pending requests.
             return;
         }
@@ -789,8 +781,9 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
         request->Complete(Request::Status::OK, std::move(locker));
         stream->write_requests.pop_front();
         stream->written_bytes = 0;
-        if (close_stream)
+        if (close_stream) {
             Close_stream(stream, false);
+        }
         // try next request
     }
     // handle pending writes for all substreams.
@@ -818,8 +811,8 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
         auto locker = request->Lock();
         auto readmin = request->Get_min_to_read();
         auto readmax = request->Get_max_to_read();
-        if (request->Is_processing())
-        {// Request is still fine to process.
+        if (request->Is_processing()) {
+            // Request is still fine to process.
             request->Set_result_arg(Io_result::OK, locker);
             auto close_stream = false;
             if (!stream->reading_buffer) {
@@ -833,8 +826,7 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
             ASSERT(stream->reading_buffer);
             ASSERT(stream->reading_buffer->size() >= stream->read_bytes);
 
-            do
-            {
+            do {
                 ssize_t read_bytes;
                 if (address_ptr) {
                     // user asked for peer address.
@@ -854,12 +846,11 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
                             stream->reading_buffer->size() - stream->read_bytes,
                             0);
                 }
-                if (read_bytes > 0)
-                {// got data, try again.
+                if (read_bytes > 0) {
+                    // got data, try again.
                     stream->read_bytes += read_bytes;
-                }
-                else if (read_bytes == 0)
-                {// zero read or other end closed. (half-closed connection)
+                } else if (read_bytes == 0) {
+                    // zero read or other end closed. (half-closed connection)
                     if (stream->read_bytes < readmin) {
                         // readmin was not reached. Report the stream as closed
                         // but return the read data anyway.
@@ -872,36 +863,32 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
                     // Do not close the stream as it can possibly
                     // still be used for writing...
                     break;
-                }
-                else if (sockets::Is_last_operation_pending())
-                {// read pending
-                    if (stream->read_bytes < readmin)
-                    {// min_to_read not reached yet, will finish later.
+                } else if (sockets::Is_last_operation_pending()) {
+                    // read pending
+                    if (stream->read_bytes < readmin) {
+                        // min_to_read not reached yet, will finish later.
                         return;
-                    }
-                    else
-                    {// we have reached the minimum requested size with next read pending.
+                    } else {
+                        // we have reached the minimum requested size with next read pending.
                         // Truncate the temp buffer and return data.
                         break;
                     }
-                }
-                else
-                {// Socket error. assume no other operation can be performed.
+                } else {
+                    // Socket error. assume no other operation can be performed.
                     LOG("Socket read error for stream '%s': %s",
                         stream->Get_name().c_str(),
                         Log::Get_system_error().c_str());
-                	request->Set_result_arg(Io_result::CLOSED, locker);
+                    request->Set_result_arg(Io_result::CLOSED, locker);
                     close_stream = true;
                     break;
                 }
-            }
             /* Loop read while there is still space in buffer.
              * Do not loop for udp connections as it can read only
              * one packet at a time, and if there is no space in the buffer to
              * fit the whole packet the error occurs (windows) or excess data
              * is discarded (linux).
              */
-            while (stream->read_bytes < readmax && stream->Get_type() == Io_stream::Type::TCP);
+            } while (stream->read_bytes < readmax && stream->Get_type() == Io_stream::Type::TCP);
 
             stream->reading_buffer->resize(stream->read_bytes);
             request->Set_buffer_arg(
@@ -915,9 +902,8 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
             if (close_stream)
                 Close_stream(stream, false);
             // try next request
-        }
-        else
-        {// aborted/cancelled requests are handled in On_cancel()
+        } else {
+            // aborted/cancelled requests are handled in On_cancel()
             // Let On_cancel handle the possibly cancelled request and then get back here for other pending requests.
             return;
         }
@@ -941,8 +927,8 @@ Socket_processor::Handle_udp_read_requests(Stream::Ptr stream)
                 address_ptr->Get_sockaddr_ref(),
                 &len);
 
-        if (read_bytes > 0)
-        {// Got data. Let's look which stream it belongs to...
+        if (read_bytes > 0) {
+            // Got data. Let's look which stream it belongs to...
             buffer->resize(read_bytes);
             address_ptr->Set_resolved(true);
             auto ss = stream->substreams.find(address_ptr);
@@ -988,7 +974,8 @@ Socket_processor::Handle_udp_read_requests(Stream::Ptr stream)
                         continue;
                     } else {
                         // aborted/cancelled requests are handled in On_cancel()
-                        // Let On_cancel handle the possibly cancelled request and then get back here for other pending requests.
+                        // Let On_cancel handle the possibly cancelled request
+                        // and then get back here for other pending requests.
                         return;
                     }
                 }
@@ -997,20 +984,17 @@ Socket_processor::Handle_udp_read_requests(Stream::Ptr stream)
                 ss->second->packet_cache.Push(Stream::Cache_entry{std::move(buffer), address_ptr});
                 ss->second->Process_udp_read_requests();
             }
-        }
-        else if (read_bytes == 0)
-        {// zero read or other end closed. (half-closed connection)
+        } else if (read_bytes == 0) {
+            // zero read or other end closed. (half-closed connection)
             // Do not close the stream as it can possibly
             // still be used for writing...
             LOG("0 read");
             return;
-        }
-        else if (sockets::Is_last_operation_pending())
-        {// read pending. No more data for now.
+        } else if (sockets::Is_last_operation_pending()) {
+            // read pending. No more data for now.
             return;
-        }
-        else
-        {// Socket error. assume no other operation can be performed.
+        } else {
+            // Socket error. assume no other operation can be performed.
             LOG("Socket read error for stream '%s': %s. Closing",
                 stream->Get_name().c_str(),
                 Log::Get_system_error().c_str());
@@ -1122,11 +1106,9 @@ Socket_processor::On_connect(Io_request::Ptr request, Stream::Ptr stream)
                 } else {
                     addr_size = stream->local_address->Get_len();
                 }
-                if (bind(
-                        s,
+                if (bind(s,
                         stream->local_address->Get_sockaddr_ref(),
-                        addr_size
-                        ) != 0) {
+                        addr_size) != 0) {
                     LOG_INFO("Bind to %s failed: %s",
                             stream->local_address->Get_as_string().c_str(),
                             Log::Get_system_error().c_str());
@@ -1146,17 +1128,16 @@ Socket_processor::On_connect(Io_request::Ptr request, Stream::Ptr stream)
             if (!connect(s, rp->ai_addr, rp->ai_addrlen)) {
                 /* Shouldn't happen with non-blocking sockets though. */
                 auto locker = request->Lock();
-                if (request->Is_processing())
-                {// normal operation
+                if (request->Is_processing()) {
+                    // normal operation
                     stream->Set_state(Io_stream::State::OPENED);
                     stream->Set_socket(s);
                     stream->is_connected = true;
                     request->Set_result_arg(Io_result::OK, locker);
                     // Add to our streams list.
                     streams[stream] = stream;
-                }
-                else
-                {// abort requested.
+                } else {
+                    // abort requested.
                     sockets::Close_socket(s);
                     stream->Set_state(Io_stream::State::CLOSED);
                     request->Set_result_arg(Io_result::CANCELED, locker);
@@ -1296,30 +1277,27 @@ Socket_processor::On_listen(Io_request::Ptr request, Stream::Ptr stream, Socket_
                 sockets::Close_socket(s);
                 VSM_SYS_EXCEPTION("Socket %d failed to set Nonblocking", s);
             }
-            if (sockets::Prepare_for_listen(s, stream->Get_type() == Io_stream::Type::UDP_MULTICAST) != 0)
-            {// failed to set SO_REUSEADDR, but let's not die because of that
+            if (sockets::Prepare_for_listen(s, stream->Get_type() == Io_stream::Type::UDP_MULTICAST) != 0) {
+                // failed to set SO_REUSEADDR, but let's not die because of that
                 LOG_ERR("Prepare_for_listen failed: %s", Log::Get_system_error().c_str());
             }
-            if (bind(s, rp->ai_addr, rp->ai_addrlen) == 0)
-            {
+            if (bind(s, rp->ai_addr, rp->ai_addrlen) == 0) {
                 if (    (   stream->Get_type() == Io_stream::Type::TCP
                         &&  listen(s, LISTEN_QUEUE_LEN) == 0)
                     ||  stream->Get_type() == Io_stream::Type::UDP
-                    ||  stream->Get_type() == Io_stream::Type::UDP_MULTICAST
-                    )
-                {// success
+                    ||  stream->Get_type() == Io_stream::Type::UDP_MULTICAST) {
+                // success
                     auto locker = request->Lock();
-                    if (request->Is_processing())
-                    {// request status is still OK
+                    if (request->Is_processing()) {
+                        // request status is still OK
                         streams[stream] = stream;
                         stream->local_address = Socket_address::Create(addr);
                         stream->Set_name(stream->local_address->Get_as_string());
                         stream->Set_socket(s);
                         stream->Set_state(Io_stream::State::OPENED);
                         request->Set_result_arg(Io_result::OK, locker);
-                    }
-                    else
-                    {// cancel or abort requested.
+                    } else {
+                        // cancel or abort requested.
                         sockets::Close_socket(s);
                         stream->Set_state(Io_stream::State::CLOSED);
                         request->Set_result_arg(Io_result::CANCELED, locker);
@@ -1433,7 +1411,8 @@ Socket_processor::On_get_addr_info(Io_request::Ptr request, Get_addr_info_handle
 }
 
 Operation_waiter
-Socket_processor::Accept_impl(Socket_listener::Ref listener,
+Socket_processor::Accept_impl(
+        Socket_listener::Ref listener,
         Request::Handler completion_handler,
         Request_completion_context::Ptr completion_context,
         Stream::Ref& stream_arg,
@@ -1475,9 +1454,7 @@ Socket_processor::On_close(Io_request::Ptr request)
         }
         Close_stream(stream);
         request->Complete();
-    }
-    else
-    {
+    } else {
         /*
          * It could happen by [somewhat bad] design. Don't spam here.
          * LOG_WARN("Close for unknown stream.");
@@ -1531,22 +1508,21 @@ Socket_processor::On_cancel(Io_request::Ptr cancel_request, Io_request::Ptr requ
 bool
 Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_cancel)
 {
-
     // prevent aborting request in the middle here.
     auto locker = request->Lock();
     if (    (request->Is_processing() && force_cancel)
-        ||  request->Get_status() == Io_request::Status::CANCELING    // request got canceled before entering processing.
+        ||  request->Get_status() == Io_request::Status::CANCELING // request got canceled before entering processing
         )
     {
         auto result = Io_result::CANCELED;
         if (request->Timed_out())
             result = Io_result::TIMED_OUT;
         auto stream = Lookup_stream(request->Get_stream());
-        if (stream)
-        {// this is an io request. it can be connect, accept, write or read.
+        if (stream) {
+            // this is an io request. it can be connect, accept, write or read.
             // First check if this is a connect request.
-            if (request == stream->Get_connect_request())
-            {// trying to cancel connect request.
+            if (request == stream->Get_connect_request()) {
+                // trying to cancel connect request.
                 ASSERT(stream->Get_state() == Io_stream::State::OPENING);
                 stream->Close_socket();
                 stream->Set_connect_request(nullptr);
@@ -1557,18 +1533,17 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
             }
 
             // Check for read request.
-            if (!stream->read_requests.empty())
-            {
+            if (!stream->read_requests.empty()) {
                 auto iter = stream->read_requests.begin();
                 auto first_request = (*iter).first;
                 while (iter != stream->read_requests.end())
                 {
                     auto stream_request = (*iter).first;
-                    if (request == stream_request)
-                    {// Found it here.
+                    if (request == stream_request) {
+                        // Found it here.
                         stream->read_requests.erase(iter);
-                        if (request == first_request)
-                        {// this is the current read request! return as much data as we have.
+                        if (request == first_request) {
+                            // this is the current read request! return as much data as we have.
                             if (stream->reading_buffer)
                             {
                                 stream->reading_buffer->resize(stream->read_bytes);
@@ -1576,11 +1551,11 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
                                         Io_buffer::Create(std::move(stream->reading_buffer)),
                                         locker);
                                 stream->reading_buffer = nullptr;
-                            }
-                            else
+                            } else {
                                 stream_request->Set_buffer_arg(
                                         Io_buffer::Create(),
                                         locker);
+                            }
                         }
                         request->Set_result_arg(result, locker);
                         request->Complete(Request::Status::OK, std::move(locker));
@@ -1588,25 +1563,25 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
                     }
                     iter++;
                 }
-            }// read requests.
+            } // read requests.
 
             // Check for write request.
             if (!stream->write_requests.empty())
             {
                 auto iter = stream->write_requests.begin();
                 auto first_request = (*iter).first;
-                while (iter != stream->write_requests.end())
-                {// roll through write requests.
+                while (iter != stream->write_requests.end()) {
+                    // roll through write requests.
                     auto stream_request = (*iter).first;
-                    if (request == stream_request)
-                    {// Found it here.
+                    if (request == stream_request) {
+                        // Found it here.
                         auto close_stream = false;
                         stream->write_requests.erase(iter);
                         request->Set_result_arg(result, locker);
-                        if (request == first_request)
-                        {// this is the current write request!
-                            if (stream->written_bytes)
-                            {// Currently, there is no way to return written bytes, close socket.
+                        if (request == first_request) {
+                            // this is the current write request!
+                            if (stream->written_bytes) {
+                            // Currently, there is no way to return written bytes, close socket.
                                 close_stream = true;
                                 request->Set_result_arg(Io_result::CLOSED, locker);
                             }
@@ -1618,17 +1593,16 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
                     }
                     iter++;
                 }
-            }// write requests.
+            } // write requests.
 
             // Check for accept request.
-            if (!stream->accept_requests.empty())
-            {
+            if (!stream->accept_requests.empty()) {
                 auto iter = stream->accept_requests.begin();
-                while (iter != stream->accept_requests.end())
-                {// roll through accept requests.
+                while (iter != stream->accept_requests.end()) {
+                    // roll through accept requests.
                     auto stream_request = *iter;
-                    if (request == stream_request)
-                    {// Found it here.
+                    if (request == stream_request) {
+                        // Found it here.
                         stream->accept_requests.erase(iter);
                         request->Set_result_arg(result, locker);
                         request->Complete(Request::Status::OK, std::move(locker));
@@ -1636,7 +1610,7 @@ Socket_processor::Check_for_cancel_request(Io_request::Ptr request, bool force_c
                     }
                     iter++;
                 }
-            }// accept requests.
+            } // accept requests.
         }
 
         // if we are here the request was not found in our system. probably closed before we got here.

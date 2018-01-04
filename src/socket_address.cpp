@@ -9,8 +9,8 @@
  *      Author: janis
  */
 
-#include <cstring>
 #include <ugcs/vsm/socket_address.h>
+#include <cstring>
 
 using namespace ugcs::vsm;
 

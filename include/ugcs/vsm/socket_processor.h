@@ -56,7 +56,7 @@ public:
     static Ptr
     Get_instance(Args &&... args)
     {
-    	return singleton.Get_instance(std::forward<Args>(args)...);
+        return singleton.Get_instance(std::forward<Args>(args)...);
     }
 
     /** Socket specific stream. */
@@ -141,13 +141,11 @@ public:
         typedef std::unique_ptr<std::vector<uint8_t>> Buf_ptr;
 
     private:
-
         template<typename T>
-        class Circular_buffer
-        {
+        class Circular_buffer {
         public:
             bool
-            Push(T&& item){
+            Push(T&& item) {
                 bool ret = true;
                 if (writer == reader) {
                     if (is_empty) {
@@ -170,11 +168,10 @@ public:
                     writer = 0;
                 }
                 return ret;
-            };
+            }
 
             bool
-            Pull(T& ret)
-            {
+            Pull(T& ret) {  // NOLINT(runtime/references)
                 if (is_empty) {
                     return false;
                 }
@@ -187,7 +184,7 @@ public:
                     is_empty = true;
                 }
                 return true;
-            };
+            }
             bool
             Is_empty()
             {
@@ -201,6 +198,7 @@ public:
                 is_empty = true;
                 buffer.clear();
             }
+
         private:
             size_t writer = 0;
             size_t reader = 0;
@@ -267,13 +265,13 @@ public:
                    Request_completion_context::Ptr comp_ctx);
 
         /** @see Io_stream::Read_impl */
-        virtual Operation_waiter
+        Operation_waiter
         Read_impl(size_t max_to_read, size_t min_to_read, Offset offset,
                   Read_handler completion_handler,
                   Request_completion_context::Ptr comp_ctx) override;
 
         /** @see Io_stream::Close_impl */
-        virtual Operation_waiter
+        Operation_waiter
         Close_impl(Close_handler completion_handler,
                    Request_completion_context::Ptr comp_ctx) override;
 
@@ -406,7 +404,10 @@ public:
             Request_completion_context::Ptr completion_context = Request_temp_completion_context::Create(),
             bool multicast = false)
     {
-        return Listen(addr, completion_handler, completion_context, multicast?Io_stream::Type::UDP_MULTICAST:Io_stream::Type::UDP);
+        return Listen(addr,
+            completion_handler,
+            completion_context,
+            multicast?Io_stream::Type::UDP_MULTICAST:Io_stream::Type::UDP);
     }
 
     /** Create CAN socket and associate stream with it.
@@ -440,7 +441,6 @@ public:
     Enumerate_local_interfaces();
 
 protected:
-
     /** Worker thread of socket processor. */
     std::thread thread;
 
@@ -452,18 +452,18 @@ protected:
     Request_completion_context::Ptr completion_ctx;
 
     /** Handle processor enabling. */
-    virtual void
+    void
     On_enable() override;
 
     /** Handle disable request. */
-    virtual void
+    void
     On_disable() override;
 
     /** Process disable in processor context. */
     void
     Process_on_disable(Request::Ptr);
 
-    virtual void
+    void
     On_wait_and_process() override;
 
     void
@@ -501,10 +501,12 @@ protected:
     On_get_addr_info(Io_request::Ptr request, Get_addr_info_handler handler);
 
     Operation_waiter
-    Accept_impl(Socket_listener::Ref listener,
-            Request::Handler completion_handler,
-            Request_completion_context::Ptr completion_context,
-            Stream::Ref& stream_arg, Io_result& result_arg);
+    Accept_impl(
+        Socket_listener::Ref listener,
+        Request::Handler completion_handler,
+        Request_completion_context::Ptr completion_context,
+        Stream::Ref& stream_arg,
+        Io_result& result_arg);
 
 private:
     /** Lock for I/O streams when accessed from worker threads
@@ -567,32 +569,37 @@ typedef Socket_processor::Socket_listener Socket_listener;
 // This number is ether_v2 MTU - IP header - UDP header.
 static constexpr int MIN_UDP_PAYLOAD_SIZE_TO_READ = 1500 - 60 - 8;
 
+// TCP socket readers can use this as default max buffer size.
+// Typically reads data worth one MTU.
+// This number is ether_v2 MTU - IP header - TCP header (incl 20 byte options).
+static constexpr int MAX_TCP_PAYLOAD_SIZE_TO_READ = 1500 - 60 - 40;
+
 /** Convenience builder for socket connect operation callbacks. */
-DEFINE_CALLBACK_BUILDER (
+DEFINE_CALLBACK_BUILDER(
         Make_socket_connect_callback,
         (Socket_stream::Ref, Io_result),
         (nullptr, Io_result::OTHER_FAILURE))
 
 /** Convenience builder for socket listen operation callbacks. */
-DEFINE_CALLBACK_BUILDER (
+DEFINE_CALLBACK_BUILDER(
         Make_socket_listen_callback,
         (Socket_listener::Ref, Io_result),
         (nullptr, Io_result::OTHER_FAILURE))
 
 /** Convenience builder for socket accept operation callbacks. */
-DEFINE_CALLBACK_BUILDER (
+DEFINE_CALLBACK_BUILDER(
         Make_socket_accept_callback,
         (Socket_stream::Ref, Io_result),
         (nullptr, Io_result::OTHER_FAILURE))
 
 /** Convenience builder for socket Read_from operation callbacks. */
-DEFINE_CALLBACK_BUILDER (
+DEFINE_CALLBACK_BUILDER(
         Make_socket_read_from_callback,
         (Io_buffer::Ptr, Io_result, Socket_address::Ptr),
         (nullptr, Io_result::OTHER_FAILURE, nullptr))
 
 /** Convenience builder for Read operation callbacks. */
-DEFINE_CALLBACK_BUILDER (
+DEFINE_CALLBACK_BUILDER(
         Make_socket_read_callback,
         (Io_buffer::Ptr, Io_result),
         (nullptr, Io_result::OTHER_FAILURE))

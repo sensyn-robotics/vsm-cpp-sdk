@@ -7,11 +7,9 @@
 
 using namespace ugcs::vsm;
 
-typedef mavlink::Mavlink_kind_standard Mavlink_kind;
-
 void
 On_heartbeat(mavlink::Message<mavlink::MESSAGE_ID::HEARTBEAT>::Ptr,
-        Mavlink_stream<Mavlink_kind>::Ptr mav_stream)
+        Mavlink_stream::Ptr mav_stream)
 {
     mav_stream->Disable();
 }
@@ -23,12 +21,11 @@ TEST(disable_in_handler)
 
     auto stream = fp->Open("test_mavlink_stream.tmp", "w+");
 
-    Mavlink_stream<Mavlink_kind>::Ptr mav_stream =
-            Mavlink_stream<Mavlink_kind>::Create(stream);
+    auto mav_stream =Mavlink_stream::Create(stream);
     mav_stream->Bind_decoder_demuxer();
     mavlink::Pld_heartbeat hb;
-    auto msg1 = Mavlink_encoder().Encode<Mavlink_kind>(hb, 1, 1);
-    auto msg2 = Mavlink_encoder().Encode<Mavlink_kind>(hb, 1, 1);
+    auto msg1 = Mavlink_encoder().Encode_v1(hb, 1, 1);
+    auto msg2 = Mavlink_encoder().Encode_v2(hb, 1, 1);
     auto msgs = msg1->Concatenate(msg2);
     mav_stream->Get_demuxer().Register_handler<mavlink::MESSAGE_ID::HEARTBEAT, mavlink::Extension>(
             Mavlink_demuxer::Make_handler<mavlink::MESSAGE_ID::HEARTBEAT, mavlink::Extension>(

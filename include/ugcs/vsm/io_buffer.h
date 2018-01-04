@@ -13,8 +13,8 @@
 #include <memory>
 #include <vector>
 
-#ifndef IO_BUFFER_H_
-#define IO_BUFFER_H_
+#ifndef _IO_BUFFER_H_
+#define _IO_BUFFER_H_
 
 namespace ugcs {
 namespace vsm {
@@ -32,8 +32,8 @@ namespace vsm {
  */
 class Io_buffer: public std::enable_shared_from_this<Io_buffer> {
     DEFINE_COMMON_CLASS(Io_buffer, Io_buffer)
-public:
 
+public:
     /** Special value which references data end. */
     static const size_t END;
 
@@ -174,4 +174,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* IO_BUFFER_H_ */
+#endif /* _IO_BUFFER_H_ */

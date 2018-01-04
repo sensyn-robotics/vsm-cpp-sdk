@@ -8,8 +8,8 @@
  * Request container declaration.
  */
 
-#ifndef TASK_CONTAINER_H_
-#define TASK_CONTAINER_H_
+#ifndef _REQUEST_CONTAINER_H_
+#define _REQUEST_CONTAINER_H_
 
 #include <ugcs/vsm/callback.h>
 #include <ugcs/vsm/utils.h>
@@ -20,7 +20,6 @@
 #include <condition_variable>
 #include <atomic>
 #include <list>
-#include <atomic>
 
 namespace ugcs {
 namespace vsm {
@@ -30,12 +29,14 @@ namespace vsm {
  */
 class Request_container: public std::enable_shared_from_this<Request_container> {
     DEFINE_COMMON_CLASS(Request_container, Request_container)
+
 public:
     /** Generic request for implementing inter-threads communications and asynchronous
      * operations.
      */
     class Request: public std::enable_shared_from_this<Request> {
         DEFINE_COMMON_CLASS(Request, Request)
+
     public:
         /** Request processing status which is returned by the handler or set
          * internally.
@@ -359,6 +360,7 @@ public:
      */
     class Request_waiter: public std::enable_shared_from_this<Request_waiter> {
         DEFINE_COMMON_CLASS(Request_waiter, Request_waiter)
+
     public:
         /** Predicate for wait operations.
          * @return "true" if wait condition met, "false" otherwise.
@@ -603,7 +605,6 @@ protected:
     On_wait_and_process();
 
 private:
-
     /** Implementation of the request submit method with a locked locker. */
     void
     Submit_request_impl(
@@ -692,4 +693,4 @@ typedef Request_container::Request Request;
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* TASK_CONTAINER_H_ */
+#endif /* _REQUEST_CONTAINER_H_ */

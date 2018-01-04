@@ -22,12 +22,10 @@ class Heading_action: public Action {
     DEFINE_COMMON_CLASS(Heading_action, Action)
 
 public:
-
     /** Construct the heading action explicitly. */
     Heading_action(double heading) :
         Action(Type::HEADING),
         heading(heading) {}
-
 
     /**
      * Construct heading action from Mavlink mission item.

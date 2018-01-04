@@ -46,7 +46,6 @@ Vehicle_request::Vehicle_request(
 
 Vehicle_request::~Vehicle_request()
 {
-
 }
 
 void

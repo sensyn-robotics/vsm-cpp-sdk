@@ -11,11 +11,11 @@
 #ifndef _TASK_H_
 #define _TASK_H_
 
-#include <vector>
-#include <ugcs/vsm/action.h>
 #include <ugcs/vsm/coordinates.h>
 #include <ugcs/vsm/task_attributes_action.h>
 #include <ugcs/vsm/optional.h>
+#include <ugcs/vsm/action.h>
+#include <vector>
 
 namespace ugcs {
 namespace vsm {
@@ -25,7 +25,6 @@ typedef std::shared_ptr<ugcs::vsm::proto::Vsm_message> Proto_msg_ptr;
 /** Action plan for a single vehicle. */
 class Task {
 public:
-
     /** Constructor.
      * @param reserved_size Initial size of the actions vector.
      */
@@ -74,7 +73,6 @@ public:
     bool use_crlf_in_native_route = false;
 
 private:
-
     /** Implementation of retrieve home position from the task. Either gets
      * SET_HOME or the first MOVE action.
      * @return <position, elevation> tuple;
@@ -84,10 +82,9 @@ private:
 
     /** Take-off altitude, should be set before giving the task for user. */
     Optional<double> takeoff_altitude;
-
 };
 
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _VSM_MISSION_H_ */
+#endif /* _TASK_H_ */

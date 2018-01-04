@@ -8,8 +8,8 @@
  * Request execution context.
  */
 
-#ifndef TASK_CONTEXT_H_
-#define TASK_CONTEXT_H_
+#ifndef _REQUEST_CONTEXT_H_
+#define _REQUEST_CONTEXT_H_
 
 #include <ugcs/vsm/request_container.h>
 
@@ -57,4 +57,4 @@ typedef Request_context<false> Request_completion_context;
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* TASK_CONTEXT_H_ */
+#endif /* _REQUEST_CONTEXT_H_ */

@@ -96,7 +96,7 @@ Request_waiter::Wait_and_process_impl(const Container_list &containers,
          */
         do {
             cur_processed = 0;
-            for (auto &container: containers) {
+            for (auto &container : containers) {
                 if (!container->Is_enabled()) {
                     is_disabled = true;
                 } else {

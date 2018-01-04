@@ -7,10 +7,9 @@
 
 using namespace ugcs::vsm;
 
-typedef mavlink::Mavlink_kind_ugcs Mavlink_kind;
 
 mavlink::MESSAGE_ID_TYPE def_msg_id;
-typename Mavlink_kind::System_id def_sys_id;
+uint32_t def_sys_id;
 uint8_t def_com_id;
 bool resubmit;
 int hb_handler_called = 0;
@@ -28,8 +27,9 @@ Mavlink_demuxer::Key* hb_reg_key = nullptr;
 
 bool
 Default_handler(
+        Io_buffer::Ptr,
         mavlink::MESSAGE_ID_TYPE message_id,
-        typename Mavlink_kind::System_id system_id,
+        uint32_t system_id,
         uint8_t component_id,
         uint8_t,
         Mavlink_demuxer* demuxer)
@@ -60,14 +60,10 @@ TEST(basic_test)
     CHECK(!demuxer.Demux(buffer, mavlink::MESSAGE_ID::MISSION_COUNT, 0, 0, 0));
 
     /* Resubmit should fail demuxing on specific handler, because buffer is crap. */
-    resubmit = true;
     Mavlink_demuxer::Key hb00;
     hb_reg_key = &hb00;
-    CHECK_THROW(demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 0, 0, 0),
-                Invalid_param_exception);
 
     /* Demuxing shouldn't fail, because specific handler is not called. */
-    demuxer.Unregister_handler(hb00);
     resubmit = false;
     /* Should not throw any exceptions. */
     demuxer.Demux(buffer, mavlink::MESSAGE_ID::HEARTBEAT, 0, 0, 0);

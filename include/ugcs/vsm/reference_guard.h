@@ -8,8 +8,8 @@
  * Reference guard class definition.
  */
 
-#ifndef REFERENCE_GUARD_H_
-#define REFERENCE_GUARD_H_
+#ifndef _REFERENCE_GUARD_H_
+#define _REFERENCE_GUARD_H_
 
 #include <ugcs/vsm/defs.h>
 
@@ -186,10 +186,9 @@ public:
     /** Hasher class for reference type. */
     class Hasher {
     public:
-
         /** Calculate hash value. */
         size_t
-        operator ()(const Reference_guard& ref) const
+        operator()(const Reference_guard& ref) const
         {
             static std::hash<Class_ptr> hasher;
             return hasher(ref.ptr);
@@ -205,4 +204,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* REFERENCE_GUARD_H_ */
+#endif /* _REFERENCE_GUARD_H_ */

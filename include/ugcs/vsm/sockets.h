@@ -8,17 +8,14 @@
  * Defines platform specific parts of socket implementation.
  */
 
-#ifndef SOCKETS_H_
-#define SOCKETS_H_
+#ifndef _SOCKETS_H_
+#define _SOCKETS_H_
 
 #include <ugcs/vsm/platform_sockets.h>
 
-namespace ugcs
-{
-namespace vsm
-{
-namespace sockets
-{
+namespace ugcs {
+namespace vsm {
+namespace sockets {
 
 // These two calls are for WSAStartup and friends. Nop in unix world.
 void
@@ -44,8 +41,8 @@ Disable_sigpipe(Socket_handle);
 int
 Prepare_for_listen(Socket_handle, bool is_multicast);
 
-}// namespace platform
-}
-}
+} // namespace sockets
+} // namespace vsm
+} // namespace ugcs
 
-#endif /* SOCKETS_H_ */
+#endif /* _SOCKETS_H_ */

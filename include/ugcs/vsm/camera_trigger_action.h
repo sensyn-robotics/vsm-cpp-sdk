@@ -20,7 +20,6 @@ class Camera_trigger_action: public Action {
     DEFINE_COMMON_CLASS(Camera_trigger_action, Action)
 
 public:
-
     /** Camera trigger state. */
     enum State {
         /** Start recording. */
@@ -73,7 +72,6 @@ public:
     std::chrono::milliseconds interval;
 
 private:
-
     /** Convert camera trigger state parameter from Mavlink message to State
      * enum.
      * @throw Action::Format_exception if mav_param has unsupported value.

@@ -1,3 +1,7 @@
+// Copyright (c) 2017, Smart Projects Holdings Ltd
+// All rights reserved.
+// See LICENSE file for license details.
+
 #include <ugcs/vsm/poll_io_controller.h>
 
 using namespace ugcs::vsm::internal;

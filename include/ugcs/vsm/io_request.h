@@ -8,8 +8,8 @@
  * I/O request declaration.
  */
 
-#ifndef IO_TASK_H_
-#define IO_TASK_H_
+#ifndef _IO_REQUEST_H_
+#define _IO_REQUEST_H_
 
 #include <ugcs/vsm/io_stream.h>
 #include <ugcs/vsm/utils.h>
@@ -22,7 +22,6 @@ class Io_request: public Request {
     DEFINE_COMMON_CLASS(Io_request, Request)
 
 public:
-
     /** Construct I/O request.
      * @param stream Related I/O stream instance.
      * @param offset Offset for I/O operation if applicable. If the target
@@ -233,4 +232,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* IO_TASK_H_ */
+#endif /* _IO_REQUEST_H_ */

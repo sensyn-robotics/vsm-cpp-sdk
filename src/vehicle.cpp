@@ -42,15 +42,11 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
         vehicle_type = ugcs::vsm::proto::VEHICLE_TYPE_MULTICOPTER;
         break;
     case mavlink::MAV_TYPE_QUADROTOR:
-    case mavlink::MAV_TYPE_VTOL_QUADROTOR:
         frame_type = "generic_quad_x";
         vehicle_type = ugcs::vsm::proto::VEHICLE_TYPE_MULTICOPTER;
         break;
     case mavlink::MAV_TYPE_TRICOPTER:
         frame_type = "generic_tri_y";
-        vehicle_type = ugcs::vsm::proto::VEHICLE_TYPE_MULTICOPTER;
-        break;
-    case mavlink::MAV_TYPE_VTOL_DUOROTOR:
         vehicle_type = ugcs::vsm::proto::VEHICLE_TYPE_MULTICOPTER;
         break;
     case mavlink::MAV_TYPE_HELICOPTER:
@@ -65,6 +61,25 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
         break;
     case mavlink::MAV_TYPE_GROUND_ROVER:
         vehicle_type = ugcs::vsm::proto::VEHICLE_TYPE_GROUND;
+        break;
+    case mavlink::MAV_TYPE_VTOL_DUOROTOR:
+        frame_type = "generic_vtol_duo";
+        vehicle_type = ugcs::vsm::proto::VEHICLE_TYPE_VTOL;
+        break;
+    case mavlink::MAV_TYPE_VTOL_QUADROTOR:
+        frame_type = "generic_vtol_quad";
+        vehicle_type = ugcs::vsm::proto::VEHICLE_TYPE_VTOL;
+        break;
+    case mavlink::MAV_TYPE_VTOL_TILTROTOR:
+        frame_type = "generic_tilt_rotor";
+        vehicle_type = ugcs::vsm::proto::VEHICLE_TYPE_VTOL;
+        break;
+    case mavlink::MAV_TYPE_VTOL_RESERVED2:
+    case mavlink::MAV_TYPE_VTOL_RESERVED3:
+    case mavlink::MAV_TYPE_VTOL_RESERVED4:
+    case mavlink::MAV_TYPE_VTOL_RESERVED5:
+        frame_type = "generic_vtol";
+        vehicle_type = ugcs::vsm::proto::VEHICLE_TYPE_VTOL;
         break;
     default:
         VSM_EXCEPTION(Exception, "Unsupported vehicle mav_type: %d", type);
@@ -151,6 +166,7 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
 
     c_mission_upload = Add_command(fc, "mission_upload", true, false);
     c_mission_upload->Add_parameter("altitude_origin");
+    c_mission_upload->Add_parameter("name");
     c_mission_upload->Add_parameter("safe_altitude", proto::FIELD_SEMANTIC_ALTITUDE_AMSL);
 
     // Derived vehicle should set supported enum values for these actions
@@ -301,6 +317,12 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
     c_camera_by_time->Add_parameter("count", Property::VALUE_TYPE_INT);
     c_camera_by_time->Add_parameter("delay", Property::VALUE_TYPE_FLOAT);
 
+    c_payload_control = Add_command(cam, "payload_control", false, true);
+    c_payload_control->Add_parameter("tilt", ugcs::vsm::proto::FIELD_SEMANTIC_PITCH);
+    c_payload_control->Add_parameter("roll");
+    c_payload_control->Add_parameter("yaw");
+    c_payload_control->Add_parameter("zoom_level", ugcs::vsm::Property::VALUE_TYPE_FLOAT);
+
 // Create gimbal.
     auto gimbal = Add_subdevice(SUBDEVICE_TYPE_GIMBAL);
     subsystems.gimbal = gimbal;
@@ -319,7 +341,7 @@ Vehicle::Vehicle(mavlink::MAV_TYPE type, mavlink::MAV_AUTOPILOT autopilot,
     prop->Max_value()->Set_value(1);
     prop->Min_value()->Set_value(-1);
 
-    Set_capabilities(capabilities); // this should be after all commands are created.
+    Set_capabilities(capabilities);  // this should be after all commands are created.
     Calculate_system_id();
 
     auto props = ugcs::vsm::Properties::Get_instance().get();
@@ -376,7 +398,10 @@ Vehicle::Handle_ucs_command(
     Ucs_request::Ptr ucs_request)
 {
     if (ucs_request->request.device_commands_size() != 1) {
-        Command_failed(ucs_request, "Only one command allowed in ucs message, got " + std::to_string(ucs_request->request.device_commands_size()));
+        Command_failed(
+            ucs_request,
+            "Only one command allowed in ucs message, got " +
+                std::to_string(ucs_request->request.device_commands_size()));
         return;
     }
 
@@ -408,13 +433,17 @@ Vehicle::Handle_ucs_command(
     try {
         params = cmd->Build_parameter_list(vsm_cmd);
         if (cmd == c_mission_upload || cmd == c_get_native_route) {
+            std::string route_name;
+            if (params.Get_value("name", route_name)) {
+                VEHICLE_LOG_INF((*this), "Route name : %s", route_name.c_str());
+            }
             task = Vehicle_task_request::Create(
                 completion_handler,
                 completion_ctx,
                 vsm_cmd.sub_commands_size());
 
             float altitude_origin;
-            if (params.at("altitude_origin")->Get_value(altitude_origin)) {
+            if (params.Get_value("altitude_origin", altitude_origin)) {
                 LOG("Altitude origin: %f", altitude_origin);
                 task->payload.Set_takeoff_altitude(altitude_origin);
             } else {
@@ -480,8 +509,14 @@ Vehicle::Handle_ucs_command(
                         action = Set_servo_action::Create(params);
                     } else if (cmd == c_repeat_servo) {
                         action = Repeat_servo_action::Create(params);
+                    } else if (cmd == c_transition_fixed) {
+                        action = Vtol_transition_action::Create(Vtol_transition_action::FIXED);
+                    } else if (cmd == c_transition_vtol) {
+                        action = Vtol_transition_action::Create(Vtol_transition_action::VTOL);
                     } else {
-                        VSM_EXCEPTION(Action::Format_exception, "Unsupported mission item '%s'", cmd->Get_name().c_str());
+                        VSM_EXCEPTION(
+                            Action::Format_exception,
+                            "Unsupported mission item '%s'", cmd->Get_name().c_str());
                     }
                     if (action) {
                         action->Set_id(item_count);
@@ -533,7 +568,9 @@ Vehicle::Handle_ucs_command(
             } else if (cmd == c_camera_video_source) {
                 ctype = Vehicle_command::Type::CAMERA_VIDEO_SOURCE;
             } else {
-                ucs_request->Complete(ugcs::vsm::proto::STATUS_INVALID_COMMAND, "Unsupported command. Only legacy commands supported for now.");
+                ucs_request->Complete(
+                    ugcs::vsm::proto::STATUS_INVALID_COMMAND,
+                    "Unsupported command. Only legacy commands supported for now.");
                 return;
             }
             auto task = Vehicle_command_request::Create(completion_handler, completion_ctx, ctype, params);
@@ -578,7 +615,7 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
         p.second->Write_as_property(dev->add_properties());
     }
 
-    for (auto subdevice: subdevices) {
+    for (auto subdevice : subdevices) {
         switch (subdevice.type) {
         case SUBDEVICE_TYPE_FC:
         {
@@ -586,11 +623,11 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
             sd->set_autopilot_serial(autopilot_serial);
             sd->set_autopilot_type(autopilot_type);
             if (!is_command_porcessor) {
-                for (auto it: subdevice.telemetry_fields) {
+                for (auto it : subdevice.telemetry_fields) {
                     it.second->Register(sd->add_telemetry_fields());
                 }
             }
-            for (auto it: subdevice.commands) {
+            for (auto it : subdevice.commands) {
                 it.second->Register(sd->add_commands());
             }
         }
@@ -598,10 +635,10 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
         case SUBDEVICE_TYPE_CAMERA:
         {
             auto sd = reg->add_register_camera();
-            for (auto it: subdevice.telemetry_fields) {
+            for (auto it : subdevice.telemetry_fields) {
                 it.second->Register(sd->add_telemetry_fields());
             }
-            for (auto it: subdevice.commands) {
+            for (auto it : subdevice.commands) {
                 it.second->Register(sd->add_commands());
             }
         }
@@ -610,11 +647,11 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
         {
             auto sd = reg->add_register_adsb_transponder();
             if (!is_command_porcessor) {
-                for (auto it: subdevice.telemetry_fields) {
+                for (auto it : subdevice.telemetry_fields) {
                     it.second->Register(sd->add_telemetry_fields());
                 }
             }
-            for (auto it: subdevice.commands) {
+            for (auto it : subdevice.commands) {
                 it.second->Register(sd->add_commands());
             }
         }
@@ -623,18 +660,18 @@ Vehicle::Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
         {
             auto sd = reg->add_register_gimbal();
             if (!is_command_porcessor) {
-                for (auto it: subdevice.telemetry_fields) {
+                for (auto it : subdevice.telemetry_fields) {
                     it.second->Register(sd->add_telemetry_fields());
                 }
             }
-            for (auto it: subdevice.commands) {
+            for (auto it : subdevice.commands) {
                 it.second->Register(sd->add_commands());
             }
         }
         break;
         }
     }
-    //LOG("Register msg:%s", msg.DebugString().c_str());
+    // LOG("Register msg:%s", msg.DebugString().c_str());
 }
 
 void
@@ -685,8 +722,9 @@ Vehicle::Command_failed(
 void
 Vehicle::Handle_vehicle_request(Vehicle_task_request::Handle)
 {
-    LOG_DEBUG("Mission to vehicle [%s:%s] is ignored.", 
-    Get_serial_number().c_str(), Get_model_name().c_str());
+    LOG_DEBUG(
+        "Mission to vehicle [%s:%s] is ignored.",
+        Get_serial_number().c_str(), Get_model_name().c_str());
 }
 
 void
@@ -740,7 +778,6 @@ Vehicle::Sys_status::Sys_status(
         uplink_connected(uplink_connected), downlink_connected(downlink_connected),
         control_mode(control_mode), state(state), uptime(uptime)
 {
-
 }
 
 bool
@@ -826,7 +863,7 @@ Vehicle::Set_capabilities(const Capabilities& capabilities)
         // legacy stuff. translate capability states to command states.
 
         c_mission_upload->Set_available();  // always available
-#define SET_STATE(comma,state) \
+#define SET_STATE(comma, state) \
         if (comma) {    \
             comma->Set_available(capabilities.Is_set(Capability::state));    \
         }
@@ -872,9 +909,9 @@ Vehicle::Set_capability_states(const Capability_states& capability_states)
     CREATE_COMMIT_SCOPE;
     if (update) {
         // legacy stuff. translate capability states to command states.
-        c_mission_upload->Set_enabled(); // always enabled.
+        c_mission_upload->Set_enabled();  // always enabled.
 
-#define SET_STATE(comma,state) \
+#define SET_STATE(comma, state) \
         if (comma) {    \
             comma->Set_enabled(capability_states.Is_set(Capability_state::state));    \
         }
@@ -1044,7 +1081,7 @@ Vehicle::Command_map::Fill_command_mapping_response(Proto_msg_ptr msg)
 {
     if (msg) {
         auto res = msg->mutable_device_response();
-        res->set_mission_id(mission_id.Get());
+        res->set_mission_id(Get_route_id());
         for (auto i : mission_command_map) {
             auto m = res->add_mission_command_map();
             m->set_vehicle_command_id(i.first);
@@ -1082,10 +1119,16 @@ Vehicle::Command_map::Accumulate_route_id(uint32_t hash)
     mission_id.Add_int(hash);
 }
 
+void
+Vehicle::Command_map::Set_secondary_id(uint32_t id)
+{
+    secondary_id = id;
+}
+
 uint32_t
 Vehicle::Command_map::Get_route_id()
 {
-    return mission_id.Get();
+    return mission_id.Get() + secondary_id;
 }
 
 bool

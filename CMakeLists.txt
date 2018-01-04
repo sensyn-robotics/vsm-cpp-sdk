@@ -49,7 +49,7 @@ Compile_protobuf_definitions(
 # Platform includes and shared includes
 set (SDK_INCLUDES "${CMAKE_SOURCE_DIR}/include" ${PLATFORM_INCLUDES} ${MAVLINK_INCLUDES})
 
-set (SDK_SOURCES ${SOURCES} ${PLATFORM_SOURCES} ${MAVLINK_SOURCES} ${PROTOBUF_AUTO_SOURCES})
+set (SDK_SOURCES ${SOURCES} ${PLATFORM_SOURCES} ${MAVLINK_SOURCES} ${PROTOBUF_AUTO_SOURCES} ${MAVLINK_LUA})
 
 set (SDK_HEADERS ${HEADERS} ${PLATFORM_HEADERS} ${MAVLINK_HEADERS} ${PROTOBUF_AUTO_HEADERS})
 
@@ -141,10 +141,14 @@ else()
             ARCHIVE DESTINATION "${LIBRARY_INSTALL_DIR}")
 endif()
 
-
-add_dependencies(${CMAKE_PROJECT_NAME} mavlink_lua)
-
 add_dependencies (${CMAKE_PROJECT_NAME} protobuf_compiler)
+
+Add_cppcheck_target()
+
+set (LINT_SOURCES ${SOURCES} ${PLATFORM_SOURCES} ${HEADERS} ${PLATFORM_HEADERS})
+# Remove deelx.h from lint check. TODO: No need for this once moved to fully compliant c++11 compiler. 
+list(REMOVE_ITEM LINT_SOURCES ${CMAKE_SOURCE_DIR}/include/ugcs/vsm/deelx.h)
+Add_cpplint_target(${LINT_SOURCES})
 
 # Install common includes
 install (DIRECTORY include/ugcs

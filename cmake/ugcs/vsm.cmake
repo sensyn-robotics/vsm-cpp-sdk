@@ -129,6 +129,63 @@ function (Create_android_build ANDROID_ABI ANDROID_PLATFORM SOURCES INCLUDE_DIRS
     message ("Added target android with abi=${ANDROID_ABI}, platform=${ANDROID_PLATFORM}")
 endfunction()
 
+# Add make target cppcheck
+# Valid only for linux host
+# Runs cppcheck (https://github.com/danmar/cppcheck) on VSM sources.
+function(Add_cppcheck_target)
+    if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+        # Create command line for cppcheck invocation
+        set (PARAMS 
+            "--enable=all"
+            "--std=c++11"
+            "--quiet"
+            "--template=gcc"
+            "--suppress=unusedFunction"
+            "--suppress=missingIncludeSystem"
+            "--suppress=unmatchedSuppression"
+            "-UANDROID")
+        # Gather compile defs
+        get_directory_property(PLIST COMPILE_DEFINITIONS)
+        foreach (PARAM  ${PLIST})
+            set (PARAMS ${PARAMS} -D${PARAM})
+        endforeach()
+        # Gather all source files of project
+        get_target_property(PLIST ${CMAKE_PROJECT_NAME} SOURCES)
+        # Run the command
+        # Used for IDE integration.
+        add_custom_target(cppcheck
+            COMMAND cppcheck ${PARAMS} ${PLIST} ${ARGV}
+            VERBATIM)
+        # This creates cppcheck-result.xml file in the build directory.
+        # Used for buildserver integration.
+        add_custom_target(cppcheckxml
+            COMMAND cppcheck --xml-version=2 ${PARAMS} ${PLIST} ${ARGV} 2> cppcheck-result.xml
+            VERBATIM)
+    endif()
+endfunction()
+
+# Add make target cpplint
+# Valid only for linux host
+# Runs a little modified cpplint (https://github.com/google/styleguide.git) on VSM sources.
+function(Add_cpplint_target)
+    if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+        # Gather all source files of project
+        get_target_property(SOURCE_LIST ${CMAKE_PROJECT_NAME} SOURCES)
+        add_custom_target (cpplint
+            COMMAND python ${VSM_SDK_DIR}/share/tools/cpplint.py
+            --linelength=120
+            # 1) Do not care about converting constructors for now.
+            # 2) We are fine with std headers included in class header. No need for redundant include in cpp.
+            --filter=-runtime/explicit,-build/include_what_you_use,-readability/inheritance
+            --verbose=0
+            ${SOURCE_LIST} ${ARGV}
+            VERBATIM)
+    endif()
+endfunction()
+
+# Create targets which are common for all VSMs
+# Variable SOURCES must contain a list of all source file names
+# Variable HEADERS is optional but if it exists it must contain a list of all header file names
 function(Build_vsm)
     if (ANDROID)
         get_directory_property(INCLUDE_DIRS INCLUDE_DIRECTORIES)
@@ -140,9 +197,13 @@ function(Build_vsm)
         add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
         
         target_link_libraries(${CMAKE_PROJECT_NAME} ${VSM_LIBS})
-        
+
         Add_install_target()
-        
+
+        Add_cppcheck_target()
+
+        Add_cpplint_target(${HEADERS})
+
         #Add package target.
         include(CPack)
     endif()

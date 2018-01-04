@@ -42,7 +42,7 @@ Mavlink_demuxer::Demux(Io_buffer::Ptr buffer, mavlink::MESSAGE_ID_TYPE message_i
     if (!default_handler) {
         return false;
     }
-    if (default_handler(message_id, system_id, component_id, request_id)) {
+    if (default_handler(buffer, message_id, system_id, component_id, request_id)) {
         return Demux_try(buffer, message_id, system_id, component_id, request_id);
     }
     return false;

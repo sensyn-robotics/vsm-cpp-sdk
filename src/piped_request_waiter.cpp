@@ -14,7 +14,7 @@ using namespace ugcs::vsm;
 Piped_request_waiter::Piped_request_waiter()
 {
     sockets::Init_sockets();
-    if(sockets::Create_socketpair(read_pipe, write_pipe)) {
+    if (sockets::Create_socketpair(read_pipe, write_pipe)) {
         VSM_EXCEPTION(Internal_error_exception, "Pipe creation error");
     }
 
@@ -93,7 +93,7 @@ Piped_request_waiter::Notify()
     if (already_notified) {
         return;
     }
-    ssize_t rc = send(write_pipe, "x", 1, sockets::SEND_FLAGS );
+    ssize_t rc = send(write_pipe, "x", 1, sockets::SEND_FLAGS);
     if (rc == SOCKET_ERROR) {
         VSM_SYS_EXCEPTION("Notify pipe write error");
     } else if (rc == 0) {

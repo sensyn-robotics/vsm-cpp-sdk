@@ -17,28 +17,19 @@ namespace ugcs {
 namespace vsm {
 
 /** Decodes Mavlink 1.0 messages from byte stream. */
-template<typename Mavlink_kind>
 class Mavlink_decoder {
-
 private:
-
     /** Decoding state. */
     enum class State {
         /** Waiting for start sign. */
         STX,
-        /** Receiving fixed header. */
-        HEADER,
-        /** Receiving payload. */
-        PAYLOAD,
-        /** Receiving checksum. */
-        CHECKSUM
+        /** Parsing mavlink1. */
+        VER1,
+        /** Parsing mavlink2. */
+        VER2
     };
 
 public:
-
-    /** Mavlink header type. */
-    typedef mavlink::Header<Mavlink_kind> Header;
-
     /** Handler type of the received Mavlink message. Arguments are:
      * - Payload buffer
      * - Message id
@@ -46,7 +37,7 @@ public:
      * - Sending component id
      */
     typedef Callback_proxy<void, Io_buffer::Ptr, mavlink::MESSAGE_ID_TYPE,
-            typename Mavlink_kind::System_id, uint8_t, uint32_t> Handler;
+        uint8_t, uint8_t, uint32_t> Handler;
 
     /** Handler for the raw data going through the decoder. */
     typedef Callback_proxy<void, Io_buffer::Ptr> Raw_data_handler;
@@ -54,7 +45,7 @@ public:
     /** Convenience builder for Mavlink decoder handlers. */
     DEFINE_CALLBACK_BUILDER(
             Make_decoder_handler,
-            (Io_buffer::Ptr, mavlink::MESSAGE_ID_TYPE, typename Mavlink_kind::System_id, uint8_t, uint32_t),
+            (Io_buffer::Ptr, mavlink::MESSAGE_ID_TYPE, uint8_t, uint8_t, uint32_t),
             (nullptr, mavlink::MESSAGE_ID::DEBUG_VALUE, mavlink::SYSTEM_ID_NONE, 0, 0))
 
     /** Convenience builder for raw data handlers. */
@@ -84,8 +75,10 @@ public:
 
     /** Default constructor. */
     Mavlink_decoder():
-        stats()
-    {}
+        stats(),
+        packet_buf(ugcs::vsm::Io_buffer::Create())
+    {
+    }
 
     /** Delete copy constructor. */
     Mavlink_decoder(const Mavlink_decoder&) = delete;
@@ -117,23 +110,78 @@ public:
     void
     Decode(Io_buffer::Ptr buffer)
     {
+        // LOG_DBG("read: %s", buffer->Get_hex().c_str());
         if (data_handler) {
             data_handler(buffer);
         }
-        Decode_buffer(buffer);
+        packet_buf = packet_buf->Concatenate(buffer);
+        size_t packet_len;
+        const uint8_t* data;
+        next_read_len = 0;
 
-        /* Do we have accumulated segments which could not be processed by a
-         * full turn of state machine, i.e. back to STX?
-         */
-        while (segments.size() && state == State::STX) {
-            auto retry_segs = std::move(segments);
-            do {
-                Decode_buffer(retry_segs.front());
-                retry_segs.pop_front();
-                /* Loop while in the middle of packet decoding. */
-            } while (retry_segs.size() && state != State::STX);
-            /* Join newly accumulated and remaining segments. */
-            segments.splice(segments.end(), retry_segs);
+        while (true) {
+            size_t buffer_len = packet_buf->Get_length();
+            if (state == State::STX) {
+                size_t len_skipped = 0;
+                if (buffer_len < mavlink::MAVLINK_1_MIN_FRAME_LEN) {
+                    // need at least minimum frame length of data.
+                    next_read_len = mavlink::MAVLINK_1_MIN_FRAME_LEN - buffer_len;
+                    break;
+                }
+                // look for signature in received data.
+                data = static_cast<const uint8_t*>(packet_buf->Get_data());
+                for (; len_skipped < buffer_len; len_skipped++, data++) {
+                    if (*data == mavlink::START_SIGN) {
+                        // found preamble. Start receiving payload.
+                        state = State::VER1;
+                        stats.stx_syncs++;
+                        // slice off the preamble.
+                        packet_buf = packet_buf->Slice(1);
+                        break;
+                    }
+                    if (*data == mavlink::START_SIGN2) {
+                        // found preamble. Start receiving payload.
+                        state = State::VER2;
+                        stats.stx_syncs++;
+                        // slice off the preamble.
+                        packet_buf = packet_buf->Slice(1);
+                        break;
+                    }
+                }
+                if (len_skipped) {
+                    // slice off the skipped bytes.
+                    packet_buf = packet_buf->Slice(len_skipped);
+                }
+            }
+            if (state == State::VER1 || state == State::VER2) {
+                size_t wrapper_len; // non-payload data len excluding signature.
+                if (state == State::VER1) {
+                    wrapper_len = mavlink::MAVLINK_1_HEADER_LEN - 1 + 2;
+                } else {
+                    wrapper_len = mavlink::MAVLINK_2_HEADER_LEN - 1 + 2;
+                }
+                buffer_len = packet_buf->Get_length();
+                if (buffer_len == 0) {
+                    // need at least the minimum packet len. Initiate next read.
+                    next_read_len = wrapper_len;
+                    break;
+                }
+                data = static_cast<const uint8_t*>(packet_buf->Get_data());
+                packet_len = wrapper_len + static_cast<size_t>(*data);
+                if (packet_len > buffer_len) {
+                    // need the whole packet. Initiate next read.
+                    next_read_len = packet_len - buffer_len;
+                    break;
+                }
+                if (Decode_packet(packet_buf)) {
+                    // decoder suceeded. Slice off the decoded packet.
+                    packet_buf = packet_buf->Slice(packet_len);
+                }
+                // if decoder failed, we restart the search for
+                // next preamble in existing data otherwise
+                // continue with next byte after the decoded packet.
+                state = State::STX;
+            }
         }
     }
 
@@ -144,9 +192,7 @@ public:
     Reset(bool reset_stats = true)
     {
         state = State::STX;
-        payload = nullptr;
-        header.clear();
-        checksum.clear();
+        packet_buf = ugcs::vsm::Io_buffer::Create();
         if (reset_stats) {
             stats = Stats();
         }
@@ -159,26 +205,7 @@ public:
     size_t
     Get_next_read_size() const
     {
-        const Header* header_ptr;
-
-        switch (state) {
-        /*
-         * In STX and HEADER states we don't want to read any payload data,
-         * because we want to receive the whole payload at once together with
-         * checksum to avoid memory copy.
-         */
-        case State::STX: return sizeof(Header);
-        case State::HEADER: return sizeof(Header) - header.size();
-        case State::PAYLOAD:
-            header_ptr =
-                    reinterpret_cast<const Header*>(header.data());
-            return header_ptr->payload_len - payload->Get_length() + sizeof(uint16_t);
-        case State::CHECKSUM: return sizeof(uint16_t) - checksum.size();
-        default:
-            ASSERT(false);
-            VSM_EXCEPTION(Internal_error_exception, "Unexpected state %d",
-                          static_cast<int>(state));
-        }
+        return next_read_len;
     }
 
     /** Get read-only access to statistics. */
@@ -189,185 +216,83 @@ public:
     }
 
 private:
-
-    /** Decode single buffer and accumulate segments. */
-    void
-    Decode_buffer(Io_buffer::Ptr buffer)
+    bool
+    Decode_packet(Io_buffer::Ptr buffer)
     {
-        stats.bytes_received += buffer->Get_length();
+        auto data = static_cast<const uint8_t*>(buffer->Get_data());
+        uint16_t payload_len = data[0];
+        uint8_t system_id;
+        uint8_t component_id;
+        uint8_t seq;
+        uint8_t header_len;
+        mavlink::MESSAGE_ID_TYPE msg_id;
 
-        while (buffer->Get_length()) {
-            switch (state) {
-            case State::STX:
-                buffer = Decode_stx(buffer);
-                break;
-            case State::HEADER:
-                buffer = Decode_header(buffer);
-                break;
-            case State::PAYLOAD:
-                buffer = Decode_payload(buffer);
-                break;
-            case State::CHECKSUM:
-                buffer = Decode_checksum(buffer);
-                break;
-            }
-        }
-    }
-
-    /** Decode start sign. */
-    Io_buffer::Ptr
-    Decode_stx(Io_buffer::Ptr buffer)
-    {
-        const uint8_t* data = static_cast<const uint8_t*>(buffer->Get_data());
-        size_t full_len = buffer->Get_length();
-        size_t len = full_len;
-
-        for ( ; len ; len--, data++) {
-            if (*data == mavlink::START_SIGN) {
-                stats.stx_syncs++;
-                state = State::HEADER;
-                header.clear();
-                break;
-            }
+        if (state == State::VER2) {
+            seq = data[3];
+            system_id = data[4];
+            component_id = data[5];
+            msg_id =
+                static_cast<int>(data[6]) +
+                (static_cast<int>(data[7]) << 8) +
+                (static_cast<int>(data[8]) << 16);
+            header_len = mavlink::MAVLINK_2_HEADER_LEN - 1;
+        } else {
+            seq = data[1];
+            system_id = data[2];
+            component_id = data[3];
+            msg_id = data[4];
+            header_len = mavlink::MAVLINK_1_HEADER_LEN - 1;
         }
 
-        return buffer->Slice(full_len - len);
-    }
+        mavlink::Checksum sum(data, header_len);
 
-    /** Decoder header. */
-    Io_buffer::Ptr
-    Decode_header(Io_buffer::Ptr buffer)
-    {
-        const uint8_t* data = static_cast<const uint8_t*>(buffer->Get_data());
-        size_t len = buffer->Get_length();
-
-        for ( ; len && header.size() < sizeof(Header) ; len--, data++) {
-            header.push_back(*data);
+        mavlink::Extra_byte_length_pair crc_byte_len_pair;
+        // Try all extensions.
+        if (    !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::Extension::Get())
+            &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::apm::Extension::Get())
+            &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::sph::Extension::Get())) {
+            stats.unknown_id++;
+            // LOG_DEBUG("Unknown Mavlink message id: %d (%X)", msg_id, msg_id);
+            return false;
         }
 
-        if (header.size() == sizeof(Header)) {
-            state = State::PAYLOAD;
-            /* Strip STX byte. */
-            segments.push_back(Io_buffer::Create(&header[1], header.size() - 1));
-            payload = Io_buffer::Create();
-        }
+        sum.Accumulate(data + header_len, payload_len);
 
-        return buffer->Slice(buffer->Get_length() - len);
-    }
+        uint16_t sum_calc = sum.Accumulate(crc_byte_len_pair.first);
+        /* Convert checksum in Mavlink byte order to a host byte order
+         * compatible type. */
+        auto sum_recv = reinterpret_cast<const mavlink::Uint16*>(data + header_len + payload_len);
 
-    /** Decoder payload. */
-    Io_buffer::Ptr
-    Decode_payload(Io_buffer::Ptr buffer)
-    {
-        Header* header_ptr = reinterpret_cast<Header*>(header.data());
+        bool cksum_ok = sum_calc == *sum_recv;
+        bool length_ok = crc_byte_len_pair.second == payload_len;
 
-        size_t to_read = std::min(header_ptr->payload_len - payload->Get_length(),
-                                  buffer->Get_length());
-
-        payload = payload->Concatenate(buffer->Slice(0, to_read));
-
-        if (payload->Get_length() == header_ptr->payload_len) {
-            state = State::CHECKSUM;
-            segments.push_back(payload);
-            checksum.clear();
-        }
-
-        return buffer->Slice(to_read);
-    }
-
-    /** Decoder checksum. */
-    Io_buffer::Ptr
-    Decode_checksum(Io_buffer::Ptr buffer)
-    {
-        const uint8_t* data = static_cast<const uint8_t*>(buffer->Get_data());
-        size_t len = buffer->Get_length();
-
-        for ( ; len && checksum.size() < sizeof(uint16_t) ; len--, data++) {
-            checksum.push_back(*data);
-        }
-
-        if (checksum.size() == sizeof(uint16_t)) {
-            /* Got checksum, state machine should be restarted. */
-            state = State::STX;
-            segments.push_back(Io_buffer::Create(&checksum[0], checksum.size()));
-            Header* header_ptr = reinterpret_cast<Header*>(header.data());
-
-            mavlink::Checksum sum(&header[1], header.size() - 1);
-            sum.Accumulate(payload);
-
-            mavlink::Extra_byte_length_pair crc_byte_len_pair;
-            // Try all extensions.
-            if (    !sum.Get_extra_byte_length_pair(header_ptr->message_id, crc_byte_len_pair, mavlink::Extension::Get())
-                &&  !sum.Get_extra_byte_length_pair(header_ptr->message_id, crc_byte_len_pair, mavlink::apm::Extension::Get())
-                &&  !sum.Get_extra_byte_length_pair(header_ptr->message_id, crc_byte_len_pair, mavlink::sph::Extension::Get())) {
-                stats.unknown_id++;
-                LOG_DEBUG("Unknown Mavlink message id: %d", header_ptr->message_id.Get());
-                /* Save remaining bytes. */
-                segments.push_back(buffer->Slice(buffer->Get_length() - len));
-                /* And terminate the decoding of current buffer. */
-                return Io_buffer::Create();
-            }
-
-            if (header_ptr->message_id.Get() == mavlink::MESSAGE_ID::GPS_RTCM_DATA) {
-                // GPS_RTCM_DATA is not supported by SDK.
-                /* Save remaining bytes. */
-                segments.push_back(buffer->Slice(buffer->Get_length() - len));
-                /* And terminate the decoding of current buffer. */
-                return Io_buffer::Create();
-            }
-
-            uint16_t sum_calc = sum.Accumulate(crc_byte_len_pair.first);
-            /* Convert checksum in Mavlink byte order to a host byte order
-             * compatible type. */
-            mavlink::Uint16* sum_recv = reinterpret_cast<mavlink::Uint16*>(checksum.data());
-
-            bool cksum_ok = sum_calc == *sum_recv;
-            bool length_ok = crc_byte_len_pair.second == header_ptr->payload_len;
-
-            if (cksum_ok && length_ok) {
-                /*
-                 * Fully valid packet received, not interested in its segments
-                 * anymore.
-                 */
-                segments.clear();
-                mavlink::MESSAGE_ID_TYPE message_id = header_ptr->message_id.Get();
-                if (handler) {
-                    handler(payload, message_id, header_ptr->system_id, header_ptr->component_id, header_ptr->seq);
-                    stats.handled++;
-                } else {
-                    stats.no_handler++;
-                    LOG_DEBUG("Mavlink message %d handler not registered.", message_id);
-                }
+        if (cksum_ok && (length_ok || state == State::VER2)) {
+            /*
+             * Fully valid packet received.
+             */
+            if (handler) {
+                handler(Io_buffer::Create(*buffer, header_len, payload_len), msg_id, system_id, component_id, seq);
+                stats.handled++;
             } else {
-                if (!cksum_ok) {
-                    stats.bad_checksum++;
-                } else {
-                    stats.bad_length++;
-                    LOG_DEBUG("Mavlink payload length mismatch, recv=%d wanted=%d.",
-                            header_ptr->payload_len.Get(), crc_byte_len_pair.second);
-                }
-                /* Save remaining bytes. */
-                segments.push_back(buffer->Slice(buffer->Get_length() - len));
-                /* And terminate the decoding of current buffer. */
-                return Io_buffer::Create();
+                stats.no_handler++;
+                LOG_DEBUG("Mavlink message %d handler not registered.", msg_id);
             }
+            return true;
+        } else {
+            if (!cksum_ok) {
+                stats.bad_checksum++;
+            } else {
+                stats.bad_length++;
+                LOG_DEBUG("Mavlink payload length mismatch, recv=%d wanted=%d.",
+                    payload_len, crc_byte_len_pair.second);
+            }
+            return false;
         }
-
-        return buffer->Slice(buffer->Get_length() - len);
     }
 
 
     /** Current decoder state. */
     State state = State::STX;
-
-    /** Header of the currently receiving message. */
-    std::vector<uint8_t> header;
-
-    /** Checksum of the currently receiving message. */
-    std::vector<uint8_t> checksum;
-
-    /** Payload of the currently receiving message. */
-    Io_buffer::Ptr payload;
 
     /** Handler for decoded messages. */
     Handler handler;
@@ -378,12 +303,10 @@ private:
     /** Statistics. */
     Stats stats;
 
-    /** Segments of the packet being decoded ordered by receiving time. First
-     * segment does not include the STX byte in order to be able to continue
-     * packet decoding just by skipping the first byte in a hope to find some
-     * inner packet in case of STX synchronization is lost. */
-    std::list<Io_buffer::Ptr> segments;
+    /** Packet buffer. */
+    ugcs::vsm::Io_buffer::Ptr packet_buf;
 
+    size_t next_read_len = mavlink::MAVLINK_1_MIN_FRAME_LEN;
 };
 
 } /* namespace vsm */

@@ -24,7 +24,6 @@ constexpr Nullopt_t nullopt;
 template <typename T>
 class Optional {
 public:
-
     constexpr Optional():
         /* Initialize storage to prevent from false GCC warnings about
          * uninitialized value used in release build.
@@ -207,7 +206,7 @@ private:
         /** Storage for the value. */
         uint8_t storage[sizeof(T)];
         /** Keep the value aligned. */
-        long align;
+        int32_t align;
     };
     bool is_valid;
 };

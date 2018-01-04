@@ -37,7 +37,7 @@ Text_stream_filter::Disable(bool close_stream)
     /* Cancel timers to avoid the execution of timeout handlers after
      * the filter is disabled.
      */
-    for(auto& iter: entries) {
+    for (auto& iter : entries) {
         if (iter.second.timer) {
             iter.second.timer->Cancel();
             iter.second.timer = nullptr;
@@ -110,7 +110,7 @@ Text_stream_filter::Reset_state(Io_result result)
     cur_entry = nullptr;
     lines_history.clear();
     line_buf.clear();
-    for (auto &v: entries) {
+    for (auto &v : entries) {
         Entry &e = v.second;
         if (e.handler(nullptr, nullptr, result)) {
             VSM_EXCEPTION(Exception,
@@ -127,7 +127,7 @@ Text_stream_filter::On_data_received(Io_buffer::Ptr buf, Io_result result)
     read_is_scheduled = false;
     if (result == Io_result::OK) {
         std::string data = buf->Get_string();
-        for (char c: data) {
+        for (char c : data) {
             On_char_received(c);
             /* Don't continue if filter has been disabled. */
             if (!stream) {
@@ -257,7 +257,7 @@ Text_stream_filter::Fire_entry(Entry &e, bool timed_out)
 Text_stream_filter::Entry *
 Text_stream_filter::Match_entry(const std::string &line)
 {
-    for (auto &value: entries) {
+    for (auto &value : entries) {
         Entry &e = value.second;
         /* Current line already in history buffer. */
         if (lines_history.size() < e.ctx_lines_before + 1) {

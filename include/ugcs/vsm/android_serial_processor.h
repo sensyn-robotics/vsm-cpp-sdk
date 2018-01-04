@@ -4,8 +4,8 @@
 
 /** @file android_serial_processor.h */
 
-#ifndef ANDROID_SERIAL_PROCESSOR_H_
-#define ANDROID_SERIAL_PROCESSOR_H_
+#ifndef _ANDROID_SERIAL_PROCESSOR_H_
+#define _ANDROID_SERIAL_PROCESSOR_H_
 
 #ifndef ANDROID
 #error "This file should be included only for Android target"
@@ -42,11 +42,11 @@ class Android_serial_processor: public Request_processor {
     DEFINE_COMMON_CLASS(Android_serial_processor, Request_container)
 
 public:
-
     Android_serial_processor();
 
     class Stream: public Io_stream {
         DEFINE_COMMON_CLASS(Stream, Io_stream)
+
     public:
         /** Reference type. */
         typedef Reference_guard<Ptr> Ref;
@@ -61,6 +61,7 @@ public:
         {
             return mode;
         }
+
     private:
         friend class Android_serial_processor;
 
@@ -167,6 +168,7 @@ private:
 
     class Read_request: public Request {
         DEFINE_COMMON_CLASS(Read_request, Request)
+
     public:
         Stream::Ref stream;
         size_t max_to_read, min_to_read;
@@ -190,6 +192,7 @@ private:
 
     class Stream_entry {
         DEFINE_COMMON_CLASS(Stream_entry)
+
     public:
         enum class State {
             INITIAL,
@@ -293,4 +296,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* ANDROID_SERIAL_PROCESSOR_H_ */
+#endif /* _ANDROID_SERIAL_PROCESSOR_H_ */

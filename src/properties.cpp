@@ -60,13 +60,12 @@ Properties::Property::Property(std::string &&value):
     /* Create integer representation from float if possible. */
     if (!int_valid && float_valid &&
         float_repr >= LLONG_MIN && float_repr <= LLONG_MAX) {
-
         int_repr = std::lrint(float_repr);
         int_valid = true;
     }
 }
 
-Properties::Property::Property(long value):
+Properties::Property::Property(int32_t value):
     str_repr(std::to_string(value)), int_repr(value), float_repr(value),
     int_valid(true), float_valid(true),
     description(LINE_TERMINATOR)
@@ -513,7 +512,6 @@ Properties::Load(std::istream &stream)
             /* Skip assignment token. */
             if (!key.empty() && !assignment_seen &&
                 (c == '=' || c == ':')) {
-
                 assignment_seen = true;
                 c = CHAR_CONSUMED;
                 return false;
@@ -622,6 +620,7 @@ Properties::Load(std::istream &stream)
             result << '^';
             return result.str();
         }
+
     private:
         std::string cur_line;
         size_t line_idx = 1, col_idx = 0;
@@ -670,7 +669,7 @@ Properties::Load(std::istream &stream)
                 }
             } while (pocessed_c != CHAR_CONSUMED);
         } catch(Parse_exception &e) {
-            while (pos_tracker.Feed(stream.get(), true));
+            while (pos_tracker.Feed(stream.get(), true)) {}
             LOG_WARNING("Exception thrown during properties parsing:\n%s\n%s",
                         e.what(), pos_tracker.Get_position().c_str());
             throw;
@@ -727,7 +726,7 @@ Properties::Exists(const std::string &key) const
     return const_cast<Properties *>(this)->Find_property(key) != nullptr;
 }
 
-long
+int32_t
 Properties::Get_int(const std::string &key) const
 {
     const Property &prop = Find_property(key);
@@ -776,7 +775,7 @@ String_replace(std::string& str, const std::string& search, const std::string& r
         str.insert(pos, replace);
     }
 }
-}
+} // namespace
 
 void
 Properties::Set_description(const std::string &key, const std::string &desc)
@@ -804,13 +803,13 @@ Properties::Set(const std::string &key, const std::string &value)
 }
 
 void
-Properties::Set(const std::string &key, int value)
+Properties::Set(const std::string &key, int32_t value)
 {
     Property *prop = Find_property(key);
     if (prop) {
-        *prop = Property(static_cast<long>(value));
+        *prop = Property(value);
     } else {
-        auto result = table.insert(std::pair<std::string, Property>(key, static_cast<long>(value)));
+        auto result = table.insert(std::pair<std::string, Property>(key, value));
         result.first->second.seq_number = last_sequence_number++;
     }
 }
@@ -831,7 +830,7 @@ std::string
 Properties::Escape(const std::string &str, bool is_key)
 {
     std::string result;
-    for (int c: str) {
+    for (int c : str) {
         switch (c) {
         case '\n':
             result += "\\n";
@@ -875,10 +874,10 @@ Properties::Store(std::ostream &stream)
 {
     /* Want sorted by seq_ids. */
     std::map<int, std::string> map;
-    for (auto pair: table) {
+    for (auto pair : table) {
         map.insert({pair.second.seq_number, pair.first});
     }
-    for (auto pair: map) {
+    for (auto pair : map) {
         auto item = table.find(pair.second);
         stream << item->second.description;
         stream << Escape(item->first, true);
@@ -899,7 +898,6 @@ Properties::Iterator::_NextProp()
     while (table_iterator != table_end) {
         if (table_iterator->first.size() >= prefix_len &&
             !table_iterator->first.compare(0, prefix_len, prefix, 0, prefix_len)) {
-
             /* Match found. */
             break;
         }

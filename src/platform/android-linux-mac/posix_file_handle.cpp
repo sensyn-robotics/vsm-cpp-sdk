@@ -1,3 +1,7 @@
+// Copyright (c) 2017, Smart Projects Holdings Ltd
+// All rights reserved.
+// See LICENSE file for license details.
+
 #include <ugcs/vsm/posix_file_handle.h>
 #include <sys/file.h>
 
@@ -216,7 +220,7 @@ Posix_file_handle::Lock()
         if (errno != EINTR) {
             return false;
         }
-    };
+    }
     return true;
 }
 

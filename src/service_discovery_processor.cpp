@@ -198,7 +198,7 @@ Service_discovery_processor::On_read(
                  */
                 Request::Ptr request = Request::Create();
                 auto temp_handler = Make_callback(
-                        []( std::string type,
+                        [] (std::string type,
                             std::string name,
                             std::string location,
                             std::string id,
@@ -240,7 +240,13 @@ Service_discovery_processor::On_sender_bound(Socket_processor::Stream::Ref strea
             }
             sender->second.second = stream;
             for (auto &service : my_services) {
-                Send_notify(stream, multicast_adress, std::get<0>(service), std::get<1>(service), std::get<2>(service), true);
+                Send_notify(
+                    stream,
+                    multicast_adress,
+                    std::get<0>(service),
+                    std::get<1>(service),
+                    std::get<2>(service),
+                    true);
             }
             for (auto &service : subscribed_services) {
                 Send_msearch(stream, multicast_adress, service.first);
@@ -284,7 +290,9 @@ Service_discovery_processor::On_timer()
             LOG("Lost local address %s", (*sender).first.c_str());
             if ((*sender).second.second) {
                 if (receiver.second) {
-                    receiver.second->Remove_multicast_group((*sender).second.second->Get_local_address(), multicast_adress);
+                    receiver.second->Remove_multicast_group(
+                        (*sender).second.second->Get_local_address(),
+                        multicast_adress);
                 }
                 (*sender).second.second->Close();
             }
@@ -493,7 +501,8 @@ Service_discovery_processor::Activate()
                         receiver.second = s;
                         Schedule_read(MC_IDENTIFIER);
                     } else {
-                        LOG_ERR("Failed to bind multicast listener on port %s", multicast_adress->Get_service_as_c_str());
+                        LOG_ERR("Failed to bind multicast listener on port %s",
+                            multicast_adress->Get_service_as_c_str());
                     }
                 }),
             Request_temp_completion_context::Create(),
@@ -611,7 +620,6 @@ Service_discovery_processor::On_unadvertise(
         const std::string location,
         Request::Ptr request)
 {
-
     auto result = my_services.erase(std::make_tuple(type, name, location));
     request->Complete();
 

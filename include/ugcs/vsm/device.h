@@ -1,21 +1,17 @@
-/*
- * device.h
- *
- *  Created on: May 5, 2016
- *      Author: janis
- */
+// Copyright (c) 2017, Smart Projects Holdings Ltd
+// All rights reserved.
+// See LICENSE file for license details.
 
-#ifndef SRC_DEVICE_H_
-#define SRC_DEVICE_H_
+#ifndef _DEVICE_H_
+#define _DEVICE_H_
 
-#include <memory>
-#include <unordered_map>
-#include <unordered_set>
 #include <ugcs/vsm/property.h>
 #include <ugcs/vsm/callback.h>
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/optional.h>
-#include <ugcs/vsm/vehicle_requests.h> // deprecated
+#include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace ugcs {
 namespace vsm {
@@ -25,8 +21,8 @@ typedef std::shared_ptr<ugcs::vsm::proto::Vsm_message> Proto_msg_ptr;
 class Vsm_command: public std::enable_shared_from_this<Vsm_command>
 {
     DEFINE_COMMON_CLASS(Vsm_command, Vsm_command)
-public:
 
+public:
     Vsm_command(std::string name, bool as_command, bool in_mission);
 
     Property::Ptr
@@ -52,10 +48,10 @@ public:
     Set_available(bool is_available = true);
 
     int
-    Get_id() {return command_id;};
+    Get_id() {return command_id;}
 
     bool
-    Is_capability_state_dirty() {return capability_state_dirty;};
+    Is_capability_state_dirty() {return capability_state_dirty;}
 
     // create a list of command param values from proto message
     Property_list
@@ -63,11 +59,11 @@ public:
 
     std::string
     Get_name()
-    {return name;};
+    {return name;}
 
     bool
     Is_mission_item()
-        {return in_mission;};
+        {return in_mission;}
 
 private:
     uint32_t command_id = 0;
@@ -86,12 +82,14 @@ private:
 class Ucs_request :public Request
 {
     DEFINE_COMMON_CLASS(Ucs_request, Request)
-public:
 
+public:
     Ucs_request(ugcs::vsm::proto::Vsm_message);
 
     void
-    Complete(ugcs::vsm::proto::Status_code = ugcs::vsm::proto::STATUS_OK, const std::string& description = std::string());
+    Complete(
+        ugcs::vsm::proto::Status_code = ugcs::vsm::proto::STATUS_OK,
+        const std::string& description = std::string());
 
     Proto_msg_ptr response;
     ugcs::vsm::proto::Vsm_message request;
@@ -100,8 +98,8 @@ public:
 class Device: public std::enable_shared_from_this<Device>
 {
     DEFINE_COMMON_CLASS(Device, Device)
-public:
 
+public:
     Device(bool create_thread = true);
 
     typedef Callback_proxy<
@@ -128,7 +126,7 @@ public:
 
     /** Vehicle enable/disable status. */
     bool
-    Is_enabled() { return is_enabled;};
+    Is_enabled() { return is_enabled;}
 
     /** Disable copying. */
     Device(const Device &) = delete;
@@ -151,8 +149,7 @@ public:
     On_ucs_message(
         ugcs::vsm::proto::Vsm_message message,
         Response_sender completion_handler = Response_sender(),
-        ugcs::vsm::Request_completion_context::Ptr completion_ctx = nullptr
-        );
+        ugcs::vsm::Request_completion_context::Ptr completion_ctx = nullptr);
 
     // Used by Cucs_processor only.
     // Derived class must override.
@@ -198,7 +195,6 @@ public:
     Set_failsafe_actions(Property::Ptr p, std::initializer_list<proto::Failsafe_action> actions);
 
 protected:
-
     /** Register device instance to UCS processor. After registration is done,
      * UCS servers sees that new vehicle is available.
      */
@@ -246,15 +242,13 @@ protected:
     Add_telemetry(
         const std::string& name,
         ugcs::vsm::proto::Field_semantic sem = ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT,
-        uint32_t timeout = 0   // timeout in seconds. default: do not specify timeout
-        );
+        uint32_t timeout = 0);   // timeout in seconds. default: do not specify timeout
 
     Property::Ptr
     Add_telemetry(
         const std::string& name,
         Property::Value_type type,
-        uint32_t timeout = 0   // timeout in seconds. default: do not specify timeout
-        );
+        uint32_t timeout = 0);   // timeout in seconds. default: do not specify timeout
 
     void
 
@@ -277,11 +271,10 @@ protected:
     void
     Add_status_message(const std::string& m);
 
-    class Commit_scope
-    {
+    class Commit_scope {
     public:
-        Commit_scope(Device& d):d(d){};
-        ~Commit_scope(){d.Commit_to_ucs();};
+        Commit_scope(Device& d):d(d) {}
+        ~Commit_scope() {d.Commit_to_ucs();}
     private:
         Device& d;
     };
@@ -295,7 +288,6 @@ protected:
     Commit_to_ucs();
 
 private:
-
     Request_worker::Ptr worker;
 
     // All registered telemetry fields.
@@ -336,4 +328,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* SRC_DEVICE_H_ */
+#endif /* _DEVICE_H_ */

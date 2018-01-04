@@ -22,15 +22,13 @@ namespace vsm {
  * Mavlink messages. It is assumed, that only one such class at a time is
  * used with a given I/O stream.
  */
-template<typename Mavlink_kind>
-class Mavlink_stream: public std::enable_shared_from_this<Mavlink_stream<Mavlink_kind>>
+class Mavlink_stream: public std::enable_shared_from_this<Mavlink_stream>
 {
     DEFINE_COMMON_CLASS(Mavlink_stream, Mavlink_stream)
 
 public:
-
     /** Type of the appropriate Mavlink decoder. */
-    typedef Mavlink_decoder<Mavlink_kind> Decoder;
+    typedef Mavlink_decoder Decoder;
 
     /** Construct Mavlink stream using a I/O stream. */
     Mavlink_stream(Io_stream::Ref stream) :
@@ -80,6 +78,21 @@ public:
                         binder, Shared_from_this()));
     }
 
+    /** Toggle mavlink protocol v1/v2 for outgoing messages. */
+    void
+    Set_mavlink_v2(bool enable = true)
+    {
+        send_mavlink2 = enable;
+    }
+
+    /** Return true if this stream supports mavlink2 */
+    bool
+    Is_mavlink_v2()
+    {
+        return send_mavlink2;
+    }
+
+
     /** Send Mavlink message to other end asynchronously. Timeout should be
      * always present, otherwise there is a chance to overflow the write queue
      * if underlying stream is write-blocked. Only non-temporal completion
@@ -87,24 +100,20 @@ public:
     void
     Send_message(
             const mavlink::Payload_base& payload,
-            typename Mavlink_kind::System_id system_id,
+            uint8_t system_id,
             uint8_t component_id,
             const std::chrono::milliseconds& timeout,
             Operation_waiter::Timeout_handler timeout_handler,
             const Request_completion_context::Ptr& completion_ctx)
     {
-        ASSERT(completion_ctx->Get_type() != Request_completion_context::Type::TEMPORAL);
-
-        Io_buffer::Ptr buffer = encoder.Encode<Mavlink_kind>(payload, system_id, component_id);
-
-        Operation_waiter waiter = stream->Write(
-                buffer,
-                Make_dummy_callback<void, Io_result>(),
-                completion_ctx);
-        waiter.Timeout(timeout, timeout_handler, true, completion_ctx);
-
-        write_ops.emplace(std::move(waiter));
-        Cleanup_write_ops();
+        Send_message(
+            payload,
+            system_id,
+            component_id,
+            timeout,
+            timeout_handler,
+            completion_ctx,
+            send_mavlink2);
     }
 
     /** Send Mavlink message to other end asynchronously. Timeout should be
@@ -112,18 +121,23 @@ public:
      * if underlying stream is write-blocked. Only non-temporal completion
      * contexts are allowed. */
     void
-    Send_response_message(
+    Send_message(
             const mavlink::Payload_base& payload,
-            typename Mavlink_kind::System_id system_id,
+            uint8_t system_id,
             uint8_t component_id,
-            uint32_t request_id,
             const std::chrono::milliseconds& timeout,
             Operation_waiter::Timeout_handler timeout_handler,
-            const Request_completion_context::Ptr& completion_ctx)
+            const Request_completion_context::Ptr& completion_ctx,
+            bool mav2)
     {
         ASSERT(completion_ctx->Get_type() != Request_completion_context::Type::TEMPORAL);
 
-        Io_buffer::Ptr buffer = encoder.Encode<Mavlink_kind>(payload, system_id, component_id, request_id);
+        Io_buffer::Ptr buffer;
+        if (mav2) {
+            buffer = encoder.Encode_v2(payload, system_id, component_id);
+        } else {
+            buffer = encoder.Encode_v1(payload, system_id, component_id);
+        }
 
         Operation_waiter waiter = stream->Write(
                 buffer,
@@ -152,7 +166,6 @@ public:
     }
 
 private:
-
     /** Underlying stream. */
     Io_stream::Ref stream;
 
@@ -184,6 +197,9 @@ private:
      * to remove them from the queue.
      */
     std::queue<Operation_waiter> write_ops;
+
+    /** Send outgoing traffic in mavlink version 2 format */
+    bool send_mavlink2 = false;
 };
 
 } /* namespace vsm */

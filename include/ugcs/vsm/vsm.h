@@ -8,8 +8,8 @@
  * Main include file for VSM SDK.
  */
 
-#ifndef VSM_H_
-#define VSM_H_
+#ifndef _VSM_H_
+#define _VSM_H_
 
 #include <ugcs/vsm/vehicle.h>
 #include <ugcs/vsm/properties.h>
@@ -76,4 +76,4 @@ Terminate(bool save_config = false);
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* VSM_H_ */
+#endif /* _VSM_H_ */

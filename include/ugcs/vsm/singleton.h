@@ -8,8 +8,8 @@
  * Singleton class definition.
  */
 
-#ifndef SINGLETON_H_
-#define SINGLETON_H_
+#ifndef _SINGLETON_H_
+#define _SINGLETON_H_
 
 #include <memory>
 #include <mutex>
@@ -102,4 +102,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* SINGLETON_H_ */
+#endif /* _SINGLETON_H_ */

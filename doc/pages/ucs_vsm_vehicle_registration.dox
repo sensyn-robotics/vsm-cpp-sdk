@@ -91,9 +91,9 @@ VSM can report other values here. In that case user will need to select the vehi
 
 @section frame_list Vehicle frames
 
-VSM should tell the frame type uppon vehicle registration. This helps UgCS to render the vehicle on client screen correctly.
-VSM can report any string as frame name. If non built in values are reporthed then user will need to select the frame avatar for the vehicle manually. 
-List of built-in frame names which can be reported by VSM @b Register_vehicle.frame_type field and UgCS will know how to display them.
+VSM should tell the frame type upon vehicle registration.
+VSM can report any string as frame name. If non built-in values are reporthed then user will need to select the frame avatar for the vehicle manually. 
+List of built-in frame names which can be reported by VSM @b Register_vehicle.frame_type field.
 |Name| Description|
 |---|---|
 generic_fixed_wing  |Plane
@@ -109,6 +109,10 @@ generic_octa_x      |Four leg (X type) frame with double rotors two legs in fron
 generic_octa_xi     |Four leg (+ type) frame with double rotors one leg in front
 generic_octa_i      |Eight leg frame with one leg in front
 generic_octa_v      |Eight leg frame with two legs in front
+generic_tilt_rotor  |Tilt rotor
+generic_vtol_duo    |VTOL plane with 2 rotors
+generic_vtol_quad   |VTOL plane with 4 rotors
+generic_vtol        |Generic VTOL capable vehicle 
 3dr_iris            |3DR Iris frame (quad)
 dji_phantom         |DJI Phantom2/3/4
 dji_matrice         |DJI Matrice 100

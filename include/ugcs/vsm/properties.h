@@ -82,7 +82,7 @@ public:
      * @throws Not_convertible_exception if the value cannot be converted to
      *      integer representation.
      */
-    long
+    int32_t
     Get_int(const std::string &key) const;
 
     /** Get floating point number value of the property.
@@ -124,7 +124,7 @@ public:
      * @param value Integer representation for the property.
      */
     void
-    Set(const std::string &key, int value);
+    Set(const std::string &key, int32_t value);
 
     /** Set floating point number value of the property. If the key does not
      * exist the new entry is added.
@@ -154,7 +154,7 @@ private:
         /** String representation of the property. */
         std::string str_repr;
         /** Integer representation of the property if possible. */
-        long int_repr;
+        int32_t int_repr;
         /** Floating point number representation of the property if possible. */
         double float_repr;
         /** Flag indicates that integer representation is valid. */
@@ -170,7 +170,7 @@ private:
         Property(std::string &&value);
 
         /** Construct property from integer value. */
-        Property(long value);
+        Property(int32_t value);
 
         /** Construct property from floating point value. */
         Property(double value);
@@ -185,7 +185,6 @@ public:
     /** Stored properties iterator. */
     class Iterator {
     public:
-
         /** Construct new iterator which iterates values starting from the
          * given prefix.
          * @param iterator Start from.
@@ -243,11 +242,11 @@ public:
 
         /** Prefix increment operator. */
         void
-        operator ++();
+        operator++();
 
         /** Postfix increment operator. */
         void
-        operator ++(int)
+        operator++(int)
         {
             ++(*this);
         }

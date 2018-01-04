@@ -20,7 +20,6 @@ class Payload_steering_action: public Action {
     DEFINE_COMMON_CLASS(Payload_steering_action, Action)
 
 public:
-
     Payload_steering_action() :
         Action(Type::PAYLOAD_STEERING) {}
 };
@@ -32,7 +31,7 @@ struct Action::Mapper<Action::Type::PAYLOAD_STEERING> {
     typedef Payload_steering_action type;
 };
 
-} /* namepspace vsm */
-} /* namepspace ugcs */
+} // namespace vsm
+} // namespace ugcs
 
 #endif /* _PAYLOAD_STEERING_ACTION_H_ */

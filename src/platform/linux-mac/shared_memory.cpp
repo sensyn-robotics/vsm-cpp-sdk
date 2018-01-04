@@ -16,8 +16,7 @@
 
 #include <ugcs/vsm/shared_memory.h>
 
-namespace // anonymous
-{
+namespace { // anonymous
 
 class Shared_memory_linux: public ugcs::vsm::Shared_memory
 {
@@ -34,14 +33,13 @@ public:
     Close();
 
 private:
-
     int file;
     size_t size;
     std::string native_name;
 };
 
 Shared_memory_linux::Shared_memory_linux():
-file(-1),size(0)
+    file(-1), size(0)
 {
 }
 

@@ -19,7 +19,6 @@ namespace vsm {
 template<typename Enum_type>
 class Enum_set {
 public:
-
     /** Construct the set based on arbitrary set of values. */
     template<typename... Enum_types>
     Enum_set(Enum_types... values)
@@ -31,7 +30,7 @@ public:
     void
     Set(Enum_type value, bool present = true)
     {
-        set.set(static_cast<long>(value), present);
+        set.set(static_cast<uint32_t>(value), present);
     }
 
     /** Reset state to empty. */
@@ -45,7 +44,7 @@ public:
     bool
     Is_set(Enum_type value) const
     {
-        return set.test(static_cast<long>(value));
+        return set.test(static_cast<uint32_t>(value));
     }
 
     /** Equality operator. */
@@ -56,7 +55,6 @@ public:
     }
 
 private:
-
     /** Traverse enum values one by one. */
     template<typename... Enum_types>
     void
@@ -70,11 +68,10 @@ private:
     void
     Set_recursive()
     {
-
     }
 
     /** Container. */
-    std::bitset<static_cast<long>(Enum_type::LAST)> set;
+    std::bitset<static_cast<uint32_t>(Enum_type::LAST)> set;
 };
 
 } /* namespace vsm */

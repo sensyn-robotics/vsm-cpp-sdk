@@ -8,8 +8,8 @@
  * Vehicle interface representation.
  */
 
-#ifndef VEHICLE_H_
-#define VEHICLE_H_
+#ifndef _VEHICLE_H_
+#define _VEHICLE_H_
 
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/vehicle_requests.h>
@@ -21,11 +21,12 @@
 #include <stdint.h>
 #include <memory>
 #include <unordered_map>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace ugcs {
 namespace vsm {
-
-static const std::string legacy_commands[] = {std::string("")};
 
 static constexpr int DEFAULT_COMMAND_TRY_COUNT = 3;
 static constexpr std::chrono::milliseconds DEFAULT_COMMAND_TIMEOUT(1000);
@@ -37,8 +38,8 @@ static constexpr std::chrono::milliseconds DEFAULT_COMMAND_TIMEOUT(1000);
  */
 class Vehicle: public Device {
     DEFINE_COMMON_CLASS(Vehicle, Device)
-public:
 
+public:
     // @{
     /** Capability of the vehicle.
     * This is legacy enum. do not add new commands here. */
@@ -123,11 +124,11 @@ public:
             const std::string& serial_number,
             const std::string& model_name,
             int model_name_is_hardcoded = false,
-    		bool create_thread = true);
+            bool create_thread = true);
 
     /** Make sure class is polymorphic. */
     virtual
-    ~Vehicle() {};
+    ~Vehicle() {}
 
     /** Disable copying. */
     Vehicle(const Vehicle &) = delete;
@@ -164,13 +165,11 @@ public:
 
     /** Hasher for Vehicle shared pointer. Used when vehicle pointer is
      * stored in some container. */
-    class Hasher
-    {
+    class Hasher {
     public:
         /** Get hash value. */
         size_t
-        operator ()(const Vehicle::Ptr& ptr) const
-        {
+        operator()(const Vehicle::Ptr& ptr) const {
             return hasher(ptr.get());
         }
     private:
@@ -179,7 +178,6 @@ public:
     };
 
 protected:
-
     typedef enum {
         SUBDEVICE_TYPE_FC = 1,
         SUBDEVICE_TYPE_CAMERA = 2,
@@ -189,7 +187,7 @@ protected:
 
     class Subdevice {
     public:
-        Subdevice(Subdevice_type t):type(t){};
+        Subdevice(Subdevice_type t):type(t) {}
         Subdevice_type type;
         // Subdevice telemetry fields.
         std::unordered_map<std::string, Property::Ptr> telemetry_fields;
@@ -313,6 +311,8 @@ protected:
     ugcs::vsm::Vsm_command::Ptr c_takeoff_mission = nullptr;
     ugcs::vsm::Vsm_command::Ptr c_set_parameter = nullptr;
     ugcs::vsm::Vsm_command::Ptr c_payload_control = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_transition_fixed = nullptr;
+    ugcs::vsm::Vsm_command::Ptr c_transition_vtol = nullptr;
 
     Property::Ptr p_rc_loss_action = nullptr;
     Property::Ptr p_gps_loss_action = nullptr;
@@ -416,7 +416,6 @@ protected:
     /** System status of the vehicle. */
     class Sys_status {
     public:
-
         /** Control mode of the vehicle. */
         enum class Control_mode {
             /** Direct manual control via RC transmitter */
@@ -497,9 +496,10 @@ protected:
     // 7. Server uses the command map only if the map exists and the reported mission_id in telemetry is equal to the
     //    mission_id received together with the map.
     // 8. If server receives different mission_id it drops the current mapping.
-    class Command_map
-    {
+    class Command_map {
     public:
+        Command_map() : mission_id() {};
+
         // Clear the command mapping and reset mission_id.
         void
         Reset();
@@ -533,6 +533,11 @@ protected:
         uint32_t
         Get_route_id();
 
+        // Add additional value to mission id hash which can be changed without regenerating the
+        // mission_command_map. Used to add Home Location to route hash.
+        void
+        Set_secondary_id(uint32_t);
+
         // Fill in the mission_upload response payload with accumulated map and mission_id.
         void
         Fill_command_mapping_response(Proto_msg_ptr response);
@@ -542,6 +547,9 @@ protected:
         int current_mission_command = -1;
         // Current native command mapping to mission subcommands (zero based).
         std::unordered_map<int, int> mission_command_map;
+
+        uint32_t secondary_id = 0;
+
         ugcs::vsm::Crc32 mission_id;
     };
 
@@ -604,7 +612,6 @@ protected:
     /* End of user callable methods. */
 
 private:
-
     /** Calculate system id for this Vehicle. */
     void
     Calculate_system_id();
@@ -653,7 +660,7 @@ private:
     Capability_states capability_states;
 
     /** System id of this vehicle as seen by UCS server. */
-    mavlink::Mavlink_kind_ugcs::System_id system_id;
+    uint32_t system_id;
 
     bool model_name_is_hardcoded;
 
@@ -700,4 +707,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* VEHICLE_H_ */
+#endif /* _VEHICLE_H_ */

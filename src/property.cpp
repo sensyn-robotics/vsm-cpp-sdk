@@ -7,6 +7,8 @@
 
 using namespace ugcs::vsm;
 
+constexpr std::chrono::milliseconds Property::COMMIT_TIMEOUT;
+
 namespace {
 
 ugcs::vsm::proto::Field_semantic
@@ -72,6 +74,8 @@ Get_default_semantic(std::string name)
         return ugcs::vsm::proto::FIELD_SEMANTIC_STRING;
     } else if (name == "autopilot_status") {
         return ugcs::vsm::proto::FIELD_SEMANTIC_AUTOPILOT_STATUS;
+    } else if (name == "name") {
+        return ugcs::vsm::proto::FIELD_SEMANTIC_STRING;
     } else {
         return ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT;
     }
@@ -80,7 +84,7 @@ Get_default_semantic(std::string name)
 ugcs::vsm::Property::Value_type
 Get_type_from_semantic(ugcs::vsm::proto::Field_semantic sem)
 {
-    switch (sem){
+    switch (sem) {
     case ugcs::vsm::proto::FIELD_SEMANTIC_LATITUDE:
     case ugcs::vsm::proto::FIELD_SEMANTIC_LONGITUDE:
         return ugcs::vsm::Property::VALUE_TYPE_DOUBLE;
@@ -135,7 +139,8 @@ Property::Property(
     int id,
     const std::string& name,
     ugcs::vsm::proto::Field_semantic sem):
-    semantic(sem), field_id(id), name(name)
+    semantic(sem), field_id(id), name(name),
+    last_commit_time(std::chrono::steady_clock::now())
 {
     if (sem == ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT) {
         semantic = Get_default_semantic(name);
@@ -164,7 +169,8 @@ Property::Property(
 }
 
 Property::Property(int id, const std::string& name, Value_type type):
-    type(type), field_id(id), name(name)
+    type(type), field_id(id), name(name),
+    last_commit_time(std::chrono::steady_clock::now())
 {
     switch (type) {
     case VALUE_TYPE_DOUBLE:
@@ -226,10 +232,12 @@ Property::Set_value(const ugcs::vsm::proto::Field_value& v)
     case VALUE_TYPE_FLOAT:
     case VALUE_TYPE_DOUBLE:
         if (max_value && dval > max_value->double_value) {
-            VSM_EXCEPTION(Invalid_param_exception, "Value %f exceeds specified max:%f", dval, max_value->double_value);
+            VSM_EXCEPTION(Invalid_param_exception,
+                "Value %f exceeds specified max:%f", dval, max_value->double_value);
         }
         if (min_value && dval < min_value->double_value) {
-            VSM_EXCEPTION(Invalid_param_exception, "Value %f is lower than specified min:%f", dval, min_value->double_value);
+            VSM_EXCEPTION(Invalid_param_exception,
+                "Value %f is lower than specified min:%f", dval, min_value->double_value);
         }
         double_value = dval;
         return true;
@@ -436,7 +444,7 @@ Property::Set_value(const std::string& v)
 }
 
 void
-Property::Set_value(ugcs::vsm::proto::List_value &v)
+Property::Set_value(const ugcs::vsm::proto::List_value &v)
 {
     if (type == VALUE_TYPE_LIST) {
         bool is_equal = false;
@@ -444,7 +452,7 @@ Property::Set_value(ugcs::vsm::proto::List_value &v)
             is_equal = false;
         } else {
             for (int i = 0; i < v.values_size(); i++) {
-                if (!Fields_are_equal(v.values(i), list_value.values(i))){
+                if (!Fields_are_equal(v.values(i), list_value.values(i))) {
                     is_equal = false;
                     break;
                 }
@@ -592,7 +600,7 @@ Property::Set_changed()
 bool
 Property::Is_changed()
 {
-    if (is_changed) {
+    if (is_changed && std::chrono::steady_clock::now() - last_commit_time >= COMMIT_TIMEOUT) {
         return true;
     }
     if (!Is_value_na() && timeout.count()) {
@@ -680,6 +688,7 @@ Property::Write_as_telemetry(ugcs::vsm::proto::Telemetry_field* tf)
     tf->set_field_id(field_id);
     Write_value(tf->mutable_value());
     is_changed = false;
+    last_commit_time = std::chrono::steady_clock::now();
 }
 
 void
@@ -749,15 +758,14 @@ Property::Dump_value()
 
 bool
 Property::Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs::vsm::proto::Field_value& val2) {
-
     // do not check lists & meta
     if (val1.has_list_value() || val2.has_list_value() || val1.has_meta_value() || val2.has_meta_value()) {
         return false;
     }
 
     // double value
-    if (val1.has_double_value()){
-        if (val2.has_double_value()){
+    if (val1.has_double_value()) {
+        if (val2.has_double_value()) {
             if (val1.double_value() != val2.double_value()) {
                 return false;
             }
@@ -766,9 +774,9 @@ Property::Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs
         }
     }
 
-    //bool
-    if (val1.has_bool_value()){
-        if (val2.has_bool_value()){
+    // bool
+    if (val1.has_bool_value()) {
+        if (val2.has_bool_value()) {
             if (val1.bool_value() != val2.bool_value()) {
                 return false;
             }
@@ -776,9 +784,9 @@ Property::Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs
             return false;
         }
     }
-    //float
-    if (val1.has_float_value()){
-        if (val2.has_float_value()){
+    // float
+    if (val1.has_float_value()) {
+        if (val2.has_float_value()) {
             if (val1.float_value() != val2.float_value()) {
                 return false;
             }
@@ -788,8 +796,8 @@ Property::Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs
     }
 
     // int
-    if (val1.has_int_value()){
-        if (val2.has_int_value()){
+    if (val1.has_int_value()) {
+        if (val2.has_int_value()) {
             if (val1.int_value() != val2.int_value()) {
                 return false;
             }
@@ -798,8 +806,8 @@ Property::Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs
         }
     }
     // string
-    if (val1.has_string_value()){
-        if (val2.has_string_value()){
+    if (val1.has_string_value()) {
+        if (val2.has_string_value()) {
             if (val1.string_value() != val2.string_value()) {
                 return false;
             }
@@ -809,6 +817,5 @@ Property::Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs
     }
 
     return true;
-
 }
 

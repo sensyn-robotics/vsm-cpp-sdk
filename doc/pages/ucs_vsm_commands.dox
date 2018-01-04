@@ -71,6 +71,8 @@ By registering command from this list VSM notifies the UgCS that vehicle is capa
 |[set_tension](@ref c_set_tension) | FC | - | + | Select tension value for tethered drone
 |[takeoff_command](@ref c_takeoff_command) | FC | - | + | Takeoff command
 |[takeoff_mission](@ref c_takeoff_mission)| FC | + | - | Specify Takeoff point.|
+|[transition_fixed](@ref c_transition_fixed) | FC | + | - | Transition vehicle to fixed wing mode
+|[transition_vtol](@ref c_transition_vtol) | FC | + | - | Transition vehicle to VTOL mode
 |[trigger_calibration](@ref c_trigger_calibration)| FC | - | + | Trigger sensor calibration|
 |[wait](@ref c_wait)| FC | + | - | Wait for specified time before proceeding to next mission item|
 |[waypoint](@ref c_waypoint) | FC | - | + |  Enter Click&Go mode, specify waypoint and start moving towards it |
@@ -348,6 +350,7 @@ Supported parameters:
 |rc_loss_action | FIELD_SEMANTIC_ENUM | Failsafe action on RC loss. See @ref failsafe_values |
 |gps_loss_action | FIELD_SEMANTIC_ENUM | Failsafe action on GPS loss. See @ref failsafe_values |
 |low_battery_action | FIELD_SEMANTIC_ENUM | Failsafe action on low battery. See @ref failsafe_values |
+|name | FIELD_SEMANTIC_STRING | User specified mission name |
 
 @subsubsection failsafe_values Failsafe actions natively supported by UgCS
 
@@ -656,6 +659,20 @@ Parameters
 |ground_elevation| FIELD_SEMANTIC_GROUND_ELEVATION | Ground elevation at takeoff position (optional)|
 |acceptance_radius| FIELD_SEMANTIC_ACCEPTANCE_RADIUS | When the sphere with the radius centered at the target position is hit by the vehicle the target position is considered reached. |
 |heading| FIELD_SEMANTIC_HEADING | Vehicle heading at the WP |
+
+
+@subsection c_transition_fixed Transition to fixed wing flight
+
+Mission item ID: "transition_fixed"
+
+Description: Put the fixed wing VTOL capable vehicle in fixed wing flight mode.
+
+
+@subsection c_transition_vtol Transition to VTOL flight
+
+Mission item ID: "transition_vtol"
+
+Description: Put the fixed wing VTOL capable vehicle in copter-like mode.
 
 
 @subsection c_trigger_calibration Trigger sensor calibration

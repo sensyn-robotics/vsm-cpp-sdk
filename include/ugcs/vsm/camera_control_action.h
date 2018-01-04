@@ -19,7 +19,6 @@ class Camera_control_action: public Action {
     DEFINE_COMMON_CLASS(Camera_control_action, Action)
 
 public:
-
     /** Construct camera control action explicitly. */
     Camera_control_action(double tilt, double roll, double yaw, double zoom) :
         Action(Type::CAMERA_CONTROL),

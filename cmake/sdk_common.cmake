@@ -121,21 +121,28 @@ function(Build_mavlink SDK_SRC_DIR MAVLINK_INCLUDES_VAR MAVLINK_SOURCES_VAR MAVL
     foreach(XML ${MAV_XML})
         set(XML_PARAM ${XML_PARAM} --xml-def=${XML})
     endforeach()
-    
-    add_custom_command(OUTPUT
-        ${MAVLINK_HEADERS} ${MAVLINK_SOURCES}
-        COMMAND python -B ${MAVGEN} --output-dir=${CMAKE_BINARY_DIR}/mavlink
-        ${XML_PARAM} --schema=${MAV_XSD}
+
+    add_custom_command(
+        OUTPUT ${MAVLINK_HEADERS} ${MAVLINK_SOURCES}
+        COMMAND python 
+            -B ${MAVGEN} 
+            --output-dir=${CMAKE_BINARY_DIR}/mavlink
+            ${XML_PARAM} 
+            --schema=${MAV_XSD}
         DEPENDS ${MAV_XML} ${MAV_XSD} ${MAVGEN})
+
     # Generate mavlink dissector for wireshark
-    add_custom_target(mavlink_lua ALL
-        COMMAND python -B ${MAVGEN} --output-dir=${CMAKE_BINARY_DIR}/mavlink
-        --lang=Lua
-        --xml-def=${MAV_DEF_DIR}/common.xml
-        --xml-def=${MAV_DEF_DIR}/sphengineering.xml
-        --xml-def=${MAV_DEF_DIR}/ardupilotmega.xml
-        --schema=${MAV_XSD}
-        --merge-extensions
+    add_custom_command(
+        OUTPUT ${MAVLINK_LUA}
+        COMMAND python 
+            -B ${MAVGEN} 
+            --output-dir=${CMAKE_BINARY_DIR}/mavlink
+            --lang=Lua
+            --xml-def=${MAV_DEF_DIR}/common.xml
+            --xml-def=${MAV_DEF_DIR}/sphengineering.xml
+            --xml-def=${MAV_DEF_DIR}/ardupilotmega.xml
+            --schema=${MAV_XSD}
+            --merge-extensions
         DEPENDS ${MAV_XML} ${MAV_XSD} ${MAVGEN})
 endfunction()
 
@@ -180,4 +187,53 @@ function (Create_android_build ANDROID_ABI ANDROID_PLATFORM SOURCES INCLUDE_DIRS
             DESTINATION "${UGCS_INSTALL_DIR}/android")
     
     message ("Added target android with abi=${ANDROID_ABI}, platform=${ANDROID_PLATFORM}")
+endfunction()
+
+function(Add_cppcheck_target)
+    if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+        set (PARAMS
+            "--quiet"
+            "--template=gcc"
+            "--enable=all"
+            "--std=c++11"
+            "-UANDROID"
+            "--suppress=*:*deelx.h"
+            "--suppress=noExplicitConstructor"
+            "--suppress=missingIncludeSystem"
+            "--suppress=unusedFunction")
+        get_directory_property (PLIST COMPILE_DEFINITIONS)
+        foreach (PARAM  ${PLIST})
+            set (PARAMS ${PARAMS} -D${PARAM})
+        endforeach()
+        get_directory_property (PLIST INCLUDE_DIRECTORIES)
+        foreach (PARAM  ${PLIST})
+            set (PARAMS ${PARAMS} -I${PARAM})
+        endforeach()
+        set (PARAMS ${PARAMS} ${CMAKE_SOURCE_DIR}/src)
+        add_custom_target (cppcheck
+            COMMAND cppcheck ${PARAMS}
+            VERBATIM)
+        # This creates cppcheck-result.xml file in the build directory.
+        # Used for buildserver integration.
+        add_custom_target(cppcheckxml
+            COMMAND cppcheck --xml-version=2 ${PARAMS} ${ARGV} 2> cppcheck-result.xml
+            VERBATIM)
+    endif()
+endfunction()
+
+function(Add_cpplint_target SOURCE_LIST)
+    if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+        add_custom_target (cpplint
+            COMMAND python ${CMAKE_SOURCE_DIR}/tools/cpplint.py
+            --linelength=120
+            # 1) Do not care about converting constructors for now.
+            # 2) We are fine with std headers included in class header.
+            #    No need for redundant include in cpp.
+            # 3) suppress 'redundant "virtual"' warning
+            # 4) suppress 'Is this a non-const reference' warning. All uses are legit.
+            --filter=-runtime/explicit,-build/include_what_you_use,-readability/inheritance,-runtime/references
+            --verbose=0
+            ${ARGV}
+            VERBATIM)
+    endif()
 endfunction()

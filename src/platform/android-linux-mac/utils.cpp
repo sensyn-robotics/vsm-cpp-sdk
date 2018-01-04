@@ -14,7 +14,7 @@ ugcs::vsm::platform_independent_filename_regex_matching_flag = regex::regex_cons
 #ifdef ANDROID
 // NDK does not have bsearch, so we are providing our own.
 void*
-regex::bsearch (
+regex::bsearch(
         const void *key,
         const void *base,
         size_t n,
@@ -26,7 +26,7 @@ regex::bsearch (
     if (n  <= 0) {
         return NULL;
     }
-    mp = (void*)((char*)base + n / 2 * size);
+    mp = reinterpret_cast<void*>(reinterpret_cast<char*>(base) + n / 2 * size);
     cr = cmp(key, mp);
     if (cr == 0) {
         return mp;
@@ -35,7 +35,7 @@ regex::bsearch (
             if (n <= 2) {
                 return NULL;
             }
-            return bsearch(key, (char*)mp + size, (n - 1 ) / 2, size, cmp);
+            return bsearch(key, reinterpret_cast<char*>(mp) + size, (n - 1 ) / 2, size, cmp);
         } else if (cr < 0) {
             if (n <= 1) {
                 return NULL;

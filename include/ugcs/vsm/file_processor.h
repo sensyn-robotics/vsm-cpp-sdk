@@ -8,14 +8,13 @@
  * Processor for handling file I/O.
  */
 
-#ifndef FILE_PROCESSOR_H_
-#define FILE_PROCESSOR_H_
+#ifndef _FILE_PROCESSOR_H_
+#define _FILE_PROCESSOR_H_
 
 #include <ugcs/vsm/io_request.h>
 #include <ugcs/vsm/request_worker.h>
-
-#include <thread>
 #include <unistd.h>
+#include <thread>
 
 namespace ugcs {
 namespace vsm {
@@ -31,6 +30,7 @@ namespace vsm {
  */
 class File_processor: public Request_processor {
     DEFINE_COMMON_CLASS(File_processor, Request_container)
+
 public:
     /** Base class for all File_processor exceptions. */
     VSM_DEFINE_EXCEPTION(Exception);
@@ -50,6 +50,7 @@ public:
     /** Stream class which represents opened file. */
     class Stream: public Io_stream {
         DEFINE_COMMON_CLASS(Stream, Io_stream)
+
     public:
         /** Reference type. */
         typedef Reference_guard<Stream::Ptr> Ref;
@@ -107,7 +108,6 @@ public:
          */
         class Native_handle {
         public:
-
             /** Unique pointer type. */
             typedef std::unique_ptr<Native_handle> Unique_ptr;
 
@@ -225,6 +225,7 @@ public:
             Stream::Ptr write_active,
             /** Holds reference to a stream while read operation is in progress. */
                         read_active;
+
         protected:
             /** Called by derived class to indicate whether platform call is
              * currently active or not.
@@ -317,10 +318,10 @@ public:
          *         set timeout or cancel for pending lock operation.
          */
         Operation_waiter
-        Lock(   Lock_handler completion_handler,
-                Request_completion_context::Ptr comp_ctx =
-                        Request_temp_completion_context::Create(),
-                bool lock = true);
+        Lock(
+            Lock_handler completion_handler,
+            Request_completion_context::Ptr comp_ctx = Request_temp_completion_context::Create(),
+            bool lock = true);
 
         /** Remove lock from file.
          * On Windows it unlocks on first byte of file implemented
@@ -333,10 +334,9 @@ public:
          *         for pending unlock operation to complete.
          */
         Operation_waiter
-        Unlock( Lock_handler completion_handler =
-                        Make_dummy_callback<void, Io_result>(),
-                Request_completion_context::Ptr comp_ctx =
-                        Request_temp_completion_context::Create())
+        Unlock(
+            Lock_handler completion_handler = Make_dummy_callback<void, Io_result>(),
+            Request_completion_context::Ptr comp_ctx = Request_temp_completion_context::Create())
         {
             return Lock(completion_handler, comp_ctx, false);
         }
@@ -507,7 +507,6 @@ public:
          * Poll regularly (each 100ms) for lock availability. */
         void
         Locker_thread();
-
     };
 
     /** Interface for native I/O controller which manages I/O operations for
@@ -575,7 +574,7 @@ public:
      * @throws Exception in case of any other error returned by platform.
      */
     Stream::Ref
-    Open(const std::string &name,const std::string &mode, bool maintain_pos = true);
+    Open(const std::string &name, const std::string &mode, bool maintain_pos = true);
 
     /**
      * Platform independent method for opening a standard library file handle
@@ -651,4 +650,4 @@ protected:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* FILE_PROCESSOR_H_ */
+#endif /* _FILE_PROCESSOR_H_ */

@@ -7,6 +7,10 @@
  *
  * Convenience include file for all VSM task actions.
  */
+
+#ifndef _ACTIONS_H_
+#define _ACTIONS_H_
+
 #include <ugcs/vsm/move_action.h>
 #include <ugcs/vsm/landing_action.h>
 #include <ugcs/vsm/takeoff_action.h>
@@ -24,3 +28,6 @@
 #include <ugcs/vsm/camera_series_by_distance_action.h>
 #include <ugcs/vsm/set_servo_action.h>
 #include <ugcs/vsm/repeat_servo_action.h>
+#include <ugcs/vsm/vtol_transition_action.h>
+
+#endif  // _ACTIONS_H_

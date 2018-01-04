@@ -12,8 +12,8 @@
 #define _MAVLINK_DEMUXER_H_
 
 #include <ugcs/vsm/mavlink_decoder.h>
-#include <unordered_map>
 #include <ugcs/vsm/request_context.h>
+#include <unordered_map>
 
 namespace ugcs {
 namespace vsm {
@@ -56,16 +56,17 @@ public:
 
     /** Default handler which is called for all Mavlink messages which does
      * not have a handler.
+     * Io_buffer contains the raw payload data.
      * @return @a true message will be resubmitted to demuxer for further
      * processing, otherwise @a false.
      */
-    typedef Callback_proxy<bool, mavlink::MESSAGE_ID_TYPE, System_id, uint8_t, uint32_t>
+    typedef Callback_proxy<bool, Io_buffer::Ptr, mavlink::MESSAGE_ID_TYPE, System_id, uint8_t, uint32_t>
         Default_handler;
 
     /** Convenience builder for Mavlink demuxer default handlers. */
     DEFINE_CALLBACK_BUILDER(Make_default_handler,
-            (mavlink::MESSAGE_ID_TYPE, System_id, uint8_t, uint32_t),
-            (mavlink::MESSAGE_ID::DEBUG_VALUE, mavlink::SYSTEM_ID_NONE, 0, 0))
+            (Io_buffer::Ptr, mavlink::MESSAGE_ID_TYPE, System_id, uint8_t, uint32_t),
+            (Io_buffer::Ptr(nullptr), mavlink::MESSAGE_ID::DEBUG_VALUE, mavlink::SYSTEM_ID_NONE, 0, 0))
 
     /** Convenience builder for Mavlink demuxer handlers. */
     DEFINE_CALLBACK_BUILDER_TEMPLATE(Make_handler,
@@ -89,15 +90,11 @@ public:
         /** Hasher class for a key type. */
         class Hasher {
         public:
-
             /** Calculate hash value. */
             size_t
-            operator ()(const Key& key) const
+            operator()(const Key& key) const
             {
-                static_assert(sizeof(key.message_id) == sizeof(uint8_t), "Please adjust bit shift!");
-                return static_cast<uint8_t>(key.message_id) ^
-                        key.system_id ^
-                        key.component_id << 16;
+                return key.message_id ^ (key.system_id << 16) ^ (key.component_id << 24);
             }
         };
 
@@ -124,7 +121,6 @@ public:
         }
 
     private:
-
         mavlink::MESSAGE_ID_TYPE message_id;
 
         System_id system_id;
@@ -203,7 +199,6 @@ public:
     Unregister_handler(Key&);
 
 private:
-
     /** Demultiplex the message based on user provided identifiers. This method
      * tries to find the best handler match based on system and component identifiers.
      * @return @a true if some handler was found and called, otherwise @a false.
@@ -230,7 +225,6 @@ private:
     class Callback_base: public std::enable_shared_from_this<Callback_base> {
         DEFINE_COMMON_CLASS(Callback_base, Callback_base)
     public:
-
         Callback_base(Request_processor::Ptr processor) :
             processor(processor) {}
 
@@ -239,7 +233,7 @@ private:
         {};
 
         virtual void
-        operator ()(Io_buffer::Ptr buffer, System_id system_id,
+        operator()(Io_buffer::Ptr buffer, System_id system_id,
                     uint8_t component_id, uint32_t request_id) = 0;
 
     protected:
@@ -251,8 +245,8 @@ private:
     template<mavlink::MESSAGE_ID_TYPE message_id, class Extention_type>
     class Callback: public Callback_base {
         DEFINE_COMMON_CLASS(Callback, Callback_base)
-    public:
 
+    public:
         /** Specific message type of this callback. */
         using Message_type = mavlink::Message<message_id, Extention_type>;
 
@@ -263,7 +257,7 @@ private:
         {}
 
         virtual void
-        operator ()(Io_buffer::Ptr buffer, System_id system_id,
+        operator()(Io_buffer::Ptr buffer, System_id system_id,
                     uint8_t component_id, uint32_t request_id) override
         {
             typename Message_type::Ptr message =

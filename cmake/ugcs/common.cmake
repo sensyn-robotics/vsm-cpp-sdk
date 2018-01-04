@@ -233,4 +233,3 @@ function(Compile_protobuf_definitions PROTO_INPUT_FILES PROTO_ROOT PROTO_COMMON_
     # Includes for the generated headers
     include_directories(${PROTO_OUTPUT_DIR}) 
 endfunction()
-

@@ -31,6 +31,7 @@ enum Vehicle_type {
     VEHICLE_TYPE_FIXED_WING = 1;
     VEHICLE_TYPE_MULTICOPTER = 2;
     VEHICLE_TYPE_HELICOPTER = 3;
+    VEHICLE_TYPE_VTOL = 4;          // Vehicle is capable of both fixed wing and multicopter style of flight.
 }
 
 enum Meta_value {
@@ -53,6 +54,7 @@ enum Control_mode {
     CONTROL_MODE_AUTO = 1;
     CONTROL_MODE_CLICK_GO = 2;
     CONTROL_MODE_JOYSTICK = 3;
+    CONTROL_MODE_ACTIVE_TRACK = 4;
 }
 
 enum Flight_mode {

@@ -34,13 +34,13 @@ Check_message(Pld_param_request_read &msg, uint8_t target_system,
 
 TEST(basic_functionality)
 {
-    CHECK_EQUAL(sizeof(Mav_param_request_read),
-                Pld_param_request_read::Get_payload_size());
-
     Mav_param_request_read msg_buf = {Le(static_cast<int16_t>(0x0102)),
                                       1, 2, "param ID"};
 
     Pld_param_request_read msg(&msg_buf, sizeof(msg_buf));
+
+    CHECK_EQUAL(sizeof(Mav_param_request_read),
+        msg.Get_size_v1());
 
     CHECK_EQUAL(1, msg->target_system);
     CHECK_EQUAL(2, msg->target_component);

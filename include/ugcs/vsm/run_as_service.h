@@ -11,8 +11,8 @@
  * In linux build Run_as_service() does nothing and returns SERVICE_RESULT_NORMAL_INVOCATION.
  */
 
-#ifndef WINDOWS_SERVICE_H_
-#define WINDOWS_SERVICE_H_
+#ifndef _RUN_AS_SERVICE_H_
+#define _RUN_AS_SERVICE_H_
 
 #include <ugcs/vsm/callback.h>
 
@@ -152,4 +152,4 @@ Run_as_service(const char* service_name, int argc, char *argv[], Program_init pr
 
 } /* namespace vsm */
 } /* namespace ugcs */
-#endif /* WINDOWS_SERVICE_H_ */
+#endif /* _RUN_AS_SERVICE_H_ */

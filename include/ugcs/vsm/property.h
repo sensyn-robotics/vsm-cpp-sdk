@@ -1,12 +1,9 @@
-/*
- * property.h
- *
- *  Created on: Jul 10, 2016
- *      Author: janis
- */
+// Copyright (c) 2017, Smart Projects Holdings Ltd
+// All rights reserved.
+// See LICENSE file for license details.
 
-#ifndef SRC_PROPERTY_H_
-#define SRC_PROPERTY_H_
+#ifndef _PROPERTY_H_
+#define _PROPERTY_H_
 
 #include <ucs_vsm_proto.h>
 #include <ugcs/vsm/utils.h>
@@ -19,8 +16,8 @@ namespace vsm {
 class Property: public std::enable_shared_from_this<Property>
 {
     DEFINE_COMMON_CLASS(Property, Property)
-public:
 
+public:
     typedef enum {
         VALUE_TYPE_INT = 1,
         VALUE_TYPE_FLOAT = 2,
@@ -88,7 +85,7 @@ public:
     Set_value(unsigned int v);
 
     void
-    Set_value(ugcs::vsm::proto::List_value &v);
+    Set_value(const ugcs::vsm::proto::List_value &v);
 
     void
     Set_value_na();
@@ -122,22 +119,22 @@ public:
     Default_value();
 
     bool
-    Get_value(bool &v);
+    Get_value(bool &v); // NOLINT(runtime/references)
 
     bool
-    Get_value(float &v);
+    Get_value(float &v); // NOLINT(runtime/references)
 
     bool
-    Get_value(double &v);
+    Get_value(double &v); // NOLINT(runtime/references)
 
     bool
-    Get_value(std::string& v);
+    Get_value(std::string& v); // NOLINT(runtime/references)
 
     bool
-    Get_value(int &v);
+    Get_value(int &v); // NOLINT(runtime/references)
 
     bool
-    Get_value(ugcs::vsm::proto::List_value &v);
+    Get_value(ugcs::vsm::proto::List_value &v); // NOLINT(runtime/references)
 
     bool
     Is_value_na();
@@ -153,16 +150,16 @@ public:
     Set_changed();
 
     int
-    Get_id() {return field_id;};
+    Get_id() {return field_id;}
 
     std::string
-    Get_name() {return name;};
+    Get_name() {return name;}
 
     ugcs::vsm::proto::Field_semantic
-    Get_semantic() {return semantic;};
+    Get_semantic() {return semantic;}
 
     std::chrono::time_point<std::chrono::system_clock>
-    Get_update_time() {return update_time;};
+    Get_update_time() {return update_time;}
 
     std::string
     Dump_value();
@@ -171,7 +168,6 @@ public:
     Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs::vsm::proto::Field_value& val2);
 
 private:
-
     void
     Write_value(ugcs::vsm::proto::Field_value* field);
 
@@ -198,6 +194,14 @@ private:
     std::chrono::seconds timeout = std::chrono::seconds(0); // timeout in seconds
     Value_spec value_spec = VALUE_SPEC_NA;
     std::chrono::time_point<std::chrono::system_clock> update_time;
+
+    // time when field was last sent to server.
+    // Used to throttle telemetry sending to server.
+    std::chrono::time_point<std::chrono::steady_clock> last_commit_time;
+
+    // do not send telemetry field to server more than 5 times per second.
+    // TODO: make this configurable
+    static constexpr std::chrono::milliseconds COMMIT_TIMEOUT = std::chrono::milliseconds(200);
 };
 
 class Property_list : public std::unordered_map<std::string, Property::Ptr>
@@ -205,7 +209,7 @@ class Property_list : public std::unordered_map<std::string, Property::Ptr>
 public:
     template<typename Type>
     bool
-    Get_value(const std::string& name, Type& value)
+    Get_value(const std::string& name, Type& value) // NOLINT(runtime/references)
     {
         auto it = find(name);
         if (it != end() && !it->second->Is_value_na()) {
@@ -219,4 +223,4 @@ public:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* SRC_PROPERTY_H_ */
+#endif /* _PROPERTY_H_ */

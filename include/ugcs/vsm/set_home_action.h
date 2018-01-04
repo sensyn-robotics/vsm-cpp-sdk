@@ -20,7 +20,6 @@ class Set_home_action: public Action {
     DEFINE_COMMON_CLASS(Set_home_action, Action)
 
 public:
-
     /** Construct set gome action explicitly. */
     Set_home_action(bool use_current_position, Wgs84_position home_position,
             double elevation) :
@@ -51,7 +50,7 @@ public:
     Set_home_action(const Property_list& p) :
         Action(Type::SET_HOME),
         use_current_position(false),
-        home_position(Geodetic_tuple(0,0,0))
+        home_position(Geodetic_tuple(0, 0, 0))
     {
         double lat = 0, lon = 0, alt = 0;
         auto pi = p.find("latitude");

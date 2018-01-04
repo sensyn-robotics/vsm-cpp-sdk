@@ -9,11 +9,11 @@
  * the standard library. Once it is done, this file should be removed.
  */
 
-#ifndef REGEX_H_
-#define REGEX_H_
+#ifndef _REGEX_H_
+#define _REGEX_H_
 
-#include <list>
 #include <string.h>
+#include <list>
 
 namespace regex {
 
@@ -38,7 +38,7 @@ namespace regex {
 #ifdef ANDROID
 // Android NDK does not have bsearch, so we are providing our own. Defined in utils.cpp
 void
-*bsearch (
+*bsearch(
         const void *key,
         const void *base,
         size_t n,
@@ -49,8 +49,7 @@ void
 #include <ugcs/vsm/deelx.h>
 #pragma GCC diagnostic pop
 
-namespace regex_constants
-{
+namespace regex_constants {
     typedef int syntax_option_type;
     static constexpr syntax_option_type none = REGEX_FLAGS::NO_FLAG;
     static constexpr syntax_option_type icase = REGEX_FLAGS::IGNORECASE;
@@ -63,7 +62,9 @@ class smatch;
 /** Regular expression object. Corresponds to std::regex. */
 class regex {
 public:
-    regex(const std::string &pattern, regex_constants::syntax_option_type flags = regex_constants::syntax_option_default):
+    regex(
+        const std::string &pattern,
+        regex_constants::syntax_option_type flags = regex_constants::syntax_option_default):
         pattern(pattern), re(pattern.c_str(), flags)
     {
     }
@@ -144,9 +145,9 @@ public:
     }
 
     smatch
-    operator [](size_t idx) const
+    operator[](size_t idx) const
     {
-        for (const Match_entry &group: result) {
+        for (const Match_entry &group : result) {
             if (!idx) {
                 return smatch(target, group);
             }
@@ -243,4 +244,4 @@ regex_search(const std::string &s, smatch &m, regex &re)
 
 } /* namespace regex */
 
-#endif /* REGEX_H_ */
+#endif /* _REGEX_H_ */

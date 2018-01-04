@@ -8,8 +8,8 @@
  * Coordinates manipulation.
  */
 
-#ifndef COORDINATES_H_
-#define COORDINATES_H_
+#ifndef _COORDINATES_H_
+#define _COORDINATES_H_
 
 #include <ugcs/vsm/exception.h>
 
@@ -113,7 +113,7 @@ public:
     double
     Lat_meter() const
     {
-        //XXX valid only for WGS-84
+        // XXX valid only for WGS-84
         static constexpr double M1 = 111132.92;
         static constexpr double M2 = -559.82;
         static constexpr double M3 = 1.175;
@@ -129,7 +129,7 @@ public:
      double
      Long_meter() const
      {
-         //XXX valid only for WGS-84
+         // XXX valid only for WGS-84
          static constexpr double P1 = 111412.84;
          static constexpr double P2 = -93.5;
          static constexpr double P3 = 0.118;
@@ -246,9 +246,6 @@ private:
     static Geodetic_tuple
     From_ecef(const Cartesian_tuple &tuple)
     {
-        /* Threshold for iterative process set at 0.00001 arc second. */
-        constexpr double threshold = 4.8481368110953605e-11;
-
         double latitude, longitude, altitude;
         double distance = std::hypot(tuple.x, tuple.y);
 
@@ -273,6 +270,9 @@ private:
                 latitude = 0.0;
                 altitude = distance - Datum::EQUATORIAL_RADIUS;
             } else {
+                /* Threshold for iterative process set at 0.00001 arc second. */
+                constexpr double threshold = 4.8481368110953605e-11;
+
                 double radius = std::hypot(distance, tuple.z);
                 double inclination = std::asin(tuple.z / radius);
                 double ratio = ECCENTRICITY_SQUARED * Datum::EQUATORIAL_RADIUS / (2.0 * radius);
@@ -317,8 +317,7 @@ private:
         return Cartesian_tuple(
             (curvature_radius + coord.altitude) * cosine_latitude * cosine_longitude,
             (curvature_radius + coord.altitude) * cosine_latitude * sine_longitude,
-            ((1.0 - ECCENTRICITY_SQUARED) * curvature_radius + coord.altitude) * sine_latitude
-        );
+            ((1.0 - ECCENTRICITY_SQUARED) * curvature_radius + coord.altitude) * sine_latitude);
     }
 };
 
@@ -334,4 +333,4 @@ Normalize_angle_minuspi_pi(float a);
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* COORDINATES_H_ */
+#endif /* _COORDINATES_H_ */

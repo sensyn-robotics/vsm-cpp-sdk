@@ -19,7 +19,6 @@ class Camera_series_by_distance_action: public Action {
     DEFINE_COMMON_CLASS(Camera_series_by_distance_action, Action)
 
 public:
-
     Camera_series_by_distance_action(double interval,
                                      Optional<int> count,
                                      std::chrono::milliseconds initial_delay):

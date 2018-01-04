@@ -9,9 +9,8 @@
 
 #include <ugcs/vsm/serial_processor.h>
 #include <ugcs/vsm/posix_file_handle.h>
-
-#include <cstring>
 #include <termios.h>
+#include <cstring>
 #include <iostream>
 
 using namespace ugcs::vsm;
@@ -20,9 +19,7 @@ namespace {
 
 /** Serial port mode on Linux. */
 class Linux_serial_mode: public Serial_processor::Stream::Mode {
-
 public:
-
     /** Constructor. */
     Linux_serial_mode(const Mode& mode);
 
@@ -31,7 +28,6 @@ public:
     Set_serial_config(int fd, uint8_t min_read);
 
 private:
-
     /** Maximum possible value for termios VTIME parameter. */
     static constexpr uint8_t MAX_VTIME = 255;
 
@@ -163,7 +159,6 @@ Linux_serial_mode::Map_char_size(int size)
 /** Extended handle to provide timed read for serial ports. */
 class Serial_file_handle: public internal::Posix_file_handle {
 public:
-
     /** Construct based on previously opened descriptor. */
     Serial_file_handle(int fd, const Serial_processor::Stream::Mode& mode);
 
@@ -172,7 +167,6 @@ public:
     Configure();
 
 private:
-
     /** Port opening mode. */
     Linux_serial_mode mode;
 };

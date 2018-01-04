@@ -20,8 +20,8 @@ namespace vsm {
  * management methods for associated handles. */
 class Vehicle_request: public std::enable_shared_from_this<Vehicle_request> {
     DEFINE_COMMON_CLASS(Vehicle_request, Vehicle_request)
-public:
 
+public:
     /** Request completion result. */
     enum class Result {
         /** Completed successfully. */
@@ -37,7 +37,6 @@ public:
      */
     class Handle {
     public:
-
         /** Construct initially invalid handle. */
         Handle();
 
@@ -65,7 +64,6 @@ public:
         Succeed();
 
     protected:
-
         /** Assignment operator implementation. */
         void
         Assign_result(Result result, const std::string& status_text = std::string());
@@ -122,7 +120,6 @@ public:
     Release_ref();
 
 private:
-
     /** Master request, which controls the execution of vehicle request. */
     Request::Ptr request;
 
@@ -141,7 +138,6 @@ class Vehicle_request_spec: public Vehicle_request {
     DEFINE_COMMON_CLASS(Vehicle_request_spec, Vehicle_request)
 
 public:
-
     /** Construct vehicle request with specific payload.
      * Template arguments:
      * - *Args* Arguments passed to payload constructor.
@@ -159,7 +155,6 @@ public:
      */
     class Handle: public Vehicle_request::Handle {
     public:
-
         using Vehicle_request::Handle::Handle;
 
         /** Access payload using pointer semantics. */

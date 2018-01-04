@@ -30,24 +30,24 @@ File_processor::Native_controller::Create()
 FILE*
 File_processor::Fopen_utf8(const std::string &name, const std::string & mode)
 {
-	return std::fopen(name.c_str(), mode.c_str());
+    return std::fopen(name.c_str(), mode.c_str());
 }
 
 bool
 File_processor::Rename_utf8(const std::string &old_name, const std::string &new_name)
 {
-	return std::rename(old_name.c_str(), new_name.c_str()) == 0;
+    return std::rename(old_name.c_str(), new_name.c_str()) == 0;
 }
 
 bool
 File_processor::Remove_utf8(const std::string &name)
 {
-	return std::remove(name.c_str()) == 0;
+    return std::remove(name.c_str()) == 0;
 }
 
 int
 File_processor::Access_utf8(const std::string &name, int mode)
 {
-	return access(name.c_str(), mode);
+    return access(name.c_str(), mode);
 }
 

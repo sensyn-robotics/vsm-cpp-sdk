@@ -8,8 +8,8 @@
  * MAVLink protocol messages.
  */
 
-#ifndef MAVLINK_H_
-#define MAVLINK_H_
+#ifndef _MAVLINK_H_
+#define _MAVLINK_H_
 
 #include <ugcs/vsm/endian.h>
 #include <ugcs/vsm/io_buffer.h>
@@ -29,14 +29,19 @@ enum {
     VERSION = 3,
     /** Starting byte of Mavlink packet. */
     START_SIGN = 0xfe,
+    /** Starting byte of Mavlink v2 packet. */
+    START_SIGN2 = 0xfd,
     /** @ref System_id value denoting an unknown system, or all systems
      * depending on context.
      */
-    SYSTEM_ID_NONE = 0,
-    /** Maximum mavlink packet size on the wire.
-     * 6 (header length) + 255 (max payload length) + 2 (checksum)*/
-    MAX_MAVLINK_PACKET_SIZE = 263
+    SYSTEM_ID_NONE = 0
 };
+
+static constexpr size_t MAVLINK_1_HEADER_LEN = 6;
+static constexpr size_t MAVLINK_1_MIN_FRAME_LEN = MAVLINK_1_HEADER_LEN + 2;
+
+static constexpr size_t MAVLINK_2_HEADER_LEN = 10;
+static constexpr size_t MAVLINK_2_MIN_FRAME_LEN = MAVLINK_2_HEADER_LEN + 2;
 
 /** ID for field type in MAVLink message. */
 enum Field_type_id {
@@ -98,7 +103,7 @@ struct Field_default_value<T, typename std::enable_if<std::is_floating_point<T>:
  * @param initial_value Initial value for the field. It's type is fixed to
  *       integer because floating point numbers cannot be template parameters.
  */
-template <typename T, Field_type_id id, long initial_value = 0>
+template <typename T, Field_type_id id, int32_t initial_value = 0>
 class Value {
 public:
     /** Construct value.
@@ -192,7 +197,7 @@ private:
 public:
     /** Access operator. */
     TValue &
-    operator [](size_t index)
+    operator[](size_t index)
     {
         if (index >= size) {
             VSM_EXCEPTION(Invalid_param_exception, "Index out of range");
@@ -204,7 +209,7 @@ public:
     void
     Reset()
     {
-        for (auto& elem: data) {
+        for (auto& elem : data) {
             elem.Reset();
         }
     }
@@ -218,10 +223,11 @@ class Value_array<Char, size> {
 private:
     /** Stored characters array. */
     Char data[size];
+
 public:
     /** Access operator. */
     Char &
-    operator [](size_t index)
+    operator[](size_t index)
     {
         if (index >= size) {
             VSM_EXCEPTION(Invalid_param_exception, "Index out of range");
@@ -238,7 +244,7 @@ public:
     Get_length() const
     {
         size_t len = 0;
-        for (Char c: data) {
+        for (Char c : data) {
             if (!c) {
                 return len;
             }
@@ -258,7 +264,7 @@ public:
     void
     Reset()
     {
-        for (auto& elem: data) {
+        for (auto& elem : data) {
             elem = 0;
         }
     }
@@ -315,7 +321,6 @@ public:
     {
         return *this = str.c_str();
     }
-
 } __PACKED;
 
 namespace internal {
@@ -336,43 +341,19 @@ struct Field_descriptor {
 
 /** A pair of values representing CRC extra byte and length of the Mavlink
  * message payload. */
-typedef std::pair<uint8_t, uint16_t> Extra_byte_length_pair;
+typedef std::pair<uint32_t, uint16_t> Extra_byte_length_pair;
 
 /** Message id implementation type capable to hold a message id value from
  * any extension (i.e. MESSAGE_ID from any extension can be assigned to this
  * type). */
-typedef uint8_t MESSAGE_ID_TYPE;
+typedef uint32_t MESSAGE_ID_TYPE;
 
 /* Forward declaration for a type which will be fully defined in generated headers. */
 enum MESSAGE_ID: MESSAGE_ID_TYPE;
 
-/** Standard kind of Mavlink protocol. */
-struct Mavlink_kind_standard {
-    /** System id type. */
-    typedef uint8_t System_id;
-
-    /** Wire-type format of Mavlink system id. */
-    typedef Uint8 System_id_wire;
-};
-
-/** UgCS flavor of Mavlink protocol. */
-struct Mavlink_kind_ugcs {
-    /** System id type. */
-    typedef uint32_t System_id;
-
-    /** Wire-type format of Mavlink system id. */
-    typedef Uint32 System_id_wire;
-};
-
-/** Common type for Mavlink system id which is able to hold system id values
- * from any kind of Mavlink, currently Mavlink_kind_standard, Mavlink_kind_ugcs.
- */
-typedef uint32_t System_id_common;
-
 /** This class defines properties of particular protocol extension. */
 class Extension {
 public:
-
     /** Virtual destructor. */
     virtual
     ~Extension() {}
@@ -397,6 +378,7 @@ public:
     {
         return &crc_extra_bytes_length_map;
     }
+
 private:
     static const Extension instance;
     /** Mapping from Mavlink message id to @ref Extra_byte_length_pair. Filled
@@ -408,15 +390,19 @@ private:
 /** Base class for MAVLink message payloads. */
 class Payload_base: public std::enable_shared_from_this<Payload_base> {
     DEFINE_COMMON_CLASS(Payload_base, Payload_base)
-public:
 
+public:
     virtual
     ~Payload_base()
     {}
 
-    /** Get size of the message payload in bytes. */
+    /** Get size of the message payload without extensions in bytes. */
     virtual size_t
-    Get_size() const = 0;
+    Get_size_v1() const = 0;
+
+    /** Get size of the message payload in bytes including all extensions. */
+    virtual size_t
+    Get_size_v2() const = 0;
 
     /** Get Io_buffer instance which contains current content of the message. */
     Io_buffer::Ptr
@@ -463,25 +449,28 @@ template <class TData, internal::Field_descriptor *fields, const char *msg_name,
     MESSAGE_ID_TYPE msg_id, uint8_t extra_byte>
 class Payload: public Payload_base {
     DEFINE_COMMON_CLASS(Payload, Payload_base)
+
 public:
     /** All fields are initialized to default values. */
     Payload() = default;
 
     /** Parse message from data buffer. The buffer should contain data on wire
-     * (in network byte order). Data size should not be less than expected
-     * payload size otherwise Invalid_param_exception is thrown.
+     * (in network byte order).
+     * Data size can be less than expected payload size.
+     * In this case reminder bytes will be set to 0. This is for mavlink2 support
+     * which allows trimming trailing zero bytes.
      *
      * @param buf Pointer to data buffer.
      * @param size Size of data available.
-     * @throws Invalid_param_exception if size is less than expected payload
-     *      size;
      */
     Payload(const void *buf, size_t size)
     {
-        if (size < sizeof(data)) {
-            VSM_EXCEPTION(Invalid_param_exception, "Too small buffer provided");
+        if (size > sizeof(data)) {
+            size = sizeof(data);
+        } else if (size < sizeof(data)) {
+            memset(&data, 0, sizeof(data));
         }
-        memcpy(&data, buf, sizeof(data));
+        memcpy(&data, buf, size);
     }
 
     /**
@@ -492,18 +481,18 @@ public:
         Payload(buffer->Get_data(), buffer->Get_length())
     {}
 
-    /** Get payload size in bytes for this type of message. */
-    static constexpr size_t
-    Get_payload_size()
+    /** Get size of the message payload without extensions in bytes. */
+    virtual size_t
+    Get_size_v1() const override
     {
-        return sizeof(TData);
+        return data.Get_size_v1();
     }
 
-    /** Get size of the message payload in bytes. */
+    /** Get size of the message payload in bytes including all extensions. */
     virtual size_t
-    Get_size() const override
+    Get_size_v2() const override
     {
-        return Get_payload_size();
+        return data.Get_size_v2();
     }
 
     /** Get message name. */
@@ -612,21 +601,21 @@ struct Payload_type_mapper {
 template<MESSAGE_ID_TYPE message_id, class Extension_type = Extension>
 class Message {
     DEFINE_COMMON_CLASS(Message)
-public:
 
+public:
     /** Construct message based on Mavlink payload and fixed header important
      * fields.
      * @throws Invalid_param_exception if size of the buffer is less than
      * expected payload size.
      */
-    Message(System_id_common system_id, uint8_t component_id, uint32_t request_id, Io_buffer::Ptr buffer) :
+    Message(uint8_t system_id, uint8_t component_id, uint32_t request_id, Io_buffer::Ptr buffer) :
         payload(buffer),
         sender_system_id(system_id),
         sender_component_id(component_id),
-        sender_request_id(request_id){}
+        sender_request_id(request_id) {}
 
     /** Get system id of the sender. */
-    System_id_common
+    uint8_t
     Get_sender_system_id() const
     {
         return sender_system_id;
@@ -650,9 +639,8 @@ public:
     typename Payload_type_mapper<message_id, Extension_type>::type payload;
 
 private:
-
     /** System id of the sending side. */
-    System_id_common sender_system_id;
+    uint8_t sender_system_id;
 
     /** Component id of the sending side. */
     uint8_t sender_component_id;
@@ -744,7 +732,6 @@ public:
     Reset();
 
 private:
-
     enum {
         /** Initial seed value. */
         X25_INIT_CRC = 0xffff
@@ -758,23 +745,6 @@ private:
     uint16_t accumulator;
 };
 
-/** Fixed Mavlink header. */
-template<typename Mavlink_kind>
-struct Header {
-    /** Packet start signature, should have @ref ugcs::vsm::mavlink::START_SIGN value. */
-    Uint8 start_sign;
-    /** Size of payload which follows this header. */
-    Uint8 payload_len;
-    /** Sequence number for the message. */
-    Uint8 seq;
-    /** Sender system ID. */
-    typename Mavlink_kind::System_id_wire system_id;
-    /** Sender component ID. */
-    Uint8 component_id;
-    /** Type ID for the payload which follows this header. */
-    Uint8 message_id;
-} __PACKED;
-
 } /* namespace mavlink */
 
 } /* namespace vsm */
@@ -784,4 +754,4 @@ struct Header {
 #include <ugcs/vsm/auto_mavlink_enums.h>
 #include <ugcs/vsm/auto_mavlink_messages.h>
 
-#endif /* MAVLINK_H_ */
+#endif /* _MAVLINK_H_ */

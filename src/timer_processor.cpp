@@ -45,7 +45,7 @@ void
 Timer_processor::Timer::Fire()
 {
     std::unique_lock<std::mutex> lock(mutex);
-    for (auto timer: attached_timers) {
+    for (auto timer : attached_timers) {
         timer->Fire();
     }
     attached_timers.clear();
@@ -257,7 +257,7 @@ Timer_processor::On_disable()
     /* Wait for dedicated thread terminates. */
     thread.join();
     std::unique_lock<std::mutex> lock(tree_lock);
-    for(auto& iter: tree) {
+    for (auto& iter : tree) {
         if (!iter.second->Is_running()) {
             continue;
         }

@@ -25,7 +25,6 @@ class Panorama_action: public Action {
     DEFINE_COMMON_CLASS(Panorama_action, Action)
 
 public:
-
     /** Camera trigger state. */
     enum Trigger_state {
         /** Continuous exposure. */
@@ -97,15 +96,12 @@ public:
     double speed;
 
 private:
-
     /** Convert trigger state parameter from Mavlink message to Trigger_state
      * enum.
      * @throw Action::Format_exception if mav_param has unsupported value.
      */
     static Trigger_state
     Mavlink_to_trigger_state(double mav_param);
-
-
 };
 
 /** Type mapper for panorama action. */

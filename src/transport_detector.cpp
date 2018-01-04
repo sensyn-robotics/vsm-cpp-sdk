@@ -108,8 +108,42 @@ Transport_detector::Add_detector(
     // load port data
     for (auto it = properties->begin(prefix, tokenizer); it != properties->end(); it++)
     {
-        try
-        {
+        try {
+            if (it[POS_TYPE] == "local_listening_port") {
+                auto port = properties->Get(*it);
+                std::string local_address("0.0.0.0");
+                if (properties->Exists(prefix + tokenizer + "local_listening_address")) {
+                    local_address = properties->Get(prefix + tokenizer + "local_listening_address");
+                }
+                Add_ip_detector(
+                    Socket_address::Create(local_address, port),
+                    Socket_address::Create(),               // empty remote addr.
+                    Port::Type::TCP_IN,
+                    handler,
+                    context);
+                continue;
+            } else if (it[POS_TYPE] == "local_listening_address") {
+                continue;
+            } else if (it[POS_TYPE] == "port") {
+                auto port = properties->Get(*it);
+                auto address = properties->Get(prefix + tokenizer + "address");
+                int timeout = DEFAULT_RETRY_TIMEOUT;
+                if (properties->Exists(prefix + tokenizer + "retry_timeout")) {
+                    timeout = properties->Get_int(prefix + tokenizer + "retry_timeout");
+                }
+                Add_ip_detector(
+                    Socket_address::Create(),               // empty local addr.
+                    Socket_address::Create(address, port),
+                    Port::Type::TCP_OUT,
+                    handler,
+                    context,
+                    timeout);
+                continue;
+            } else if (it[POS_TYPE] == "address") {
+                continue;
+            } else if (it[POS_TYPE] == "retry_timeout") {
+                continue;
+            }
             auto vpref = prefix + tokenizer + it[POS_TYPE] + tokenizer + it[POS_ID];
             if (it[POS_TYPE] == "serial") {
                 if (it[POS_ID] == "use_arbiter") {
@@ -126,28 +160,31 @@ Transport_detector::Add_detector(
                 } else if (it[POS_ID] == "exclude") {
                     Request::Ptr request = Request::Create();
                     auto proc_handler = Make_callback(
-                            &Transport_detector::Add_blacklisted_impl,
-                            Shared_from_this(),
-                            handler,
-                            properties->Get(*it),
-                            request);
+                        &Transport_detector::Add_blacklisted_impl,
+                        Shared_from_this(),
+                        handler,
+                        properties->Get(*it),
+                        request);
                     request->Set_processing_handler(proc_handler);
                     Submit_request(request);
                 } else {
                     if (it[POS_NAME] == "name") {
                         auto name = properties->Get(*it);
-                        for (auto baud_it = properties->begin(vpref, tokenizer); baud_it != properties->end(); baud_it++)
+                        for (
+                            auto baud_it = properties->begin(vpref, tokenizer);
+                            baud_it != properties->end();
+                            baud_it++)
                         {
                             if (baud_it[POS_NAME] == "baud") {
                                 Request::Ptr request = Request::Create();
                                 auto proc_handler = Make_callback(
-                                        &Transport_detector::Add_serial_detector,
-                                        Shared_from_this(),
-                                        name,
-                                        properties->Get_int(*baud_it),
-                                        handler,
-                                        context,
-                                        request);
+                                    &Transport_detector::Add_serial_detector,
+                                    Shared_from_this(),
+                                    name,
+                                    properties->Get_int(*baud_it),
+                                    handler,
+                                    context,
+                                    request);
                                 request->Set_processing_handler(proc_handler);
                                 Submit_request(request);
                             }
@@ -157,61 +194,53 @@ Transport_detector::Add_detector(
             } else if (it[POS_TYPE] == "tcp_out" && it[POS_NAME] == "port") {
                 auto port = properties->Get(vpref + tokenizer + "port");
                 auto address = properties->Get(vpref + tokenizer + "address");
-                Request::Ptr request = Request::Create();
-                auto proc_handler = Make_callback(
-                        &Transport_detector::Add_ip_detector,
-                        Shared_from_this(),
-                        Socket_address::Create(),               // empty local addr.
-                        Socket_address::Create(address, port),
-                        Port::Type::TCP_OUT,
-                        handler,
-                        context,
-                        request);
-                request->Set_processing_handler(proc_handler);
-                Submit_request(request);
+                int timeout = DEFAULT_RETRY_TIMEOUT;
+                if (properties->Exists(prefix + tokenizer + "retry_timeout")) {
+                    timeout = properties->Get_int(prefix + tokenizer + "retry_timeout");
+                }
+                Add_ip_detector(
+                    Socket_address::Create(),               // empty local addr.
+                    Socket_address::Create(address, port),
+                    Port::Type::TCP_OUT,
+                    handler,
+                    context,
+                    timeout);
             } else if (it[POS_TYPE] == "proxy" && it[POS_NAME] == "port") {
                 auto port = properties->Get(vpref + tokenizer + "port");
                 auto address = properties->Get(vpref + tokenizer + "address");
-                Request::Ptr request = Request::Create();
-                auto proc_handler = Make_callback(
-                        &Transport_detector::Add_ip_detector,
-                        Shared_from_this(),
-                        Socket_address::Create(),               // empty local addr.
-                        Socket_address::Create(address, port),
-                        Port::Type::PROXY,
-                        handler,
-                        context,
-                        request);
-                request->Set_processing_handler(proc_handler);
-                Submit_request(request);
+                int timeout = DEFAULT_RETRY_TIMEOUT;
+                if (properties->Exists(prefix + tokenizer + "retry_timeout")) {
+                    timeout = properties->Get_int(prefix + tokenizer + "retry_timeout");
+                }
+                Add_ip_detector(
+                    Socket_address::Create(),               // empty local addr.
+                    Socket_address::Create(address, port),
+                    Port::Type::PROXY,
+                    handler,
+                    context,
+                    timeout);
             } else if (it[POS_TYPE] == "tcp_in" && it[POS_NAME] == "local_port") {
                 auto port = properties->Get(vpref + tokenizer + "local_port");
                 std::string local_address("0.0.0.0");
                 if (properties->Exists(vpref + tokenizer + "local_address")) {
                     local_address = properties->Get(vpref + tokenizer + "local_address");
                 }
-                Request::Ptr request = Request::Create();
-                auto proc_handler = Make_callback(
-                        &Transport_detector::Add_ip_detector,
-                        Shared_from_this(),
-                        Socket_address::Create(local_address, port),
-                        Socket_address::Create(),               // empty remote addr.
-                        Port::Type::TCP_IN,
-                        handler,
-                        context,
-                        request);
-                request->Set_processing_handler(proc_handler);
-                Submit_request(request);
+                Add_ip_detector(
+                    Socket_address::Create(local_address, port),
+                    Socket_address::Create(),               // empty remote addr.
+                    Port::Type::TCP_IN,
+                    handler,
+                    context);
             } else if (it[POS_TYPE] == "can" && it[POS_NAME] == "name") {
                 auto iface = properties->Get(vpref + tokenizer + "name");
                 Request::Ptr request = Request::Create();
                 auto proc_handler = Make_callback(
-                        &Transport_detector::Add_can_detector,
-                        Shared_from_this(),
-                        iface,
-                        handler,
-                        context,
-                        request);
+                    &Transport_detector::Add_can_detector,
+                    Shared_from_this(),
+                    iface,
+                    handler,
+                    context,
+                    request);
                 request->Set_processing_handler(proc_handler);
                 Submit_request(request);
             } else if (it[POS_TYPE] == "udp_in" && it[POS_NAME] == "local_port") {
@@ -220,38 +249,25 @@ Transport_detector::Add_detector(
                 if (properties->Exists(vpref + tokenizer + "local_address")) {
                     local_address = properties->Get(vpref + tokenizer + "local_address");
                 }
-                Request::Ptr request = Request::Create();
-                auto proc_handler = Make_callback(
-                        &Transport_detector::Add_ip_detector,
-                        Shared_from_this(),
-                        Socket_address::Create(local_address, port),
-                        Socket_address::Create(),
-                        Port::Type::UDP_IN,
-                        handler,
-                        context,
-                        request);
-                request->Set_processing_handler(proc_handler);
-                Submit_request(request);
+                Add_ip_detector(
+                    Socket_address::Create(local_address, port),
+                    Socket_address::Create(),
+                    Port::Type::UDP_IN,
+                    handler,
+                    context);
             } else if (it[POS_TYPE] == "udp_any" && it[POS_NAME] == "local_port") {
                 auto port = properties->Get(vpref + tokenizer + "local_port");
                 std::string local_address("0.0.0.0");
                 if (properties->Exists(vpref + tokenizer + "local_address")) {
                     local_address = properties->Get(vpref + tokenizer + "local_address");
                 }
-                Request::Ptr request = Request::Create();
-                auto proc_handler = Make_callback(
-                        &Transport_detector::Add_ip_detector,
-                        Shared_from_this(),
-                        Socket_address::Create(local_address, port),
-                        Socket_address::Create(),
-                        Port::Type::UDP_IN_ANY,
-                        handler,
-                        context,
-                        request);
-                request->Set_processing_handler(proc_handler);
-                Submit_request(request);
+                Add_ip_detector(
+                    Socket_address::Create(local_address, port),
+                    Socket_address::Create(),
+                    Port::Type::UDP_IN_ANY,
+                    handler,
+                    context);
             } else if (it[POS_TYPE] == "udp_out" && it[POS_NAME] == "address") {
-
                 std::string local_port("0");
                 std::string local_address("0.0.0.0");
 
@@ -266,18 +282,12 @@ Transport_detector::Add_detector(
                     local_port = properties->Get(vpref + tokenizer + "local_port");
                 }
 
-                Request::Ptr request = Request::Create();
-                auto proc_handler = Make_callback(
-                        &Transport_detector::Add_ip_detector,
-                        Shared_from_this(),
-                        Socket_address::Create(local_address, local_port),
-                        Socket_address::Create(remote_address, remote_port),
-                        Port::Type::UDP_OUT,
-                        handler,
-                        context,
-                        request);
-                request->Set_processing_handler(proc_handler);
-                Submit_request(request);
+                Add_ip_detector(
+                    Socket_address::Create(local_address, local_port),
+                    Socket_address::Create(remote_address, remote_port),
+                    Port::Type::UDP_OUT,
+                    handler,
+                    context);
             }
         }
         catch (Exception&)
@@ -306,7 +316,7 @@ bool Transport_detector::Port_blacklisted(const std::string& port_name, Connect_
     if (it == port_black_list.end())
         return false;
     regex::smatch match;
-    for (auto &re: it->second)
+    for (auto &re : it->second)
     {
         if (regex::regex_match(port_name, match, re))
             return true;
@@ -337,13 +347,38 @@ Transport_detector::Add_ip_detector(
         Port::Type type,
         Connect_handler handler,
         Request_processor::Ptr ctx,
-        Request::Ptr request)
+        int retry_timeout)
+{
+    Request::Ptr request = Request::Create();
+    auto proc_handler = Make_callback(
+        &Transport_detector::Add_ip_detector_impl,
+        Shared_from_this(),
+        local_addr,
+        remote_addr,
+        type,
+        handler,
+        ctx,
+        request,
+        retry_timeout);
+    request->Set_processing_handler(proc_handler);
+    Submit_request(request);
+}
+
+void
+Transport_detector::Add_ip_detector_impl(
+    Socket_address::Ptr local_addr,
+    Socket_address::Ptr remote_addr,
+    Port::Type type,
+    Connect_handler handler,
+    Request_processor::Ptr ctx,
+    Request::Ptr request,
+    int retry_timeout)
 {
     // Put it directly in active config.
     auto it = active_config.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(local_addr->Get_as_string() + "-" + remote_addr->Get_as_string()),
-            std::forward_as_tuple(local_addr, remote_addr, type, worker)).first;
+            std::forward_as_tuple(local_addr, remote_addr, type, worker, retry_timeout)).first;
     it->second.Add_detector(0, handler, ctx);
     request->Complete();
 }
@@ -395,8 +430,8 @@ Transport_detector::On_timer()
     // modify current config according to connected ports.
     auto detected_ports = Serial_processor_type::Enumerate_port_names();
 
-    for (auto it = active_config.begin(); it != active_config.end();)
-    {// Remove all serial ports which do not exist any more.
+    for (auto it = active_config.begin(); it != active_config.end();) {
+        // Remove all serial ports which do not exist any more.
         if (it->second.Get_type() == Port::SERIAL)
         {
             auto found = false;
@@ -418,16 +453,16 @@ Transport_detector::On_timer()
         }
     }
 
-    for (auto& detected_port : detected_ports)
-    {// Add detectors for newly discovered serial ports.
-        if (active_config.find(detected_port) == active_config.end())
-        {// Newly detected port which is not in current config.
+    for (auto& detected_port : detected_ports) {
+        // Add detectors for newly discovered serial ports.
+        if (active_config.find(detected_port) == active_config.end()) {
+            // Newly detected port which is not in current config.
             auto new_port = false;
-            for (auto &configured_port_entry : serial_detector_config)
-            {// Match it against our configured detectors and add to list if needed.
+            for (auto &configured_port_entry : serial_detector_config) {
+                // Match it against our configured detectors and add to list if needed.
                 auto &configured_port = configured_port_entry.second;
-                if (configured_port.Match_name(detected_port))
-                {// port name matched one from config. Add detectors.
+                if (configured_port.Match_name(detected_port)) {
+                    // port name matched one from config. Add detectors.
                     Shared_mutex_file::Ptr arbiter = nullptr;
                     auto emplace_result = active_config.emplace(
                             std::piecewise_construct,
@@ -442,8 +477,8 @@ Transport_detector::On_timer()
                         current_port.Create_arbiter(acquire_complete, worker);
                     }
                     for (auto &entry : configured_port.detectors) {
-                        if (!Port_blacklisted(detected_port, entry.Get_handler()))
-                        {// not in blacklist
+                        if (!Port_blacklisted(detected_port, entry.Get_handler())) {
+                            // not in blacklist
                             current_port.Add_detector(entry.Get_baud(), entry.Get_handler(), entry.Get_ctx());
                             new_port = true;
                         }
@@ -456,7 +491,7 @@ Transport_detector::On_timer()
     }
 
     if (detector_active) {
-        for (auto &entry: active_config) {
+        for (auto &entry : active_config) {
             entry.second.On_timer();
         }
     }
@@ -476,7 +511,12 @@ Transport_detector::Port::Port(const std::string &name, Type ctype, Request_work
 {
 }
 
-Transport_detector::Port::Port(Socket_address::Ptr local_addr, Socket_address::Ptr peer_addr, Type type, Request_worker::Ptr w):
+Transport_detector::Port::Port(
+    Socket_address::Ptr local_addr,
+    Socket_address::Ptr peer_addr,
+    Type type,
+    Request_worker::Ptr w,
+    int timeout):
     state(NONE),
     name(local_addr->Get_as_string()),
     local_addr(local_addr),
@@ -485,7 +525,9 @@ Transport_detector::Port::Port(Socket_address::Ptr local_addr, Socket_address::P
     stream(nullptr),
     re(name, platform_independent_filename_regex_matching_flag),
     worker(w),
-    type(type)
+    type(type),
+    retry_timeout(std::chrono::seconds(timeout)),
+    last_reopen(std::chrono::steady_clock::now() - retry_timeout)
 {
 }
 
@@ -494,7 +536,7 @@ Transport_detector::Port::~Port()
     socket_connecting_op.Abort();
     proxy_stream_reader_op.Abort();
 
-    if(listener_stream && !listener_stream->Is_closed()) {
+    if (listener_stream && !listener_stream->Is_closed()) {
         listener_stream->Close();
     }
     listener_stream = nullptr;
@@ -518,8 +560,8 @@ Transport_detector::Port::~Port()
 void
 Transport_detector::Port::On_timer()
 {
-    if (stream && stream->Is_closed())
-    {// User has closed the stream.
+    if (stream && stream->Is_closed()) {
+        // User has closed the stream.
         LOG("Port %s closed by user", stream->Get_name().c_str());
         stream = nullptr;
         if (arbiter) {
@@ -529,7 +571,7 @@ Transport_detector::Port::On_timer()
     }
 
     // check for broken proxy connections.
-    for(auto it = sub_streams.begin(); it != sub_streams.end();) {
+    for (auto it = sub_streams.begin(); it != sub_streams.end();) {
         if ((*it)->Is_closed()) {
             it = sub_streams.erase(it);
         } else {
@@ -545,7 +587,8 @@ Transport_detector::Port::On_timer()
         }
     }
 
-    if (state == NONE) {
+    if (state == NONE && std::chrono::steady_clock::now() - last_reopen > retry_timeout) {
+        last_reopen = std::chrono::steady_clock::now();
         Reopen_and_call_next_handler(); // Start detection from scratch.
     }
 }
@@ -708,8 +751,7 @@ Transport_detector::Port::Reopen_and_call_next_handler()
                 Make_socket_connect_callback(
                         &Transport_detector::Port::Ip_connected,
                         this),
-                worker
-            );
+                worker);
         socket_connecting_op.Timeout(Transport_detector::TCP_CONNECT_TIMEOUT);
         break;
     case TCP_IN:
@@ -741,8 +783,7 @@ Transport_detector::Port::Reopen_and_call_next_handler()
                 Make_socket_connect_callback(
                     &Transport_detector::Port::Proxy_connected,
                     this),
-                worker
-            );
+                worker);
         socket_connecting_op.Timeout(Transport_detector::TCP_CONNECT_TIMEOUT);
         break;
     case UDP_IN:
@@ -916,8 +957,9 @@ Transport_detector::Port::Ip_connected(
         Request::Ptr request = Request::Create();
         std::string address;
         if (new_stream->Get_type() == Io_stream::Type::TCP) {
+            peer_addr = new_stream->Get_peer_address();
             address = new_stream->Get_peer_address()->Get_as_string();
-        } else if (new_stream->Get_type() == Io_stream::Type::CAN){
+        } else if (new_stream->Get_type() == Io_stream::Type::CAN) {
             address = name;
         } else {
             peer_addr = new_stream->Get_peer_address();
@@ -976,7 +1018,7 @@ Transport_detector::Port::Protocol_not_detected(Io_stream::Ref str)
 {
     if (type == PROXY || type == TCP_IN) {
         str->Close();
-        for(auto it = sub_streams.begin(); it != sub_streams.end();) {
+        for (auto it = sub_streams.begin(); it != sub_streams.end();) {
             if (*it == str) {
                 it = sub_streams.erase(it);
             } else {

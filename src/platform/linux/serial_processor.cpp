@@ -39,16 +39,16 @@ Serial_processor::Enumerate_port_names()
             struct stat st;
             auto devicedir = devdir + "/device";
 
-            if (lstat(devicedir.c_str(), &st) == 0 && S_ISLNK(st.st_mode))
-            {// Stat the devdir and handle it if it is a symlink
+            if (lstat(devicedir.c_str(), &st) == 0 && S_ISLNK(st.st_mode)) {
+                // Stat the devdir and handle it if it is a symlink
                 char buffer[1024];
                 memset(buffer, 0, sizeof(buffer));
 
                 // Append '/driver' and return basename of the target
                 devicedir += "/driver";
 
-                if (readlink(devicedir.c_str(), buffer, sizeof(buffer)) > 0)
-                {// Work only with devices with a driver
+                if (readlink(devicedir.c_str(), buffer, sizeof(buffer)) > 0) {
+                    // Work only with devices with a driver
                     std::string driver(basename(buffer));
                     auto devfile = std::string("/dev/") + basename(devdir.c_str());
 
@@ -73,9 +73,9 @@ Serial_processor::Enumerate_port_names()
                             }
                             close(fd);
                         }
-                    }
-                    else
+                    } else {
                         com_list.push_back(devfile);
+                    }
                 }
             }
             free(name_list[n]);

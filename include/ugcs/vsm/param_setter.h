@@ -8,8 +8,8 @@
  * Parameters setter.
  */
 
-#ifndef PARAM_SETTER_H_
-#define PARAM_SETTER_H_
+#ifndef _PARAM_SETTER_H_
+#define _PARAM_SETTER_H_
 
 #include <ugcs/vsm/callback.h>
 
@@ -38,10 +38,11 @@ public:
      *      provided to the constructor.
      */
     void
-    operator ()(Params... values)
+    operator()(Params... values)
     {
         params = std::tuple<Params...>(values...);
     }
+
 private:
     /** Stored reference to parameters to set. */
     std::tuple<typename std::add_lvalue_reference<Params>::type...> params;
@@ -67,4 +68,4 @@ Make_setter(Params &... params)
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* PARAM_SETTER_H_ */
+#endif /* _PARAM_SETTER_H_ */

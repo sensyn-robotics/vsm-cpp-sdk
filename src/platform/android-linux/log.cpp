@@ -8,9 +8,8 @@
  */
 
 #include <ugcs/vsm/log.h>
-
-#include <sstream>
 #include <string.h>
+#include <sstream>
 
 using namespace ugcs::vsm;
 

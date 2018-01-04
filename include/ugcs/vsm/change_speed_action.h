@@ -22,7 +22,6 @@ class Change_speed_action: public Action {
     DEFINE_COMMON_CLASS(Change_speed_action, Action)
 
 public:
-
     /** Construct action explicitly. */
     Change_speed_action(float h_speed, float v_speed) :
     Action(Type::CHANGE_SPEED),

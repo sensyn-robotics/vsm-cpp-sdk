@@ -2,8 +2,8 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#ifndef SRC_CRC32_H_
-#define SRC_CRC32_H_
+#ifndef _CRC32_H_
+#define _CRC32_H_
 
 #include <stdint.h>
 #include <stddef.h>
@@ -11,10 +11,8 @@
 namespace ugcs {
 namespace vsm {
 
-class Crc32
-{
+class Crc32 {
 public:
-
     void
     Reset()
     {
@@ -44,7 +42,7 @@ public:
     Add_buffer(void* b, size_t len)
     {
         auto buf = static_cast<uint8_t*>(b);
-        for (; len; --len, ++buf ) {
+        for (; len; --len, ++buf) {
             crc = crc_tab[(crc ^ (*buf)) & 0xff] ^ (crc >> 8);
         }
         return ~crc;
@@ -57,7 +55,6 @@ public:
     }
 
 private:
-
     uint32_t crc = 0xFFFFFFFF;
     static uint32_t crc_tab[];
 };
@@ -65,4 +62,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* SRC_CRC32_H_ */
+#endif /* _CRC32_H_ */

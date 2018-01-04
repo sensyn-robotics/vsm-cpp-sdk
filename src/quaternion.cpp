@@ -1,9 +1,6 @@
-/*
- * quaternion.cpp
- *
- *  Created on: Sep 29, 2016
- *      Author: j
- */
+// Copyright (c) 2017, Smart Projects Holdings Ltd
+// All rights reserved.
+// See LICENSE file for license details.
 
 #include <ugcs/vsm/quaternion.h>
 #include <cmath>

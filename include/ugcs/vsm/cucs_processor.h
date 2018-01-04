@@ -9,14 +9,14 @@
  * vehicles.
  */
 
-#ifndef CUCS_PROCESSOR_H_
-#define CUCS_PROCESSOR_H_
+#ifndef _CUCS_PROCESSOR_H_
+#define _CUCS_PROCESSOR_H_
 
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/device.h>
 #include <ugcs/vsm/socket_processor.h>
 #include <ugcs/vsm/mavlink_stream.h>
-#include <ugcs/vsm/peripheral_device.h>
+#include <ugcs/vsm/transport_detector.h>
 #include <ucs_vsm_proto.h>
 #include <unordered_set>
 #include <map>
@@ -27,6 +27,7 @@ namespace vsm {
 /** Handles interactions with CUCS. Intermediate version. */
 class Cucs_processor: public Request_processor {
     DEFINE_COMMON_CLASS(Cucs_processor, Request_container);
+
 public:
     /**
      * Default constructor.
@@ -38,7 +39,7 @@ public:
     static Ptr
     Get_instance(Args &&... args)
     {
-    	return singleton.Get_instance(std::forward<Args>(args)...);
+        return singleton.Get_instance(std::forward<Args>(args)...);
     }
 
     /** Registration of a vehicle instance in the processor. */
@@ -53,9 +54,11 @@ public:
     Send_ucs_message(uint32_t handle, Proto_msg_ptr message);
 
 private:
-
     /** Write operations timeout. */
     constexpr static std::chrono::seconds WRITE_TIMEOUT = std::chrono::seconds(60);
+
+    /** How long to wait for Register_peer from server. */
+    constexpr static std::chrono::seconds REGISTER_PEER_TIMEOUT = std::chrono::seconds(10);
 
     // Protobuf message of size above this is considered an attack.
     constexpr static size_t PROTO_MAX_MESSAGE_LEN = 1000000;
@@ -71,11 +74,12 @@ private:
     uint32_t ucs_id_counter;
 
     uint32_t
-    Get_next_id() { return ucs_id_counter++; };
+    Get_next_id() { return ucs_id_counter++; }
 
     typedef struct {
         size_t stream_id;
-        Socket_processor::Stream::Ref stream;
+        Io_stream::Ref stream;
+        Socket_address::Ptr address;
         Optional<uint32_t> ucs_id;
         Operation_waiter read_waiter;
 
@@ -119,14 +123,9 @@ private:
         uint32_t,
         Vehicle_context> vehicles;
 
-    /** Stream which listens for incoming CUCS connections. */
-    Socket_processor::Socket_listener::Ref cucs_listener;
-
-    /** Cucs listener opening operation. */
-    Operation_waiter cucs_listener_op;
-
-    /** Current accept operation, if any. */
-    Operation_waiter accept_op;
+    /** Dedicated detector only for server connections.
+     * Because the singleton Transport_detector is used by vehicles and can be disabled. */
+    Transport_detector::Ptr ucs_connector;
 
     /** Leave transport detector on when there are no server connections. */
     bool transport_detector_on_when_diconnected = false;
@@ -140,19 +139,13 @@ private:
     void
     Process_on_disable(Request::Ptr);
 
-    /** Listening to UCS server started. */
-    void
-    On_listening_started(Socket_processor::Socket_listener::Ref listener,
-            Io_result result);
-
     /** Incoming connection from UCS arrived. */
     void
-    On_incoming_connection(Socket_processor::Stream::Ref stream, Io_result result);
+    On_incoming_connection(std::string, int, Socket_address::Ptr, Io_stream::Ref);
 
     /** Schedule next read operation for a stream. */
     void
-    Schedule_next_read(
-            Server_context& sc);
+    Schedule_next_read(Server_context& sc);
 
     /** Read operation for a given UCS connection stream completed. */
     void
@@ -166,12 +159,6 @@ private:
     Write_completed(
             Io_result,
             size_t stream_id);
-
-    void
-    Start_listening();
-
-    void
-    Accept_next_connection();
 
     void
     On_register_vehicle(Request::Ptr, Device::Ptr);
@@ -221,4 +208,4 @@ private:
 
 } /* namespace vsm */
 } /* namespace ugcs */
-#endif /* CUCS_PROCESSOR_H_ */
+#endif /* _CUCS_PROCESSOR_H_ */

@@ -18,7 +18,6 @@ class Poi_action:public Action {
     DEFINE_COMMON_CLASS(Poi_action, Action)
 
 public:
-
     /** Construct POI explicitly. */
     Poi_action(Wgs84_position position, bool active) :
         Action(Type::POI),
@@ -51,7 +50,7 @@ public:
      */
     Poi_action(const Property_list& p) :
         Action(Type::POI),
-        position(Geodetic_tuple(0,0,0))
+        position(Geodetic_tuple(0, 0, 0))
     {
         double lat = 0, lon = 0, alt = 0;
         auto pi = p.find("latitude");

@@ -103,10 +103,20 @@ TEST(basic_usage)
     CHECK_EQUAL(10, v->some_prop);
 
     Socket_processor::Ptr sp = ugcs::vsm::Socket_processor::Get_instance();
-    sp->Connect("127.0.0.1", "5556",
-            Make_socket_connect_callback([&](Socket_processor::Stream::Ref s, Io_result){
-        ucs_stream = s;
-    }));
+
+    // Wait for ucs listener to appear.
+    auto result = Io_result::CONNECTION_REFUSED;
+    while (result == Io_result::CONNECTION_REFUSED) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        auto w = sp->Connect("127.0.0.1", "5556",
+                Make_socket_connect_callback([&](Socket_processor::Stream::Ref s, Io_result res ) {
+            result = res;
+            ucs_stream = s;
+        }));
+        w.Wait();
+    }
+
+    CHECK(Io_result::OK == result);
 
     // send server hello message
     ugcs::vsm::proto::Vsm_message vsm_msg;

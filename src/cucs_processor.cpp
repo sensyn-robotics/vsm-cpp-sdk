@@ -14,12 +14,14 @@
 using namespace ugcs::vsm;
 
 constexpr std::chrono::seconds Cucs_processor::WRITE_TIMEOUT;
+constexpr std::chrono::seconds Cucs_processor::REGISTER_PEER_TIMEOUT;
 
 Singleton<Cucs_processor> Cucs_processor::singleton;
 
 Cucs_processor::Cucs_processor():
         Request_processor("Cucs processor"),
-        ucs_id_counter(1)
+        ucs_id_counter(1),
+        ucs_connector(Transport_detector::Create())
 {
 }
 
@@ -75,7 +77,27 @@ Cucs_processor::On_enable()
     completion_ctx->Enable();
     Request_processor::On_enable();
     worker->Enable();
-    Start_listening();
+
+    auto props = Properties::Get_instance();
+    if (props->Exists("ucs.disable")) {
+        return;
+    }
+
+    if (Properties::Get_instance()->Exists("ucs.transport_detector_on_when_diconnected")) {
+        transport_detector_on_when_diconnected = true;
+        Transport_detector::Get_instance()->Activate(true);
+    } else {
+        transport_detector_on_when_diconnected = false;
+        Transport_detector::Get_instance()->Activate(false);
+    }
+
+    ucs_connector->Enable();
+    ucs_connector->Add_detector(
+        ugcs::vsm::Transport_detector::Make_connect_handler(
+            &Cucs_processor::On_incoming_connection,
+            Shared_from_this()),
+        Shared_from_this(),
+        "ucs");
 }
 
 void
@@ -90,17 +112,13 @@ Cucs_processor::On_disable()
     Submit_request(req);
     req->Wait_done(false);
     Set_disabled();
+    ucs_connector->Disable();
     worker->Disable();
 }
 
 void
 Cucs_processor::Process_on_disable(Request::Ptr request)
 {
-    accept_op.Abort();
-    cucs_listener_op.Abort();
-    if (cucs_listener) {
-        cucs_listener->Close();
-    }
     if (vehicles.size()) {
         LOG_ERR("%zu vehicles are still present in Cucs processor while disabling.",
                 vehicles.size());
@@ -123,60 +141,38 @@ Cucs_processor::Process_on_disable(Request::Ptr request)
 }
 
 void
-Cucs_processor::On_listening_started(Socket_processor::Socket_listener::Ref listener,
-        Io_result result)
+Cucs_processor::On_incoming_connection(std::string, int, Socket_address::Ptr addr, Io_stream::Ref stream)
 {
-    if (result == Io_result::OK) {
-        cucs_listener = listener;
-        LOG_DEBUG("Cucs listening started.");
-        Accept_next_connection();
-
-    } else {
-        LOG_ERR("Cucs listening failed. %d", static_cast<int>(result));
-        //XXX Try again
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        Start_listening();
+    if (stream->Get_type() != Io_stream::Type::TCP) {
+        // support only TCP coneections.
+        stream->Close();
+        return;
     }
-}
 
-void
-Cucs_processor::On_incoming_connection(Socket_processor::Stream::Ref stream, Io_result result)
-{
-    if (result == Io_result::OK) {
-        LOG_INFO("UCS connection accepted [%s].",
-                stream->Get_name().c_str());
+    auto new_id = Get_next_id();
+    Server_context sc;
+    sc.stream = stream;
+    sc.stream_id = new_id;
+    sc.address = addr;
+    Schedule_next_read(sc);
 
-        if (ucs_connections.size() == 0) {
-            Transport_detector::Get_instance()->Activate(true);
-        }
-        Server_context sc;
-        sc.stream = stream;
-        sc.stream_id = Get_next_id();
-        Schedule_next_read(sc);
+    ucs_connections.emplace(sc.stream_id, std::move(sc));
 
-        ucs_connections.emplace(sc.stream_id, std::move(sc));
-
-        ugcs::vsm::proto::Vsm_message msg;
-        auto p = msg.mutable_register_peer();
-        p->set_peer_id(Get_application_instance_id());
-        p->set_peer_type(proto::PEER_TYPE_VSM);
+    ugcs::vsm::proto::Vsm_message msg;
+    auto p = msg.mutable_register_peer();
+    p->set_peer_id(Get_application_instance_id());
+    p->set_peer_type(proto::PEER_TYPE_VSM);
 #ifdef SDK_VERSION_MAJOR
-        p->set_version_major(SDK_VERSION_MAJOR);
+    p->set_version_major(SDK_VERSION_MAJOR);
 #endif
 #ifdef SDK_VERSION_MINOR
-        p->set_version_minor(SDK_VERSION_MINOR);
+    p->set_version_minor(SDK_VERSION_MINOR);
 #endif
 #ifdef SDK_VERSION_BUILD
-        p->set_version_build(SDK_VERSION_BUILD);
+    p->set_version_build(SDK_VERSION_BUILD);
 #endif
-        msg.set_device_id(0);
-        Send_ucs_message(sc.stream_id, msg);
-
-    } else {
-        LOG_WARN("Incoming connection accept failed %d",
-                 static_cast<int>(result));
-    }
-    Accept_next_connection();
+    msg.set_device_id(0);
+    Send_ucs_message(new_id, msg);
 }
 
 void
@@ -192,6 +188,10 @@ Cucs_processor::Schedule_next_read(
                     Shared_from_this(),
                     sc.stream_id),
             completion_ctx);
+    if (!sc.ucs_id) {
+        // Close connection if server does not send us Register_peer.
+        sc.read_waiter.Timeout(REGISTER_PEER_TIMEOUT);
+    }
 }
 
 void
@@ -214,7 +214,9 @@ Cucs_processor::Read_completed(
             int byte = *static_cast<const uint8_t*>(buffer->Get_data());
             connection.message_size |= (byte & 0x7f) << connection.shift;
             if (connection.message_size > PROTO_MAX_MESSAGE_LEN) {
-                LOG_ERR("Proto message len of %zu exceeds allowed %zu bytes!", connection.message_size, PROTO_MAX_MESSAGE_LEN);
+                LOG_ERR("Proto message len of %zu exceeds allowed %zu bytes!",
+                    connection.message_size,
+                    PROTO_MAX_MESSAGE_LEN);
                 Close_ucs_stream(stream_id);
                 return;
             }
@@ -235,7 +237,7 @@ Cucs_processor::Read_completed(
             ugcs::vsm::proto::Vsm_message vsm_msg;
             if (vsm_msg.ParseFromArray(buffer->Get_data(), buffer->Get_length())) {
                 // Message parsed ok.
-                //LOG("received msg: %s", vsm_msg.DebugString().c_str());
+                // LOG("received msg: %s", vsm_msg.DebugString().c_str());
                 if (connection.ucs_id) {
                     // knwon ucs
                     if (vsm_msg.has_device_response()) {
@@ -258,7 +260,8 @@ Cucs_processor::Read_completed(
                                     auto tf = reg.mutable_device_status()->mutable_telemetry_fields();
                                     for (auto& e : it->second.telemetry_cache) {
                                         // Do not send cached telemetry values which are N/A
-                                        if (!e.second.value().has_meta_value() || e.second.value().meta_value() != ugcs::vsm::proto::META_VALUE_NA) {
+                                        if (    !e.second.value().has_meta_value()
+                                            ||  e.second.value().meta_value() != ugcs::vsm::proto::META_VALUE_NA) {
                                             auto f = tf->Add();
                                             f->CopyFrom(e.second);
                                         }
@@ -306,14 +309,14 @@ Cucs_processor::Read_completed(
                                 if (ucs.second.ucs_id && *(ucs.second.ucs_id) == new_peer) {
                                     dupe = true;
                                     if (ucs.second.primary) {
-                                        if (    !ucs.second.stream->Get_local_address()->Is_loopback_address()
-                                            ||  connection.stream->Get_local_address()->Is_loopback_address()) {
+                                        if (    !ucs.second.address->Is_loopback_address()
+                                            ||  connection.address->Is_loopback_address()) {
                                             ucs.second.primary = false;
                                             connection.primary = true;
                                             LOG("Switched primary connection for %08X from %s to %s",
                                                 new_peer,
-                                                ucs.second.stream->Get_peer_address()->Get_as_string().c_str(),
-                                                connection.stream->Get_peer_address()->Get_as_string().c_str());
+                                                ucs.second.stream->Get_name().c_str(),
+                                                connection.stream->Get_name().c_str());
                                         }
                                         break;
                                     }
@@ -322,7 +325,9 @@ Cucs_processor::Read_completed(
                             // From now on we know that this ucs is reachable via this connection.
                             connection.ucs_id = new_peer;
                             if (dupe) {
-                                LOG("Another connection from known UCS %08X detected", new_peer);
+                                LOG("Another connection from known UCS %08X detected on %s",
+                                    new_peer,
+                                    connection.stream->Get_name().c_str());
                             } else {
                                 // We have connection from new ucs.
                                 connection.primary = true;
@@ -339,13 +344,20 @@ Cucs_processor::Read_completed(
                                 if (reg_peer.has_version_build()) {
                                     version += reg_peer.version_build();
                                 }
-                                LOG("New UCS %08X detected, version: %s", new_peer, version.c_str());
+                                LOG("New UCS %08X detected on %s, version: %s",
+                                    new_peer,
+                                    connection.stream->Get_name().c_str(),
+                                    version.c_str());
+                                // Activate transport_detector
+                                Transport_detector::Get_instance()->Activate(true);
                             }
                             // Send all known vehicles.
                             Send_vehicle_registrations(connection);
                         } else {
                             // Invalid peer type.
-                            LOG_WARN("connection from invalid peer_type: %d. VSM supports connections only from server. Closing.", reg_peer.peer_type());
+                            LOG_WARN(
+                                "connection from invalid peer_type: %d. VSM supports connections only from server.",
+                                reg_peer.peer_type());
                             Close_ucs_stream(stream_id);
                             return;
                         }
@@ -370,43 +382,6 @@ Cucs_processor::Read_completed(
 }
 
 void
-Cucs_processor::Start_listening()
-{
-    cucs_listener_op.Abort();
-    auto props = Properties::Get_instance();
-    if (props->Exists("ucs.disable")) {
-        return;
-    }
-
-    if (Properties::Get_instance()->Exists("ucs.transport_detector_on_when_diconnected")) {
-        transport_detector_on_when_diconnected = true;
-        Transport_detector::Get_instance()->Activate(true);
-    } else {
-        transport_detector_on_when_diconnected = false;
-        Transport_detector::Get_instance()->Activate(false);
-    }
-
-    cucs_listener_op = Socket_processor::Get_instance()->Listen(
-            Socket_address::Create(
-                    props->Get("ucs.local_listening_address"),
-                    props->Get("ucs.local_listening_port")),
-            Make_socket_listen_callback(
-                    &Cucs_processor::On_listening_started,
-                    Shared_from_this()),
-            completion_ctx);
-}
-
-void
-Cucs_processor::Accept_next_connection()
-{
-    accept_op = Socket_processor::Get_instance()->Accept(cucs_listener,
-            Make_socket_accept_callback(
-                    &Cucs_processor::On_incoming_connection,
-                    Shared_from_this()),
-            completion_ctx);
-}
-
-void
 Cucs_processor::On_register_vehicle(Request::Ptr request, Device::Ptr vehicle)
 {
     auto device_id = vehicle->Get_session_id();
@@ -422,7 +397,7 @@ Cucs_processor::On_register_vehicle(Request::Ptr request, Device::Ptr vehicle)
 
     vehicle->Fill_register_msg(ctx.registration_message);
 
-    //LOG("Vehicle registered %s",ctx.registration_message.DebugString().c_str());
+    // LOG("Vehicle registered %s",ctx.registration_message.DebugString().c_str());
 
     request->Complete();
 
@@ -476,7 +451,7 @@ Cucs_processor::On_send_ucs_message(Request::Ptr request, uint32_t device_id, Pr
             }
         }
         message->set_device_id(device_id);
-        //LOG("sending msg: %s", message->DebugString().c_str());
+        // LOG("sending msg: %s", message->DebugString().c_str());
         Broadcast_message_to_ucs(*message);
     } else {
         // This can happen if vehicle is removed while message is dispatched already.
@@ -488,7 +463,7 @@ Cucs_processor::On_send_ucs_message(Request::Ptr request, uint32_t device_id, Pr
 void
 Cucs_processor::Broadcast_message_to_ucs(ugcs::vsm::proto::Vsm_message& message)
 {
-    for (auto& iter: ucs_connections) {
+    for (auto& iter : ucs_connections) {
         // Broadcast only to primary connections.
         if (iter.second.primary) {
             Send_ucs_message(iter.first, message);
@@ -573,8 +548,8 @@ Cucs_processor::Send_ucs_message(
         user_data.resize(header_len + payload_len);
         Io_buffer::Ptr buffer = Io_buffer::Create(std::move(user_data));
 
-        //LOG("sending msg: %s", message.DebugString().c_str());
-        //LOG("sending msg len: %d", header_len + payload_len);
+        // LOG("sending msg: %s", message.DebugString().c_str());
+        // LOG("sending msg len: %d", header_len + payload_len);
         ctx.stream->Write(
                 buffer,
                 Make_write_callback(
@@ -601,9 +576,11 @@ Cucs_processor::Close_ucs_stream(size_t stream_id)
 {
     auto iter = ucs_connections.find(stream_id);
     if (iter != ucs_connections.end()) {
-        LOG("Closing UCS %08X connection from %s",
-            iter->second.ucs_id?*iter->second.ucs_id:0,
-            iter->second.stream->Get_peer_address()->Get_as_string().c_str());
+        if (iter->second.ucs_id) {
+        LOG("Closing UCS %08X connection %s",
+            *iter->second.ucs_id,
+            iter->second.address->Get_as_string().c_str());
+        }
         iter->second.stream->Close();
         auto primary = iter->second.primary;
         uint32_t ucs_id = 0;
@@ -618,12 +595,12 @@ Cucs_processor::Close_ucs_stream(size_t stream_id)
             auto loopback_found = false;
             for (auto& ucs : ucs_connections) {
                 if (ucs.second.ucs_id && *(ucs.second.ucs_id) == ucs_id) {
-                    if (ucs.second.stream->Get_local_address()->Is_loopback_address()) {
+                    if (ucs.second.address->Is_loopback_address()) {
                         ucs.second.primary = true;
                         loopback_found = true;
                         LOG("New primary connection for UCS %08X: %s",
                             ucs_id,
-                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str());
+                            ucs.second.address->Get_as_string().c_str());
                     }
                 }
             }
@@ -634,7 +611,7 @@ Cucs_processor::Close_ucs_stream(size_t stream_id)
                         ucs.second.primary = true;
                         LOG("New primary connection for UCS %08X: %s",
                             ucs_id,
-                            ucs.second.stream->Get_peer_address()->Get_as_string().c_str());
+                            ucs.second.address->Get_as_string().c_str());
                         break;
                     }
                 }

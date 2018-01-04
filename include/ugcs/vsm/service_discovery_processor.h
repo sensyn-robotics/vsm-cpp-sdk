@@ -8,8 +8,8 @@
  *      Author: janis
  */
 
-#ifndef SRC_SSDP_PROCESSOR_H_
-#define SRC_SSDP_PROCESSOR_H_
+#ifndef _SERVICE_DISCOVERY_PROCESSOR_H_
+#define _SERVICE_DISCOVERY_PROCESSOR_H_
 
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/socket_processor.h>
@@ -24,9 +24,9 @@ class Service_discovery_processor : public Request_processor
     DEFINE_COMMON_CLASS(Service_discovery_processor, Request_container);
 public:
     Service_discovery_processor(
-            Socket_address::Ptr muticast_adress =
-                    Socket_address::Create(DEFAULT_DISCOVERY_ADDRESS, DEFAULT_DISCOVERY_PORT)
-    );
+        Socket_address::Ptr muticast_adress =
+            Socket_address::Create(DEFAULT_DISCOVERY_ADDRESS, DEFAULT_DISCOVERY_PORT));
+
     virtual ~Service_discovery_processor();
 
     /** Detector function.
@@ -49,7 +49,7 @@ public:
     typedef Callback_proxy<void, std::string, std::string, std::string, std::string, bool> Detection_handler;
 
     /** Builder for detection handler. */
-    DEFINE_CALLBACK_BUILDER (
+    DEFINE_CALLBACK_BUILDER(
             Make_detection_handler,
             (std::string, std::string, std::string, std::string, bool),
             ("", "", "", "", true));
@@ -106,8 +106,8 @@ public:
     {
         return singleton.Get_instance(std::forward<Args>(args)...);
     }
-private:
 
+private:
     static std::string DEFAULT_DISCOVERY_ADDRESS;
     static std::string DEFAULT_DISCOVERY_PORT;
     static std::string LOOPBACK_BROADCAST_ADDRESS;
@@ -267,4 +267,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* SRC_SSDP_PROCESSOR_H_ */
+#endif /* _SERVICE_DISCOVERY_PROCESSOR_H_ */

@@ -59,7 +59,7 @@ Request_container::Process_requests(int requests_limit)
         lock.Unlock();
         Process_request(request);
         num_processed++;
-    };
+    }
     return num_processed;
 }
 
@@ -78,7 +78,7 @@ Request_container::Process_requests(std::unique_lock<std::mutex> &lock, int requ
         Process_request(request);
         lock.lock();
         num_processed++;
-    };
+    }
     return num_processed;
 }
 
@@ -88,7 +88,7 @@ Request_container::Set_waiter(Request_waiter::Ptr waiter)
     if (!waiter) {
         VSM_EXCEPTION(Nullptr_exception, "Null waiter provided");
     }
-    //XXX check use cases and atomicity
+    // XXX check use cases and atomicity
     this->waiter = waiter;
 }
 
@@ -167,7 +167,7 @@ Request_container::Abort_requests()
         auto requests_copy = std::move(request_queue);
         lock.Unlock();
 
-        for (auto& req: requests_copy) {
+        for (auto& req : requests_copy) {
             req->Abort();
             /* Do process complete to finalize abort pending, if any. */
             req->Process(false);
@@ -176,7 +176,7 @@ Request_container::Abort_requests()
 
         lock.Lock();
         cont = false;
-        for(auto& req: request_queue) {
+        for (auto& req : request_queue) {
             if (req->Get_status() != Request::Status::ABORTED) {
                 /* Full abort of one request generated another request.
                  * This is potentially error prone, so assert in debug,

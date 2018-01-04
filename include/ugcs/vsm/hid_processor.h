@@ -8,10 +8,10 @@
  * HID devices driver.
  */
 
-#ifndef VSM_DISABLE_HID
+#ifndef _HID_PROCESSOR_H_
+#define _HID_PROCESSOR_H_
 
-#ifndef HID_PROCESSOR_H_
-#define HID_PROCESSOR_H_
+#ifndef VSM_DISABLE_HID
 
 #include <ugcs/vsm/file_processor.h>
 
@@ -21,6 +21,7 @@ namespace vsm {
 /** Processor for getting events from raw input device. */
 class Hid_processor: public ugcs::vsm::File_processor {
     DEFINE_COMMON_CLASS(Hid_processor, Request_container)
+
 public:
     /** Base class for all Hid_processor exceptions. */
     VSM_DEFINE_EXCEPTION(Exception);
@@ -66,7 +67,7 @@ public:
 
         /** Comparison operator for device IDs. */
         bool
-        operator <(const Device_id id) const
+        operator <(const Device_id& id) const
         {
             return Get_numeric() < id.Get_numeric();
         }
@@ -78,6 +79,7 @@ public:
     /** Stream class which represents opened device. */
     class Stream: public File_processor::Stream {
         DEFINE_COMMON_CLASS(Stream, Io_stream)
+
     public:
         /** Reference type. */
         typedef Reference_guard<Stream::Ptr> Ref;
@@ -201,6 +203,6 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* HID_PROCESSOR_H_ */
-
 #endif /* VSM_DISABLE_HID */
+
+#endif /* _HID_PROCESSOR_H_ */

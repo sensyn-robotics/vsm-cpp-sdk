@@ -53,6 +53,7 @@ enum class Io_result {
  */
 class Io_stream: public std::enable_shared_from_this<Io_stream> {
     DEFINE_COMMON_CLASS(Io_stream, Io_stream)
+
 public:
     /** Guard object. */
     typedef Reference_guard<Io_stream::Ptr> Ref;
@@ -252,7 +253,7 @@ public:
     /**
      * Constructor.
      */
-    Io_stream(Type type):
+    Io_stream(Type type) :
         stream_type(type)
     {}
 
@@ -338,7 +339,6 @@ protected:
     Set_name(const std::string&);
 
 private:
-
     /** Name mutex, global for all streams, because operations with name
      * are rare.
      */

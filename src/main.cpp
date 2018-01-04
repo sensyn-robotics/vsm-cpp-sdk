@@ -152,8 +152,7 @@ ugcs::vsm::Initialize(const std::string &props_file)
                 discoverer->Advertise_service(
                         properties->Get(service_base + "type"),
                         properties->Get(service_base + "name"),
-                        properties->Get(service_base + "location")
-                        );
+                        properties->Get(service_base + "location"));
             }
         } catch (Exception&) {
             // ignore parsing errors.
@@ -170,8 +169,7 @@ ugcs::vsm::Initialize(const std::string &props_file)
             discoverer->Advertise_service(
                     "ugcs:vsm",
                     properties->Get("service_discovery.vsm_name"),
-                    "tcp://{local_address}:" + properties->Get("ucs.local_listening_port")
-                    );
+                    "tcp://{local_address}:" + properties->Get("ucs.local_listening_port"));
         } catch (Exception&) {
             // ignore parsing errors.
         }
@@ -193,7 +191,6 @@ ugcs::vsm::Initialize(const std::string &props_file)
     hid_processor = Hid_processor::Get_instance();
     hid_processor->Enable();
 #   endif /* VSM_DISABLE_HID */
-
 }
 
 void

@@ -21,7 +21,6 @@ class Landing_action: public Action {
     DEFINE_COMMON_CLASS(Landing_action, Action)
 
 public:
-
     /** Construct the landing action explicitly. */
     Landing_action(Wgs84_position position, double heading, double elevation,
             double descend_rate, double acceptance_radius) :
@@ -55,7 +54,7 @@ public:
      */
     Landing_action(const Property_list& p) :
         Action(Type::LANDING),
-        position(Geodetic_tuple(0,0,0))
+        position(Geodetic_tuple(0, 0, 0))
     {
         double lat = 0, lon = 0, alt = 0;
         auto pi = p.find("latitude");

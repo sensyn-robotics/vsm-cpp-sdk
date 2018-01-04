@@ -26,7 +26,9 @@ public:
         SINGLE_SHOT,
         VIDEO_START,
         VIDEO_STOP,
-        VIDEO_TOGGLE,   // Toggle video recording on/off. Used for cameras which do not support separate commands for video start/stop.
+        // Toggle video recording on/off.
+        // Used for cameras which do not support separate commands for video start/stop.
+        VIDEO_TOGGLE,
         UNKNOWN
     };
 
@@ -34,7 +36,9 @@ public:
     enum class Camera_power_state {
         ON,
         OFF,
-        TOGGLE,     // Toggle the power state. Used for cameras which do not support separate commands for on and off.
+        // Toggle the power state.
+        // Used for cameras which do not support separate commands for on and off.
+        TOGGLE,
         UNKNOWN
     };
 
@@ -215,7 +219,6 @@ public:
     }
 
 private:
-
     /** Type of the command. */
     Type type;
 

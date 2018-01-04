@@ -8,14 +8,13 @@
  * Timer processor. Provides asynchronous timers.
  */
 
-#ifndef TIMER_PROCESSOR_H_
-#define TIMER_PROCESSOR_H_
-
-#include <thread>
-#include <map>
+#ifndef _TIMER_PROCESSOR_H_
+#define _TIMER_PROCESSOR_H_
 
 #include <ugcs/vsm/request_context.h>
 #include <ugcs/vsm/singleton.h>
+#include <thread>
+#include <map>
 
 namespace ugcs {
 namespace vsm {
@@ -23,6 +22,7 @@ namespace vsm {
 /** Timer processor manages all timers in the VSM. */
 class Timer_processor: public Request_processor {
     DEFINE_COMMON_CLASS(Timer_processor, Request_container)
+
 public:
     /** Get global or create new processor instance. */
     template <typename... Args>
@@ -44,6 +44,7 @@ public:
     /** Represents timer instance. */
     class Timer: public std::enable_shared_from_this<Timer> {
         DEFINE_COMMON_CLASS(Timer, Timer)
+
     public:
         /** Construct timer instance associated with a processor. */
         Timer(const Timer_processor::Ptr &processor,
@@ -188,4 +189,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* TIMER_PROCESSOR_H_ */
+#endif /* _TIMER_PROCESSOR_H_ */

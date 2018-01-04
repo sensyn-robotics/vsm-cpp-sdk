@@ -187,7 +187,7 @@ std::string
 Io_buffer::Get_ascii() const
 {
     auto ret = std::string();
-    for(size_t a = offset; a < offset + len; a++)
+    for (size_t a = offset; a < offset + len; a++)
     {
         char c = (*data)[a];
         if (c < 32) c = '.';
@@ -201,7 +201,7 @@ Io_buffer::Get_hex() const
 {
     const char h[] = "0123456789abcdef";
     auto ret = std::string();
-    for(size_t i = offset; i < offset + len; i++)
+    for (size_t i = offset; i < offset + len; i++)
     {
         char c = (*data)[i];
         ret += h[((c >> 4) & 15)];

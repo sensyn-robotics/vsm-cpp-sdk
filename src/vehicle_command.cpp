@@ -78,7 +78,6 @@ Vehicle_command::Vehicle_command(Type type, const Property_list& p):
         // Other commands do not have parameters.
         break;
     }
-
 }
 
 /** Construct command with parameters. */

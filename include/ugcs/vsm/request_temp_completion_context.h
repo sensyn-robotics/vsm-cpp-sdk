@@ -6,8 +6,8 @@
  * @file request_temp_completion_context.h
  */
 
-#ifndef TASK_TEMP_COMPLETION_CONTEXT_H_
-#define TASK_TEMP_COMPLETION_CONTEXT_H_
+#ifndef _REQUEST_TEMP_COMPLETION_CONTEXT_H_
+#define _REQUEST_TEMP_COMPLETION_CONTEXT_H_
 
 #include <ugcs/vsm/request_context.h>
 
@@ -18,7 +18,6 @@ namespace vsm {
 class Request_temp_completion_context: public Request_completion_context {
     DEFINE_COMMON_CLASS(Request_temp_completion_context, Request_container)
 public:
-
     Request_temp_completion_context() :
         Request_completion_context("Temporary completion context")
     {
@@ -38,10 +37,9 @@ public:
     {
         return Type::TEMP_COMPLETION_CONTEXT;
     }
-
 };
 
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* TASK_TEMP_COMPLETION_CONTEXT_H_ */
+#endif /* _REQUEST_TEMP_COMPLETION_CONTEXT_H_ */

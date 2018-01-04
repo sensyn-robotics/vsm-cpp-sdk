@@ -7,16 +7,16 @@
  * Common preprocessor definitions.
  */
 
-#ifndef DEFS_H_
-#define DEFS_H_
+#ifndef _DEFS_H_
+#define _DEFS_H_
 
 /** Specify that a function has format arguments (like printf or scanf). See
  * 'format' attribute description in GCC documentation (XXX).
  */
-//XXX ifdef GCC
+// XXX ifdef GCC
 #ifdef __unix__
 #define __FORMAT(type, fmt_idx, arg_idx)    \
-    __attribute__ ((format(type, fmt_idx, arg_idx)))
+    __attribute__((format(type, fmt_idx, arg_idx)))
 #else /* __unix__ */
 /* Windows has improper size of long type which causes undesired warning.
  * Disable format validation there.
@@ -34,4 +34,4 @@
  */
 #define __PACKED    __attribute__((packed))
 
-#endif /* DEFS_H_ */
+#endif /* _DEFS_H_ */

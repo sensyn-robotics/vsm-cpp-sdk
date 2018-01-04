@@ -385,7 +385,9 @@ Request::Wait_done(bool process_ctx, std::chrono::milliseconds timeout)
     Request_waiter::Ptr waiter = completion_context->Get_waiter();
     /* Prevent from request destruction. */
     Ptr request = Shared_from_this();
-    auto predicate = [&request](){ return request->Is_done(); };
+    auto predicate = [&request]() {
+        return request->Is_done();
+    };
     // create a copy to avoid data race
     auto tmp_ctx = completion_context;
     lock.unlock();

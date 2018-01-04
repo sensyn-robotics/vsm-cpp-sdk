@@ -43,7 +43,7 @@ Task::Get_home_position_impl() const
     double elevation;
     bool first_move_found = false;
 
-    for (auto& action: actions) {
+    for (auto& action : actions) {
         if (action->Get_type() == Action::Type::SET_HOME) {
             Set_home_action::Ptr a = action->Get_action<Action::Type::SET_HOME>();
             pos = &a->home_position;

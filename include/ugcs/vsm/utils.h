@@ -10,12 +10,12 @@
 #ifndef _UTILS_H_
 #define _UTILS_H_
 
-#include <memory>
 #include <ugcs/vsm/debug.h>
 #include <ugcs/vsm/exception.h>
+#include <ugcs/vsm/regex.h>
 
 #include <type_traits>
-#include <ugcs/vsm/regex.h>
+#include <memory>
 
 /** Use this macro to define some common attributes for a class.
  * @param __class_name Name for the class being defined.
@@ -54,7 +54,7 @@ namespace std {
 /** Method for creating non sharable objects, until this method is added to
  * C++14. */
 template<typename T, typename ...Args>
-std::unique_ptr<T> make_unique( Args&& ...args )
+std::unique_ptr<T> make_unique(Args&& ...args)
 {
     return std::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
 }

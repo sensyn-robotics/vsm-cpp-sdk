@@ -122,13 +122,12 @@ void
 Log::Set_max_custom_log_size_inst(ssize_t size)
 {
     if (size < MIN_CUSTOM_LOG_FILE_SIZE) {
-        LOG_ERR("Too small value for maximum log file size (%ld bytes) specified, "
-                "using default value of %ld bytes.",
-                static_cast<long>(size),
-                static_cast<long>(MIN_CUSTOM_LOG_FILE_SIZE));
+        LOG_ERR("Too small value for maximum log file size (%zd bytes) specified, using default value of %zd bytes.",
+                size,
+                MIN_CUSTOM_LOG_FILE_SIZE);
         max_custom_log = MIN_CUSTOM_LOG_FILE_SIZE;
     } else {
-        LOG_DEBUG("Setting max custom log file to %ld bytes", static_cast<long>(size));
+        LOG_DEBUG("Setting max custom log file to %zd bytes", size);
         max_custom_log = size;
     }
 }
@@ -341,14 +340,13 @@ Log::Write_console_message_v_inst(int thread_id, Level level, const char *msg,
     std::strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
 
     auto duration = now.time_since_epoch();
-    unsigned long ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() % 1000;
+    uint32_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() % 1000;
 
     std::va_list con_args;
     va_copy(con_args, args);
-    Printf_utf8("%s.%03lu - <%s> %d ", ts_buf, ms, Get_level_str(level), thread_id);
+    Printf_utf8("%s.%03u - <%s> %d ", ts_buf, ms, Get_level_str(level), thread_id);
     Vprintf_utf8(msg, con_args);
-    std::cout<<std::endl;
+    std::cout << std::endl;
     fflush(stdout);
     va_end(con_args);
 }

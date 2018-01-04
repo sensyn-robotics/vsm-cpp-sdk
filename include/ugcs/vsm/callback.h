@@ -105,7 +105,7 @@ public:
          * @throws Nullptr_exception if the pointer is null.
          */
         Result_t
-        operator ()()
+        operator()()
         {
             if (!std::shared_ptr<Callback_type>::get()) {
                 VSM_EXCEPTION(Nullptr_exception,
@@ -117,7 +117,7 @@ public:
 
     /** Execute callback. */
     virtual Result_t
-    operator ()() = 0;
+    operator()() = 0;
 };
 
 #ifndef NO_DOXYGEN
@@ -253,7 +253,7 @@ public:
 
     /** Execute callback. */
     virtual typename Base_type::Result_t
-    operator ()() override
+    operator()() override
     {
         return Invoke(typename callback_internal::Sequence_generator
                         <sizeof...(Args)>::Sequence_type());
@@ -339,7 +339,7 @@ public:
 
     /** Execute callback. */
     virtual typename Base_type::Result_t
-    operator ()() override
+    operator()() override
     {
         return Invoke(typename callback_internal::Sequence_generator
                         <sizeof...(Args)>::Sequence_type());
@@ -409,7 +409,9 @@ public:
     static Callable
     Create()
     {
-        return [](Args __UNUSED... args) { return Result(); };
+        return [](Args __UNUSED... args) {
+            return Result();
+        };
     }
 };
 
@@ -540,6 +542,7 @@ public:
                                           std::declval<Callable>(),
                                           std::declval<Forced_args_tuple>(),
                                           std::declval<Args>()...));
+
 private:
     template <class Forced_args_tuple, class All_args_tuple, int... args_seq>
     static typename Callback_type<Forced_args_tuple>::Ptr
@@ -570,7 +573,8 @@ public:
             std::tuple_cat(std::forward_as_tuple(std::forward<Class_ptr>(class_ptr)),
                            std::forward<std::tuple<Forced_args...>>(forced_args),
                            std::forward_as_tuple(std::forward<Args>(args)...)),
-            typename callback_internal::Sequence_generator<1 + sizeof...(Forced_args) + sizeof...(Args)>::Sequence_type());
+            typename callback_internal::Sequence_generator<
+                1 + sizeof...(Forced_args) + sizeof...(Args)>::Sequence_type());
     }
 
     /** Resulted callback class type. */
@@ -624,7 +628,6 @@ template <class Callable, class Forced_args_tuple, typename... Args>
 class Callback_forced_args:
     public callback_internal::Callback_forced_args_helper<Callable, void, Args...>::
            template Callback_type<Forced_args_tuple> {
-
 public:
     /** Helper type. */
     typedef callback_internal::Callback_forced_args_helper<Callable, void, Args...> Helper;
@@ -812,12 +815,11 @@ public:
     }
 
     /** Callback proxy hasher based on referenced callback. */
-    class Hasher
-    {
+    class Hasher {
     public:
         /** Hash value operator. */
         size_t
-        operator ()(const Callback_proxy& proxy) const
+        operator()(const Callback_proxy& proxy) const
         {
             static std::hash<decltype(proxy.cbk.get())> hasher;
 

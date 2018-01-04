@@ -7,13 +7,13 @@
  *
  * Java properties set implementation.
  */
-#ifndef _PROPERTIES_H_
-#define _PROPERTIES_H_
+#ifndef _HTTP_PARSER_H_
+#define _HTTP_PARSER_H_
 
+#include <ugcs/vsm/exception.h>
+#include <string.h>
 #include <istream>
 #include <map>
-#include <string.h>
-#include <ugcs/vsm/exception.h>
 
 namespace ugcs {
 namespace vsm {
@@ -66,4 +66,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _PROPERTIES_H_ */
+#endif /* _HTTP_PARSER_H_ */

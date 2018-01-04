@@ -38,9 +38,7 @@ Http_parser::Get_method() const
     return http_method;
 }
 
-namespace
-{
-
+namespace {
 // Valid characters of HTTP token. See rfc7230.
 bool
 Is_token_char(int c)
@@ -288,9 +286,11 @@ class Skip_space_and_eol: public State {
 /* Read everything until eol.*/
 class Read_until_eol: public State {
     bool terminate_at_space;
-    public:
+
+public:
     Read_until_eol(bool terminate_at_space = false)
-    :terminate_at_space(terminate_at_space){
+    :terminate_at_space(terminate_at_space )
+    {
         Set_substate(Ptr(new Skip_space()));
     }
     std::string value;
@@ -377,7 +377,7 @@ class Read_header: public State {
 // Request. Do not care about url, proto/version for now.
 class Request_state: public State {
 public:
-    Request_state(){
+    Request_state() {
         Set_substate(Ptr(new Read_until_eol()));
     }
     virtual bool
@@ -391,7 +391,7 @@ public:
 // Response. Ignore proto version and return code for now.
 class Response_state: public State {
 public:
-    Response_state(){
+    Response_state() {
         Set_substate(Ptr(new Read_until_eol()));
     }
     virtual bool
@@ -406,8 +406,9 @@ public:
 class First_line_state: public State {
     std::string method;
     bool is_request = false;
+
 public:
-    First_line_state(){
+    First_line_state() {
         Set_substate(Ptr(new Skip_space_and_eol()));
     }
     virtual bool
@@ -440,7 +441,7 @@ public:
     }
 };
 
-}
+} // namespace
 
 bool
 Http_parser::Parse(std::istream &stream)

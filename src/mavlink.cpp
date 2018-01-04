@@ -17,7 +17,7 @@ using namespace ugcs::vsm::mavlink;
 Io_buffer::Ptr
 Payload_base::Get_buffer() const
 {
-    return Io_buffer::Create(Get_data(), Get_size());
+    return Io_buffer::Create(Get_data(), Get_size_v2());
 }
 
 const Extension Extension::instance;
@@ -143,7 +143,11 @@ Payload_base::Dump() const
     internal::Field_descriptor *desc = Get_fields();
     const uint8_t *field = reinterpret_cast<const uint8_t *>(Get_data());
 
-    ss << "Message " << Get_name() << " (" << Get_size() << " bytes)\n";
+    if (Get_size_v1() != Get_size_v2()) {
+        ss << "Message " << Get_name() << " (" << Get_size_v1() << "-" << Get_size_v2() << " bytes)\n";
+    } else {
+        ss << "Message " << Get_name() << " (" << Get_size_v1() << " bytes)\n";
+    }
 
     while (desc->type_id != NONE) {
         ss << Get_type_name(desc->type_id) << ' ';
@@ -260,9 +264,9 @@ Checksum::Calculate(const void* buffer, size_t len, uint16_t* accumulator)
 
     while (len--) {
         uint8_t tmp;
-        tmp = *(data++) ^ (*accumulator &0xff);
-        tmp ^= (tmp<<4);
-        *accumulator = (*accumulator>>8) ^ (tmp<<8) ^ (tmp <<3) ^ (tmp>>4);
+        tmp = *(data++) ^ (*accumulator & 0xff);
+        tmp ^= (tmp << 4);
+        *accumulator = (*accumulator >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4);
     }
 
     return *accumulator;
@@ -292,7 +296,7 @@ Checksum::Get_extra_byte_length_pair(
 void
 Checksum::Reset()
 {
-	Init(accumulator);
+    Init(accumulator);
 }
 
 void

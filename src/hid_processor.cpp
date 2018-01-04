@@ -48,7 +48,6 @@ Hid_processor::Stream::Stream(Hid_processor::Ptr processor, Device_id device_id,
                         proc(processor), device_id(device_id),
                         native_handle(native_handle)
 {
-
 }
 
 void

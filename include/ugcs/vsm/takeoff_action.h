@@ -19,7 +19,6 @@ class Takeoff_action: public Action {
     DEFINE_COMMON_CLASS(Takeoff_action, Action)
 
 public:
-
     /** Construct take-off action explicitly. */
     Takeoff_action(Wgs84_position position, double heading, double elevation,
             double climb_rate, double acceptance_radius) :
@@ -58,7 +57,7 @@ public:
      */
     Takeoff_action(const Property_list& p) :
         Action(Type::TAKEOFF),
-        position(Geodetic_tuple(0,0,0))
+        position(Geodetic_tuple(0, 0, 0))
     {
         double lat = 0, lon = 0, alt = 0;
         auto pi = p.find("latitude");

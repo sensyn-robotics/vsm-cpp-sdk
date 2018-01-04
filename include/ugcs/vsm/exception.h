@@ -8,13 +8,12 @@
  * VSM exceptions definition.
  */
 
-#ifndef EXCEPTION_H_
-#define EXCEPTION_H_
-
-#include <string>
-#include <stdarg.h>
+#ifndef _EXCEPTION_H_
+#define _EXCEPTION_H_
 
 #include <ugcs/vsm/defs.h>
+#include <stdarg.h>
+#include <string>
 
 namespace ugcs {
 namespace vsm {
@@ -22,28 +21,27 @@ namespace vsm {
 /** Base class for all VSM exceptions. */
 class Exception: public std::exception {
 public:
+    /** Dummy structure to explicitly indicate the constructor
+     * overload for va_list type argument. This is to workaround
+     * the problem in Windows, where va_list has 'char*' type and
+     * automatic overload resolution is confused between real va_list
+     * argument and constant string literal.
+     */
+    struct Va_list_overload {
+        // Workaround for http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60336
+        char dummy;
+    };
 
-	/** Dummy structure to explicitly indicate the constructor
-	 * overload for va_list type argument. This is to workaround
-	 * the problem in Windows, where va_list has 'char*' type and
-	 * automatic overload resolution is confused between real va_list
-	 * argument and constant string literal.
-	 */
-	struct Va_list_overload {
-	    /** Workaround for http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60336 */
-	    char dummy;
-	};
-	
-	/** Dummy structure to explicitly indicate the constructor
-	 * overload for variable arguments (i.e. printf style).
-	 */
-	struct Va_args_overload {
-	    /** Workaround for http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60336 */
-	    char dummy;
-	};
-	
+    /** Dummy structure to explicitly indicate the constructor
+     * overload for variable arguments (i.e. printf style).
+     */
+    struct Va_args_overload {
+        // Workaround for http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60336
+        char dummy;
+    };
+
     /** Default constructor should not be used often. */
-    Exception(): msg("<no message>") {};
+    Exception(): msg("<no message>") {}
 
     /** Construct exception.
      *
@@ -232,4 +230,4 @@ VSM_DEFINE_EXCEPTION(System_exception);
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* EXCEPTION_H_ */
+#endif /* _EXCEPTION_H_ */

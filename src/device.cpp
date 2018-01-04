@@ -1,9 +1,6 @@
-/*
- * device.cpp
- *
- *  Created on: May 5, 2016
- *      Author: janis
- */
+// Copyright (c) 2017, Smart Projects Holdings Ltd
+// All rights reserved.
+// See LICENSE file for license details.
 
 #include <ugcs/vsm/device.h>
 #include <ugcs/vsm/cucs_processor.h>
@@ -11,18 +8,16 @@
 
 using namespace ugcs::vsm;
 
-namespace
-{
+namespace {
 
 static std::atomic<uint32_t> current_unique_id(1);
-
 
 uint32_t
 Get_unique_id()
 {
     return current_unique_id++;
 }
-}
+} // namespace
 
 Vsm_command::Vsm_command(std::string name, bool as_command, bool in_mission):
     command_id(Get_unique_id()),
@@ -66,7 +61,7 @@ Vsm_command::Register(ugcs::vsm::proto::Register_command* msg)
     msg->set_id(command_id);
     msg->set_available_as_command(as_command);
     msg->set_available_in_mission(in_mission);
-    for (auto it: parameters) {
+    for (auto it : parameters) {
         it.second->Register(msg->add_parameters());
     }
 }
@@ -119,7 +114,6 @@ Vsm_command::Build_parameter_list(const ugcs::vsm::proto::Device_command &cmd)
 Ucs_request::Ucs_request(ugcs::vsm::proto::Vsm_message m):
     request(std::move(m))
 {
-
 }
 
 void
@@ -275,8 +269,7 @@ Device::On_ucs_message(
         Make_callback(
             &Device::Handle_ucs_command,
             Shared_from_this(),
-            request
-            ));
+            request));
 
     processor->Submit_request(request);
 }

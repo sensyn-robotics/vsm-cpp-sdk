@@ -5,8 +5,8 @@
 /**
  * @file text_stream_filter.h
  */
-#ifndef TEXT_STREAM_FILTER_H_
-#define TEXT_STREAM_FILTER_H_
+#ifndef _TEXT_STREAM_FILTER_H_
+#define _TEXT_STREAM_FILTER_H_
 
 #include <ugcs/vsm/vsm.h>
 
@@ -18,6 +18,7 @@ namespace vsm {
 /** Class for convenient filtering of a text stream using regular expressions. */
 class Text_stream_filter: public std::enable_shared_from_this<Text_stream_filter> {
     DEFINE_COMMON_CLASS(Text_stream_filter, Text_stream_filter)
+
 public:
     /** Maximal number of lines saved before the matched line. */
     constexpr static size_t MAX_HISTORY_LINES = 10;
@@ -39,7 +40,7 @@ public:
      */
     typedef Callback_proxy<bool, const std::string *> Line_handler;
     /** Manipulation handle for an entry. */
-    typedef unsigned long Entry_handle;
+    typedef uint32_t Entry_handle;
 
     /** Builder for match handlers. */
     DEFINE_CALLBACK_BUILDER(Make_match_handler,
@@ -175,4 +176,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* TEXT_STREAM_FILTER_H_ */
+#endif /* _TEXT_STREAM_FILTER_H_ */

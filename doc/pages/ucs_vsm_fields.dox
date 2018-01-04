@@ -178,6 +178,7 @@ Currently supported control modes
 | auto | CONTROL_MODE_AUTO | Autpoilot controls the vehicle. No manual input possible |
 | click_go | CONTROL_MODE_CLICK_GO | Vehicle navigates to the waypoint sent from client interactively |
 | joystick | CONTROL_MODE_JOYSTICK | Vehicle is controlled directly via manual input from GS |
+| active_track | CONTROL_MODE_ACTIVE_TRACK | Vehicle is automatically tracking an object |
 
 @subsection enum_adsb_mode Adsb_mode enum
 

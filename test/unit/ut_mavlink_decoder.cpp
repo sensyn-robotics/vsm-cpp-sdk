@@ -4,18 +4,18 @@
 
 #include <UnitTest++.h>
 #include <ugcs/vsm/mavlink_decoder.h>
+#include <ugcs/vsm/mavlink_encoder.h>
 
 using namespace ugcs::vsm;
 
-typedef mavlink::Mavlink_kind_standard Mavlink_kind;
 
 int received;
-Mavlink_kind::System_id sys_id;
+uint8_t sys_id;
 uint8_t comp_id;
 mavlink::MESSAGE_ID_TYPE msg_id;
 
 void Mavlink_message_handler(Io_buffer::Ptr buffer,
-        mavlink::MESSAGE_ID_TYPE message_id, Mavlink_kind::System_id system_id,
+        mavlink::MESSAGE_ID_TYPE message_id, uint8_t system_id,
         uint8_t component_id,
         uint8_t)
 {
@@ -26,45 +26,28 @@ void Mavlink_message_handler(Io_buffer::Ptr buffer,
     received++;
 }
 
+Mavlink_encoder enc;
+
 template<class Payload>
 Io_buffer::Ptr
-Build_message(mavlink::Uint16& checksum, mavlink::Header<Mavlink_kind>& header,
-        Payload& hb)
+Build_message(Payload& pld)
 {
-    header.start_sign = mavlink::START_SIGN;
-    header.payload_len = hb.Get_size();
-    header.seq = 0;
-    header.system_id = 1;
-    header.component_id = 2;
-    header.message_id = static_cast<uint8_t>(hb.Get_id());
-    auto message = Io_buffer::Create(&header, sizeof(header));
-
-    message = message->Concatenate(hb.Get_buffer());
-
-    mavlink::Checksum sum((reinterpret_cast<uint8_t*>(&header)) + 1, sizeof(header) - 1);
-    sum.Accumulate(hb.Get_buffer());
-    uint16_t sum_val = sum.Accumulate(hb.Get_extra_byte());
-    checksum = sum_val;
-    return message->Concatenate(Io_buffer::Create(&sum_val, sizeof(sum_val)));
+    return enc.Encode_v2(pld, 1, 2);
 }
 
 TEST(mavlink_decoder_basic_tests)
 {
-    Mavlink_decoder<Mavlink_kind> decoder;
+    Mavlink_decoder decoder;
 
-    mavlink::Uint16 mavlink_cksum;
-    mavlink::Header<Mavlink_kind> header;
+    mavlink::Uint16 mavlink_cksum = 0;
     mavlink::Pld_heartbeat hb;
-    Io_buffer::Ptr message = Build_message(mavlink_cksum, header, hb);
+    Io_buffer::Ptr message = Build_message(hb);
 
-    decoder.Decode(Io_buffer::Create(&header, sizeof(header)));
-    decoder.Decode(hb.Get_buffer());
-    decoder.Decode(Io_buffer::Create(&mavlink_cksum, sizeof(mavlink_cksum)));
-
+    decoder.Decode(message);
     decoder.Decode(message);
 
     decoder.Register_handler(
-            Mavlink_decoder<Mavlink_kind>::Make_decoder_handler(
+            Mavlink_decoder::Make_decoder_handler(
                     &Mavlink_message_handler));
 
     Io_buffer::Ptr msg_tmp = message;
@@ -89,7 +72,6 @@ TEST(mavlink_decoder_basic_tests)
 
     /* Spoil the checksum .*/
     message = message->Slice(0, message->Get_length() - sizeof(uint16_t));
-    mavlink_cksum = mavlink_cksum + 1;
     message = message->Concatenate(Io_buffer::Create(&mavlink_cksum, sizeof(mavlink_cksum)));
     decoder.Decode(message);
     CHECK_EQUAL(1ul, decoder.Get_stats().handled);
@@ -97,15 +79,8 @@ TEST(mavlink_decoder_basic_tests)
     CHECK_EQUAL(2, received);
 
     /* There is no 0xff message id yet. */
-    header.message_id = 0xff;
-    message = Io_buffer::Create(&header, sizeof(header));
-    message = message->Concatenate(hb.Get_buffer());
-    mavlink::Checksum sum(reinterpret_cast<uint8_t*>(&header) + 1, sizeof(header) - 1);
-    sum.Accumulate(hb.Get_buffer());
-    uint16_t sum_val = sum.Accumulate(hb.Get_extra_byte());
-    mavlink_cksum = sum_val;
-    message = message->Concatenate(Io_buffer::Create(&mavlink_cksum, sizeof(mavlink_cksum)));
-
+    void * d = const_cast<void*>(message->Get_data());
+    *(static_cast<uint8_t*>(d) + 7) = 0xff;
     decoder.Decode(message);
     CHECK_EQUAL(1ul, decoder.Get_stats().unknown_id);
 }
@@ -123,19 +98,17 @@ TEST(mavlink_decoder_wrong_stx)
                         mavlink::MESSAGE_ID::HEARTBEAT,
                         mavlink::MESSAGE_ID::ATTITUDE,
                         mavlink::MESSAGE_ID::GPS_STATUS,
-                        mavlink::MESSAGE_ID::STATUSTEXT,
+                        mavlink::MESSAGE_ID::NAMED_VALUE_FLOAT,
                         mavlink::MESSAGE_ID::HIL_STATE,
                         static_cast<mavlink::MESSAGE_ID>(3),
                         static_cast<mavlink::MESSAGE_ID>(8),
                         static_cast<mavlink::MESSAGE_ID>(9)
                       }) {
-        Mavlink_decoder<Mavlink_kind> decoder;
-        mavlink::Uint16 mavlink_cksum;
-        mavlink::Header<Mavlink_kind> header;
+        Mavlink_decoder decoder;
         mavlink::Pld_heartbeat hb;
         mavlink::Pld_change_operator_control_ack chg_ctrl;
-        Io_buffer::Ptr hb_message = Build_message(mavlink_cksum, header, hb);
-        Io_buffer::Ptr chg_ctrl_message = Build_message(mavlink_cksum, header, chg_ctrl);
+        Io_buffer::Ptr hb_message = Build_message(hb);
+        Io_buffer::Ptr chg_ctrl_message = Build_message(chg_ctrl);
         uint8_t padding[512];
         std::memset(padding, mavlink::START_SIGN, sizeof(padding));
         /* Simulate start of the packet. */

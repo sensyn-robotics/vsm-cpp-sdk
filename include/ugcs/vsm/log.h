@@ -8,8 +8,8 @@
  * Logging functionality for VSM.
  */
 
-#ifndef LOG_H_
-#define LOG_H_
+#ifndef _LOG_H_
+#define _LOG_H_
 
 #include <ugcs/vsm/exception.h>
 
@@ -31,9 +31,7 @@ namespace vsm {
  * facilities (if present and implemented).
  */
 class Log {
-
 public:
-
     /** Logging related exception. */
     VSM_DEFINE_EXCEPTION(Exception);
 
@@ -78,7 +76,6 @@ public:
             __FORMAT(printf, 3, 0) = 0;
 
     protected:
-
         /** Reference to abstract logger. */
         Log &log;
     };
@@ -352,4 +349,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* LOG_H_ */
+#endif /* _LOG_H_ */

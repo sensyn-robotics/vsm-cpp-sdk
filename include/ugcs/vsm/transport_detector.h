@@ -6,16 +6,16 @@
  * @file transport_detector.h
  */
 
-#ifndef TRANSPORT_DETECTOR_H_
-#define TRANSPORT_DETECTOR_H_
+#ifndef _TRANSPORT_DETECTOR_H_
+#define _TRANSPORT_DETECTOR_H_
 
-#include <set>
-#include <unordered_set>
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/socket_processor.h>
 #include <ugcs/vsm/properties.h>
 #include <ugcs/vsm/regex.h>
 #include <ugcs/vsm/shared_mutex_file.h>
+#include <set>
+#include <unordered_set>
 
 namespace ugcs {
 namespace vsm {
@@ -28,7 +28,6 @@ class Transport_detector : public Request_processor
 {
     DEFINE_COMMON_CLASS(Transport_detector, Request_container);
 public:
-
     /** Detector function.
      * User must supply this function via Add_detector() call.
      * It should follow the signature:
@@ -42,7 +41,7 @@ public:
     typedef Callback_proxy<void, std::string, int, Socket_address::Ptr, Io_stream::Ref> Connect_handler;
 
     /** Builder for connect handler. */
-    DEFINE_CALLBACK_BUILDER (
+    DEFINE_CALLBACK_BUILDER(
             Make_connect_handler,
             (std::string, int, Socket_address::Ptr, Io_stream::Ref),
             ("", 0, nullptr, nullptr))
@@ -147,7 +146,7 @@ private:
     {
     public:
         Detector_entry(int b, Connect_handler h, Request_processor::Ptr c):
-            std::tuple<int, Connect_handler, Request_processor::Ptr>(b,h,c)
+            std::tuple<int, Connect_handler, Request_processor::Ptr>(b, h, c)
         {};
 
         int
@@ -170,17 +169,16 @@ private:
     };
 
 public:
-
     /** Communication port. */
     class Port {
     public:
-        typedef enum{
+        typedef enum {
             NONE,
             CONNECTING,
             CONNECTED
         } State;
 
-        typedef enum{
+        typedef enum {
             SERIAL,
             TCP_IN,
             TCP_OUT,
@@ -195,12 +193,17 @@ public:
         Port(const std::string &serial_port_name, Type, Request_worker::Ptr w = nullptr);
 
         // construtor for incoming ip transports
-        Port(Socket_address::Ptr local_addr, Socket_address::Ptr peer_addr, Type, Request_worker::Ptr worker);
+        Port(
+            Socket_address::Ptr local_addr,
+            Socket_address::Ptr peer_addr,
+            Type,
+            Request_worker::Ptr worker,
+            int timeout = 0);
 
         ~Port();
 
         Type
-        Get_type(){return type;};
+        Get_type() {return type;}
 
         void
         On_timer();
@@ -250,7 +253,6 @@ public:
         Match_name(std::string & name);
 
     private:
-
         /** current state */
         State state;
 
@@ -293,6 +295,12 @@ public:
         Shared_mutex_file::Ptr arbiter;
 
         Shared_mutex_file::Acquire_handler arbiter_callback;
+
+        /** retry timeout for failed outgoing connections*/
+        std::chrono::seconds retry_timeout;
+
+        /** retry timeout for failed outgoing connections*/
+        std::chrono::time_point<std::chrono::steady_clock> last_reopen;
     };
 
     /** Watchdog timer. */
@@ -310,7 +318,6 @@ public:
     static constexpr uint8_t PROXY_RESPONSE_LEN = 5;
 
 private:
-
     void
     Add_serial_detector(
             const std::string port_regexp,
@@ -326,7 +333,17 @@ private:
             Port::Type type,
             Connect_handler,
             Request_processor::Ptr,
-            Request::Ptr);
+            int retry_timeout = 1);
+
+    void
+    Add_ip_detector_impl(
+            Socket_address::Ptr local_addr,
+            Socket_address::Ptr remote_addr,
+            Port::Type type,
+            Connect_handler,
+            Request_processor::Ptr,
+            Request::Ptr,
+            int retry_timeout);
 
     void
     Add_can_detector(
@@ -383,6 +400,9 @@ private:
     /** Maximum length of arbiter name. Should be > SERIAL_PORT_ARBITER_NAME_PREFIX.size() */
     constexpr static size_t ARBITER_NAME_MAX_LEN = 100;
 
+    /** Default retry timeout for outgoing TCP connections */
+    constexpr static size_t DEFAULT_RETRY_TIMEOUT = 10;
+
     /** Starts internal port detection loop and invokes supplied handlers each second.
      */
     virtual void
@@ -400,4 +420,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* TRANSPORT_DETECTOR_H_ */
+#endif /* _TRANSPORT_DETECTOR_H_ */

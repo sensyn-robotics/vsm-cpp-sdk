@@ -24,7 +24,6 @@ class Move_action: public Action {
     DEFINE_COMMON_CLASS(Move_action, Action)
 
 public:
-
     /**
      * Turn type at waypoint.
      */
@@ -78,7 +77,7 @@ public:
      */
     Move_action(const Property_list& p) :
         Action(Type::MOVE),
-        position(Geodetic_tuple(0,0,0))
+        position(Geodetic_tuple(0, 0, 0))
     {
         double lat = 0, lon = 0, alt = 0;
         auto pi = p.find("latitude");

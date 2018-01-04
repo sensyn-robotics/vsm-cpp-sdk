@@ -8,8 +8,8 @@
  * Operation waiter class.
  */
 
-#ifndef OPERATION_WAITER_H_
-#define OPERATION_WAITER_H_
+#ifndef _OPERATION_WAITER_H_
+#define _OPERATION_WAITER_H_
 
 #include <ugcs/vsm/request_container.h>
 #include <ugcs/vsm/timer_processor.h>
@@ -161,4 +161,4 @@ DEFINE_CALLBACK_BUILDER(Make_timeout_callback, (Operation_waiter::Ptr), (nullptr
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* OPERATION_WAITER_H_ */
+#endif /* _OPERATION_WAITER_H_ */

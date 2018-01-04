@@ -9,8 +9,8 @@
  * some systems but it is not standardized and thus not cross-platform.
  */
 
-#ifndef VSM_ENDIAN_H_
-#define VSM_ENDIAN_H_
+#ifndef _ENDIAN_H_
+#define _ENDIAN_H_
 
 #include <ugcs/vsm/defs.h>
 
@@ -40,7 +40,7 @@ Is_system_be()
     return !Is_system_le();
 }
 
-//XXX ifdef GCC
+// XXX ifdef GCC
 /** Swap bytes in 16-bits integer value. */
 #define VSM_BSWAP16(x)      (((x) >> 8) | ((x) << 8))
 /** Swap bytes in 32-bits integer value. */
@@ -232,7 +232,7 @@ VSM_DEF_BO_CONV(64)
 constexpr float
 Hton(float x)
 {
-    //XXX
+    // XXX
     return x;
 }
 
@@ -240,7 +240,7 @@ Hton(float x)
 constexpr float
 Ntoh(float x)
 {
-    //XXX
+    // XXX
     return x;
 }
 
@@ -248,7 +248,7 @@ Ntoh(float x)
 constexpr double
 Hton(double x)
 {
-    //XXX
+    // XXX
     return x;
 }
 
@@ -256,7 +256,7 @@ Hton(double x)
 constexpr double
 Ntoh(double x)
 {
-    //XXX
+    // XXX
     return x;
 }
 
@@ -264,7 +264,7 @@ Ntoh(double x)
 constexpr float
 Le(float x)
 {
-    //XXX
+    // XXX
     return x;
 }
 
@@ -272,7 +272,7 @@ Le(float x)
 constexpr float
 Be(float x)
 {
-    //XXX
+    // XXX
     return x;
 }
 
@@ -280,7 +280,7 @@ Be(float x)
 constexpr double
 Le(double x)
 {
-    //XXX
+    // XXX
     return x;
 }
 
@@ -288,7 +288,7 @@ Le(double x)
 constexpr double
 Be(double x)
 {
-    //XXX
+    // XXX
     return x;
 }
 
@@ -432,4 +432,4 @@ typedef Be_value<double> Be_double;
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* VSM_ENDIAN_H_ */
+#endif /* _ENDIAN_H_ */

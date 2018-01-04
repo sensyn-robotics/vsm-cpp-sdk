@@ -8,8 +8,8 @@
  * Serial port I/O processor.
  */
 
-#ifndef SERIAL_PROCESSOR_H_
-#define SERIAL_PROCESSOR_H_
+#ifndef _SERIAL_PROCESSOR_H_
+#define _SERIAL_PROCESSOR_H_
 
 #include <ugcs/vsm/file_processor.h>
 #include <ugcs/vsm/log.h>
@@ -20,11 +20,12 @@ namespace vsm {
 /** Serial ports I/O processor. */
 class Serial_processor: public File_processor {
     DEFINE_COMMON_CLASS(Serial_processor, Request_container)
-public:
 
+public:
     /** Stream which represents opened serial port. */
     class Stream: public File_processor::Stream {
         DEFINE_COMMON_CLASS(Stream, Io_stream)
+
     public:
         /** Reference type. */
         typedef Reference_guard<Ptr> Ref;
@@ -140,7 +141,6 @@ public:
             }
 
         protected:
-
             /** Serial port operating parameters. */
             // @{
             int baud = 1800;
@@ -213,7 +213,6 @@ public:
     static const uint8_t MAX_VMIN;
 
 private:
-
     /** Singleton object. */
     static Singleton<Serial_processor> singleton;
 
@@ -225,4 +224,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* SERIAL_PROCESSOR_H_ */
+#endif /* _SERIAL_PROCESSOR_H_ */

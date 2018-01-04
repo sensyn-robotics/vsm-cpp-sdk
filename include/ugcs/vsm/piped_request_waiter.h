@@ -5,8 +5,8 @@
 /**
  * @file piped_request_waiter.h
  */
-#ifndef _IO_PIPED_TASK_WAITER_H_
-#define _IO_PIPED_TASK_WAITER_H_
+#ifndef _PIPED_REQUEST_WAITER_H_
+#define _PIPED_REQUEST_WAITER_H_
 
 #include <ugcs/vsm/request_container.h>
 #include <ugcs/vsm/utils.h>
@@ -20,6 +20,7 @@ namespace vsm {
 /** Request waiter which uses a pipe to signal about request submissions. */
 class Piped_request_waiter : public Request_waiter {
     DEFINE_COMMON_CLASS(Piped_request_waiter, Request_waiter)
+
 public:
     /** Constructor. */
     Piped_request_waiter();
@@ -44,6 +45,7 @@ public:
     {
         return read_pipe;
     }
+
 private:
     /** Pipe used to generate notifications. */
     sockets::Socket_handle write_pipe = INVALID_SOCKET;
@@ -55,10 +57,9 @@ private:
      * processed, FALSE otherwise.
      */
     std::atomic_bool notified = { false };
-
 };
 
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _IO_PIPED_TASK_WAITER_H_ */
+#endif /* _PIPED_REQUEST_WAITER_H_ */

@@ -6,8 +6,8 @@
  * @file shared_mutex_file.h
  */
 
-#ifndef SHARED_MUTEX_FILE_H_
-#define SHARED_MUTEX_FILE_H_
+#ifndef _SHARED_MUTEX_FILE_H_
+#define _SHARED_MUTEX_FILE_H_
 
 #include <ugcs/vsm/callback.h>
 #include <ugcs/vsm/file_processor.h>
@@ -20,7 +20,6 @@ class Shared_mutex_file: public std::enable_shared_from_this<Shared_mutex_file>
 {
     DEFINE_COMMON_CLASS(Shared_mutex_file, Shared_mutex_file)
 public:
-
     /**
      * Acquire Callback prototype.
      * void Callback(result, void* mem_pointer, ...)
@@ -43,7 +42,7 @@ public:
     virtual ~Shared_mutex_file();
 
     /** Builder for acquire handler. */
-    DEFINE_CALLBACK_BUILDER (
+    DEFINE_CALLBACK_BUILDER(
             Make_acquire_handler,
             (Io_result),
             (Io_result::OTHER_FAILURE));
@@ -77,4 +76,4 @@ private:
 
 } /* namespace vsm */
 } /* namespace ugcs */
-#endif /* SHARED_MUTEX_FILE_H_ */
+#endif /* _SHARED_MUTEX_FILE_H_ */

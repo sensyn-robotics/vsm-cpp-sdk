@@ -1,12 +1,9 @@
-/*
- * quaternion.h
- *
- *  Created on: Sep 29, 2016
- *      Author: j
- */
+// Copyright (c) 2017, Smart Projects Holdings Ltd
+// All rights reserved.
+// See LICENSE file for license details.
 
-#ifndef SRC_QUATERNION_H_
-#define SRC_QUATERNION_H_
+#ifndef _QUATERNION_H_
+#define _QUATERNION_H_
 
 namespace ugcs {
 namespace vsm {
@@ -31,4 +28,4 @@ public:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* SRC_QUATERNION_H_ */
+#endif /* _QUATERNION_H_ */

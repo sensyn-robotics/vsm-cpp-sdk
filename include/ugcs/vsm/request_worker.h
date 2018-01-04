@@ -8,8 +8,8 @@
  * Request worker.
  */
 
-#ifndef TASK_WORKER_H_
-#define TASK_WORKER_H_
+#ifndef _REQUEST_WORKER_H_
+#define _REQUEST_WORKER_H_
 
 #include <ugcs/vsm/request_context.h>
 
@@ -23,8 +23,8 @@ namespace vsm {
  */
 class Request_worker: public Request_completion_context {
     DEFINE_COMMON_CLASS(Request_worker, Request_container)
-public:
 
+public:
     /** Construct worker. */
     Request_worker(const std::string& name) :
         Request_completion_context(name) {}
@@ -82,4 +82,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* TASK_WORKER_H_ */
+#endif /* _REQUEST_WORKER_H_ */

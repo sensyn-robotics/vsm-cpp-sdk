@@ -8,13 +8,13 @@
  * Socket address representation.
  */
 
-#ifndef SOCKET_ADDRESS_H_
-#define SOCKET_ADDRESS_H_
+#ifndef _SOCKET_ADDRESS_H_
+#define _SOCKET_ADDRESS_H_
 
-#include <string>
 #include <ugcs/vsm/utils.h>
 #include <ugcs/vsm/reference_guard.h>
 #include <ugcs/vsm/sockets.h>
+#include <string>
 
 namespace ugcs {
 namespace vsm {
@@ -77,7 +77,7 @@ public:
 
     /** TRUE when address has been set by one of Set_* functions. */
     bool
-    Is_valid() {return is_resolved;};
+    Is_valid() {return is_resolved;}
 
     /** Use this function to pass this structure to recvfrom and similar
      * Which require sockaddr*
@@ -125,18 +125,17 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-namespace std
+namespace std {
+template<> struct hash<::ugcs::vsm::Socket_address::Ptr>
 {
-    template<> struct hash<::ugcs::vsm::Socket_address::Ptr>
-    {
-        size_t
-        operator()(::ugcs::vsm::Socket_address::Ptr const& s) const;
-    };
-    template<> struct equal_to<::ugcs::vsm::Socket_address::Ptr>
-    {
-        bool
-        operator()(::ugcs::vsm::Socket_address::Ptr const& lhs, ::ugcs::vsm::Socket_address::Ptr const& rhs) const;
-    };
-}
+    size_t
+    operator()(::ugcs::vsm::Socket_address::Ptr const& s) const;
+};
+template<> struct equal_to<::ugcs::vsm::Socket_address::Ptr>
+{
+    bool
+    operator()(::ugcs::vsm::Socket_address::Ptr const& lhs, ::ugcs::vsm::Socket_address::Ptr const& rhs) const;
+};
+} // namespace std
 
-#endif /* SOCKET_ADDRESS_H_ */
+#endif /* _SOCKET_ADDRESS_H_ */

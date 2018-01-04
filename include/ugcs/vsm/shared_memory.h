@@ -9,8 +9,8 @@
  *      Author: Janis
  */
 
-#ifndef SHARED_MEMORY_H_
-#define SHARED_MEMORY_H_
+#ifndef _SHARED_MEMORY_H_
+#define _SHARED_MEMORY_H_
 
 #include <ugcs/vsm/utils.h>
 
@@ -49,7 +49,6 @@ class Shared_memory: public std::enable_shared_from_this<Shared_memory>
 {
     DEFINE_COMMON_CLASS(Shared_memory, Shared_memory)
 public:
-
     /** Possible return codes from Open() call */
     typedef enum {
         OPEN_RESULT_OK,
@@ -66,7 +65,7 @@ public:
     {};
 
     virtual
-    ~Shared_memory(){};
+    ~Shared_memory() {}
 
     /**
      * Open/create shared memory.
@@ -92,7 +91,7 @@ public:
      * @return pointer to shared memory. Returns nullptr if not opened.
      */
     virtual void*
-    Get() {return memory;};
+    Get() {return memory;}
 
     /**
      * Deletes the named memory. (Linux-only)
@@ -120,4 +119,4 @@ protected:
 
 } /* namespace vsm */
 } /* namespace ugcs */
-#endif /* SHARED_MEMORY_H_ */
+#endif /* _SHARED_MEMORY_H_ */

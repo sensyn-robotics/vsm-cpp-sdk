@@ -13,7 +13,7 @@ using namespace ugcs::vsm;
 
 /** define this to enable file locking specific logging.
  */
-#define LLOG(...) //LOG(__VA_ARGS__)
+#define LLOG(...) // LOG(__VA_ARGS__)
 
 /* ****************************************************************************/
 /* File_processor::Stream class. */
@@ -152,9 +152,10 @@ File_processor::Stream::Read_impl(size_t max_to_read, size_t min_to_read,
 }
 
 Operation_waiter
-File_processor::Stream::Lock(   Lock_handler completion_handler,
-                                Request_completion_context::Ptr comp_ctx,
-                                bool do_lock)
+File_processor::Stream::Lock(
+    Lock_handler completion_handler,
+    Request_completion_context::Ptr comp_ctx,
+    bool do_lock)
 {
     /* Use processor completion context if none is provided. */
     if (!comp_ctx) {
@@ -191,7 +192,9 @@ File_processor::Stream::Lock(   Lock_handler completion_handler,
         lock.unlock();
         // Complete request immediately.
         request->Set_processing_handler(
-                Make_callback([](Request::Ptr r){r->Complete();}, request));
+                Make_callback([](Request::Ptr r) {
+                    r->Complete();
+                }, request));
         request->Set_completion_handler(comp_ctx, completion_handler);
         completion_handler.Set_args(Io_result::LOCK_ERROR);
         request->Process(true);
@@ -288,7 +291,6 @@ File_processor::Stream::Push_write_queue()
         write_queue.pop_back();
         if (maintain_pos &&
             native_handle->cur_write_request->Offset() == OFFSET_NONE) {
-
             native_handle->cur_write_request->Offset() = cur_pos;
         }
         auto proc = processor.lock();
@@ -329,7 +331,6 @@ File_processor::Stream::Push_read_queue()
         read_queue.pop_back();
         if (maintain_pos &&
             native_handle->cur_read_request->Offset() == OFFSET_NONE) {
-
             native_handle->cur_read_request->Offset() = cur_pos;
         }
         auto proc = processor.lock();
@@ -352,7 +353,7 @@ File_processor::Stream::Handle_write()
     } else if (native_handle->cur_write_request->Get_status() == Request::Status::CANCELING) {
         native_handle->cur_write_request->Set_result_arg(
                 Io_result::CANCELED, request_lock);
-        //XXX set size argument zero
+        // XXX set size argument zero
         native_handle->cur_write_request->Complete(Request::Status::CANCELED,
                                                    std::move(request_lock));
         /* Queue will be pushed by completion handler. */
@@ -367,11 +368,10 @@ File_processor::Stream::Handle_write_completion(Request::Handler completion_hand
 {
     std::unique_lock<std::mutex> lock(op_mutex);
 
-    //XXX use real number of bytes written
+    // XXX use real number of bytes written
     if (!native_handle->is_closed &&
         native_handle->cur_write_request->Get_last_result() == Io_result::OK &&
         maintain_pos) {
-
         cur_pos += native_handle->cur_write_request->Data_buffer()->Get_length();
     }
 
@@ -727,7 +727,7 @@ File_processor::Stream::Get_native_controller() const
 void
 File_processor::Stream::Native_handle::Set_stream(Stream::Ptr stream)
 {
-   this->stream = stream;
+    this->stream = stream;
 }
 
 void

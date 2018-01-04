@@ -21,8 +21,8 @@ namespace vsm {
 /** Generic action. Specific actions are determined by @ref Get_type method. */
 class Action: public std::enable_shared_from_this<Action> {
     DEFINE_COMMON_CLASS(Action, Action)
-public:
 
+public:
     /** Thrown when internal action representation is in a wrong format. */
     VSM_DEFINE_EXCEPTION(Format_exception);
 
@@ -64,6 +64,8 @@ public:
         SET_SERVO,
         /** Repeat servo movement between given PWM and 1500 */
         REPEAT_SERVO,
+        /** VTOL transition action */
+        VTOL_TRANSITION
     };
 
     /** Construct action of specific type. */
@@ -107,6 +109,7 @@ public:
         case Type::SET_PARAMETER: return "SET_PARAMETER";
         case Type::SET_SERVO: return "SET_SERVO";
         case Type::REPEAT_SERVO: return "REPEAT_SERVO";
+        case Type::VTOL_TRANSITION: return "VTOL_TRANSITION";
         }
         VSM_EXCEPTION(Internal_error_exception, "Action type %d unknown.",
                       static_cast<int>(type));
@@ -138,7 +141,6 @@ public:
     int command_id = -1;
 
 private:
-
     /** Type of the action. */
     const Type type;
 };

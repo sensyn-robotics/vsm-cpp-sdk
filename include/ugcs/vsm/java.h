@@ -2,8 +2,8 @@
 // All rights reserved.
 // See LICENSE file for license details.
 
-#ifndef JAVA_H_
-#define JAVA_H_
+#ifndef _JAVA_H_
+#define _JAVA_H_
 
 #include <jni.h>
 
@@ -43,7 +43,7 @@ struct MethodCallSelector<void> {
         Call(JNIEnv *env, jobject obj, jmethodID method_id, T_args... args) \
         { \
             __type res = __JAVA_CONCAT( \
-                __JAVA_CONCAT(env->Call,__name), Method)(obj, method_id, args...); \
+                __JAVA_CONCAT(env->Call, __name), Method)(obj, method_id, args...); \
             JAVA_EXCEPTION_CHECK(env); \
             return res; \
         } \
@@ -80,7 +80,7 @@ class PrimitiveArray: public ArrayBase {
 public:
     using ArrayBase::ArrayBase;
 
-    //XXX
+    // XXX
 };
 
 class ObjectArray: public ArrayBase {
@@ -123,7 +123,6 @@ class Array<jobject>: public ObjectArray {
 
 class Java {
 public:
-
     template <typename T>
     using Array = java_internals::Array<T>;
 
@@ -215,4 +214,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* JAVA_H_ */
+#endif /* _JAVA_H_ */

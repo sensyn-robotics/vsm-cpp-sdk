@@ -21,7 +21,6 @@ class Task_attributes_action: public Action {
     DEFINE_COMMON_CLASS(Task_attributes_action, Action)
 
 public:
-
     /** Action to perform in case of emergency. */
     enum Emergency_action {
         /** Return and land at the home position. */
@@ -86,7 +85,6 @@ public:
     }
 
 public:
-
     /** Safe altitude in meters (MSL). */
     double safe_altitude;
 
@@ -102,7 +100,6 @@ public:
     Emergency_action low_battery;
 
 private:
-
     /** Convert Mavlink emergency action value to Emergency_action enum.
      * @throw Format_exception is Mavlink value is unsupported.
      */
