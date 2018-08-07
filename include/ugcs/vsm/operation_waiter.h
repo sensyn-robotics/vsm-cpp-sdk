@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Operation waiter class.
  */
 
-#ifndef _OPERATION_WAITER_H_
-#define _OPERATION_WAITER_H_
+#ifndef _UGCS_VSM_OPERATION_WAITER_H_
+#define _UGCS_VSM_OPERATION_WAITER_H_
 
 #include <ugcs/vsm/request_container.h>
 #include <ugcs/vsm/timer_processor.h>
@@ -161,4 +161,4 @@ DEFINE_CALLBACK_BUILDER(Make_timeout_callback, (Operation_waiter::Ptr), (nullptr
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _OPERATION_WAITER_H_ */
+#endif /* _UGCS_VSM_OPERATION_WAITER_H_ */

@@ -75,6 +75,7 @@ By registering command from this list VSM notifies the UgCS that vehicle is capa
 |[transition_vtol](@ref c_transition_vtol) | FC | + | - | Transition vehicle to VTOL mode
 |[trigger_calibration](@ref c_trigger_calibration)| FC | - | + | Trigger sensor calibration|
 |[wait](@ref c_wait)| FC | + | - | Wait for specified time before proceeding to next mission item|
+|[wait_until](@ref c_wait_until)| FC | + | - | Wait until specified UTC time before proceeding to next mission item|
 |[waypoint](@ref c_waypoint) | FC | - | + |  Enter Click&Go mode, specify waypoint and start moving towards it |
 
 Other commands can be defined by VSM via @b Register_vehicle.register_command message.
@@ -139,7 +140,7 @@ Description: Switch camera on/off
 
 Mission item ID: "camera_trigger_by_distance"
 
-Description: Initiate camera trigger on regular distance intervals sarting from current position.
+Description: Initiate camera trigger on regular distance intervals starting from current position.
 
 Parameters
 
@@ -159,7 +160,7 @@ Parameters
 
 |Name|Type|Description|
 |---|---|---|
-|period| FIELD_SEMANTIC_NUMERIC | Time inseconds to wait between triggers. |
+|period| FIELD_SEMANTIC_NUMERIC | Time in seconds to wait between triggers. |
 |delay| FIELD_SEMANTIC_NUMERIC | Time in seconds to wait for the first trigger |
 |count| FIELD_SEMANTIC_INT | Number of consecutive trigger actions to perform.|
 
@@ -231,7 +232,7 @@ Parameters
 |pitch| FIELD_SEMANTIC_NUMERIC | pitch value [-1 .. +1] |
 |roll| FIELD_SEMANTIC_NUMERIC | roll value [-1 .. +1] |
 |yaw| FIELD_SEMANTIC_NUMERIC | yaw value [-1 .. +1] |
-|trottle| FIELD_SEMANTIC_NUMERIC | trottle value [-1 .. +1] |
+|throttle| FIELD_SEMANTIC_NUMERIC | throttle value [-1 .. +1] |
 
 @subsection c_disarm Disarm vehicle
 
@@ -350,6 +351,8 @@ Supported parameters:
 |rc_loss_action | FIELD_SEMANTIC_ENUM | Failsafe action on RC loss. See @ref failsafe_values |
 |gps_loss_action | FIELD_SEMANTIC_ENUM | Failsafe action on GPS loss. See @ref failsafe_values |
 |low_battery_action | FIELD_SEMANTIC_ENUM | Failsafe action on low battery. See @ref failsafe_values |
+|rth_action | FIELD_SEMANTIC_ENUM | Action after RTH. See @ref rth_values |
+|rth_wait_altitude | FIELD_SEMANTIC_ALTITUDE_AMSL | Final altitude the drone should loiter after RTH. Used only when rth_action is "wait". |
 |name | FIELD_SEMANTIC_STRING | User specified mission name |
 
 @subsubsection failsafe_values Failsafe actions natively supported by UgCS
@@ -359,7 +362,14 @@ Supported parameters:
 |continue| FAILSAFE_ACTION_CONTINUE | Continue with mission. Effectively ignores the failsafe condition.|
 |wait| FAILSAFE_ACTION_WAIT | Wait for failsafe condition to end and then continue with mission.|
 |land| FAILSAFE_ACTION_LAND | Land immediately at current position.|
-|rth| FAILSAFE_ACTION_RTH | Climb to safe atlitude defined by @b safe_altitude parameter and return to home position defined by @ref c_set_home mission item.|
+|rth| FAILSAFE_ACTION_RTH | Climb to safe altitude defined by @b safe_altitude parameter and return to home position defined by @ref c_set_home mission item.|
+
+@subsubsection rth_values Vehicle behavior after Return To Home 
+
+|Action name | Value | Description|
+|---|---|---|
+|land| RTH_ACTION_LAND | Descend and land |
+|wait| RTH_ACTION_WAIT | Do not land the vehicle but loiter at rth_wait_altitude. If rth_wait_altitude is not supported by autopilot then safe_altitude is used instead.|
 
 @subsection c_move Move command
 
@@ -622,7 +632,7 @@ Parameters
 
 Command ID: "set_tension"
 
-Description: Set tension value for the winch in newtons
+Description: Set tension value for the winch in Newtons
 
 Parameters
 
@@ -634,7 +644,7 @@ Parameters
 
 Command ID: "takeoff_command"
 
-Description: Takoff from current position
+Description: Takeoff from current position
 
 Parameters
 
@@ -693,7 +703,21 @@ Parameters
 
 |Name| Type| Description
 |---|---|---|
-|time| FIELD_SEMANTIC_NUMERIC | Number of seconds to wait. If the vield value is N/A, then wait indefinitely. |
+|time| FIELD_SEMANTIC_NUMERIC | Number of seconds to wait. If the field value is N/A, then wait indefinitely. |
+
+
+@subsection c_wait_until Wait
+
+Mission item ID: "wait_until"
+
+Description: Wait until given time before continuing with next mission item.
+Specify time==N/A to wait indefinitely.
+
+Parameters
+
+|Name| Type| Description
+|---|---|---|
+|time| FIELD_SEMANTIC_TIMESTAMP | Milliseconds of UTC time since Unix epoch (1970-01-01T00:00:00Z)
 
 
 @subsection c_waypoint Waypoint command

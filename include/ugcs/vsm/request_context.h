@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Request execution context.
  */
 
-#ifndef _REQUEST_CONTEXT_H_
-#define _REQUEST_CONTEXT_H_
+#ifndef _UGCS_VSM_REQUEST_CONTEXT_H_
+#define _UGCS_VSM_REQUEST_CONTEXT_H_
 
 #include <ugcs/vsm/request_container.h>
 
@@ -57,4 +57,4 @@ typedef Request_context<false> Request_completion_context;
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _REQUEST_CONTEXT_H_ */
+#endif /* _UGCS_VSM_REQUEST_CONTEXT_H_ */

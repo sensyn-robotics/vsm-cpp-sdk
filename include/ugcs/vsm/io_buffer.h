@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -13,8 +13,8 @@
 #include <memory>
 #include <vector>
 
-#ifndef _IO_BUFFER_H_
-#define _IO_BUFFER_H_
+#ifndef _UGCS_VSM_IO_BUFFER_H_
+#define _UGCS_VSM_IO_BUFFER_H_
 
 namespace ugcs {
 namespace vsm {
@@ -174,4 +174,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _IO_BUFFER_H_ */
+#endif /* _UGCS_VSM_IO_BUFFER_H_ */

@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -6,8 +6,8 @@
  * @file overlapped_io_controller.h
  */
 
-#ifndef _OVERLAPPED_IO_CONTROLLER_H_
-#define _OVERLAPPED_IO_CONTROLLER_H_
+#ifndef _UGCS_VSM_OVERLAPPED_IO_CONTROLLER_H_
+#define _UGCS_VSM_OVERLAPPED_IO_CONTROLLER_H_
 
 #include <ugcs/vsm/windows_file_handle.h>
 
@@ -54,4 +54,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _OVERLAPPED_IO_CONTROLLER_H_ */
+#endif /* _UGCS_VSM_OVERLAPPED_IO_CONTROLLER_H_ */

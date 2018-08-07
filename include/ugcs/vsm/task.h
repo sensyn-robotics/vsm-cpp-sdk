@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Vehicle task payload definition.
  */
 
-#ifndef _TASK_H_
-#define _TASK_H_
+#ifndef _UGCS_VSM_TASK_H_
+#define _UGCS_VSM_TASK_H_
 
 #include <ugcs/vsm/coordinates.h>
 #include <ugcs/vsm/task_attributes_action.h>
@@ -87,4 +87,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _TASK_H_ */
+#endif /* _UGCS_VSM_TASK_H_ */

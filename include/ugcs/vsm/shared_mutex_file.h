@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -6,8 +6,8 @@
  * @file shared_mutex_file.h
  */
 
-#ifndef _SHARED_MUTEX_FILE_H_
-#define _SHARED_MUTEX_FILE_H_
+#ifndef _UGCS_VSM_SHARED_MUTEX_FILE_H_
+#define _UGCS_VSM_SHARED_MUTEX_FILE_H_
 
 #include <ugcs/vsm/callback.h>
 #include <ugcs/vsm/file_processor.h>
@@ -76,4 +76,4 @@ private:
 
 } /* namespace vsm */
 } /* namespace ugcs */
-#endif /* _SHARED_MUTEX_FILE_H_ */
+#endif /* _UGCS_VSM_SHARED_MUTEX_FILE_H_ */

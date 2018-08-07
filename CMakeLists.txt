@@ -11,18 +11,7 @@ set(UGCS_PACKAGE_SUMMARY "UgCS VSM SDK used to develop vehicle specific modules 
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-# XXX Think about better way!!!
-# Enable packaging script automatically if SDK is compiled from ugcs source tree.
-if (NOT DEFINED UGCS_PACKAGING_ENABLED)
-    # This is UgCS specific script for creating debian packages.
-    if (EXISTS "${CMAKE_SOURCE_DIR}/../build-scripts/cmake/configure_packaging.cmake")
-        set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../build-scripts/cmake")
-        include("configure_packaging")
-        set(UGCS_PACKAGING_ENABLED YES)
-    else()
-        set(UGCS_PACKAGING_ENABLED NO)
-    endif()
-endif()
+include("ugcs/common")
 
 # Compile protobuf compiler before including sdk_common.
 # This ensures that protobuf_compiler is built for host platform.

@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file poi_action.h
  */
-#ifndef _POI_ACTION_H_
-#define _POI_ACTION_H_
+#ifndef _UGCS_VSM_POI_ACTION_H_
+#define _UGCS_VSM_POI_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 
@@ -22,28 +22,6 @@ public:
     Poi_action(Wgs84_position position, bool active) :
         Action(Type::POI),
         position(position), active(active) {}
-
-
-    /**
-     * Construct POI action from Mavlink mission item.
-     * @throw Action::Format_exception if mission item has wrong format.
-     *
-     * @param item With command equal to mavlink::MAV_CMD::MAV_CMD_NAV_ROI
-     */
-    Poi_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
-        Action(Type::POI),
-        position(Geodetic_tuple(item->x * M_PI / 180.0,
-                        item->y * M_PI / 180.0,
-                        item->z)),
-        active(item->param1 == mavlink::MAV_ROI::MAV_ROI_LOCATION ? true : false)
-    {
-        ASSERT(item->command == mavlink::MAV_CMD::MAV_CMD_NAV_ROI);
-        if (item->param1 != mavlink::MAV_ROI::MAV_ROI_LOCATION &&
-            item->param1 != mavlink::MAV_ROI::MAV_ROI_NONE) {
-            VSM_EXCEPTION(Format_exception, "POI action unsupported type %f",
-                                item->param1.Get());
-        }
-    }
 
     /**
      * Construct action from protobuf command.
@@ -87,4 +65,4 @@ struct Action::Mapper<Action::Type::POI> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _POI_ACTION_H_ */
+#endif /* _UGCS_VSM_POI_ACTION_H_ */

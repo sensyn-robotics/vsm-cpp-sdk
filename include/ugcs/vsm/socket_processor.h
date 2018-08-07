@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,8 +7,8 @@
  *
  * Socket processor. Used to create and handle socket-based I/O streams.
  */
-#ifndef _SOCKET_PROCESSOR_H_
-#define _SOCKET_PROCESSOR_H_
+#ifndef _UGCS_VSM_SOCKET_PROCESSOR_H_
+#define _UGCS_VSM_SOCKET_PROCESSOR_H_
 
 #include <ugcs/vsm/io_request.h>
 #include <ugcs/vsm/piped_request_waiter.h>
@@ -562,18 +562,6 @@ typedef Socket_processor::Stream Socket_stream;
 typedef Socket_processor::Socket_listener Socket_listener;
 // @}
 
-// Supported UDP packet size. Used as default with UDP sockets for reading.
-// Read on UDP socket must reserve space for maximum payload it can possibly receive.
-// Theoretical max is 64K which will always be fragmented.
-// We use what is typically the largest unfragmented packet.
-// This number is ether_v2 MTU - IP header - UDP header.
-static constexpr int MIN_UDP_PAYLOAD_SIZE_TO_READ = 1500 - 60 - 8;
-
-// TCP socket readers can use this as default max buffer size.
-// Typically reads data worth one MTU.
-// This number is ether_v2 MTU - IP header - TCP header (incl 20 byte options).
-static constexpr int MAX_TCP_PAYLOAD_SIZE_TO_READ = 1500 - 60 - 40;
-
 /** Convenience builder for socket connect operation callbacks. */
 DEFINE_CALLBACK_BUILDER(
         Make_socket_connect_callback,
@@ -607,4 +595,4 @@ DEFINE_CALLBACK_BUILDER(
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _SOCKET_PROCESSOR_H_ */
+#endif /* _UGCS_VSM_SOCKET_PROCESSOR_H_ */

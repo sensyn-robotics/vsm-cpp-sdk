@@ -1,9 +1,9 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
-#ifndef _CRC32_H_
-#define _CRC32_H_
+#ifndef _UGCS_VSM_CRC32_H_
+#define _UGCS_VSM_CRC32_H_
 
 #include <stdint.h>
 #include <stddef.h>
@@ -62,4 +62,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _CRC32_H_ */
+#endif /* _UGCS_VSM_CRC32_H_ */

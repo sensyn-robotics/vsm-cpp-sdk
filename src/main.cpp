@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -174,18 +174,11 @@ ugcs::vsm::Initialize(const std::string &props_file)
             // ignore parsing errors.
         }
     }
-    std::string version = "N/A";
-#ifdef SDK_VERSION_MAJOR
-    version = std::to_string(SDK_VERSION_MAJOR);
-#endif
-#ifdef SDK_VERSION_MINOR
-    version += "." + std::to_string(SDK_VERSION_MINOR);
-#endif
-#ifdef SDK_VERSION_BUILD
-    version += "." SDK_VERSION_BUILD;
-#endif
-
-    LOG_INFO("VSM instance ID=%08X, version=%s", Get_application_instance_id(), version.c_str());
+    LOG_INFO("VSM instance ID=%08X, version=%d.%d.%s",
+        Get_application_instance_id(),
+        SDK_VERSION_MAJOR,
+        SDK_VERSION_MINOR,
+        SDK_VERSION_BUILD);
 
 #   ifndef VSM_DISABLE_HID
     hid_processor = Hid_processor::Get_instance();

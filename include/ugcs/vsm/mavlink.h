@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * MAVLink protocol messages.
  */
 
-#ifndef _MAVLINK_H_
-#define _MAVLINK_H_
+#ifndef _UGCS_VSM_MAVLINK_H_
+#define _UGCS_VSM_MAVLINK_H_
 
 #include <ugcs/vsm/endian.h>
 #include <ugcs/vsm/io_buffer.h>
@@ -746,7 +746,6 @@ private:
 };
 
 } /* namespace mavlink */
-
 } /* namespace vsm */
 } /* namespace ugcs */
 
@@ -754,4 +753,4 @@ private:
 #include <ugcs/vsm/auto_mavlink_enums.h>
 #include <ugcs/vsm/auto_mavlink_messages.h>
 
-#endif /* _MAVLINK_H_ */
+#endif /* _UGCS_VSM_MAVLINK_H_ */

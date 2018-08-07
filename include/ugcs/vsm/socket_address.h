@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Socket address representation.
  */
 
-#ifndef _SOCKET_ADDRESS_H_
-#define _SOCKET_ADDRESS_H_
+#ifndef _UGCS_VSM_SOCKET_ADDRESS_H_
+#define _UGCS_VSM_SOCKET_ADDRESS_H_
 
 #include <ugcs/vsm/utils.h>
 #include <ugcs/vsm/reference_guard.h>
@@ -138,4 +138,4 @@ template<> struct equal_to<::ugcs::vsm::Socket_address::Ptr>
 };
 } // namespace std
 
-#endif /* _SOCKET_ADDRESS_H_ */
+#endif /* _UGCS_VSM_SOCKET_ADDRESS_H_ */

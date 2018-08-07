@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file enum_set.h
  */
-#ifndef _ENUM_SET_H_
-#define _ENUM_SET_H_
+#ifndef _UGCS_VSM_ENUM_SET_H_
+#define _UGCS_VSM_ENUM_SET_H_
 
 #include <bitset>
 
@@ -77,4 +77,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _ENUM_SET_H_ */
+#endif /* _UGCS_VSM_ENUM_SET_H_ */

@@ -29,7 +29,7 @@ message Vsm_message {
     // Indicates that peer will wait for response on this command.
     optional bool response_required = 3;
 
-    // Used to detect duplicate connections between ucs ans vsm.
+    // Used to detect duplicate connections between ucs and vsm.
     // This must be the first message sent from ucs and VSM on new connection.
     // In this case device_id==0 which means this message is for peer application not device.
     // No device specific payloads can be present if device_id==0.
@@ -61,6 +61,9 @@ message Register_peer {
     optional uint32 version_minor = 3;
     optional uint32 version_major = 4;
     optional string version_build = 5;
+
+    // Peer name
+    optional string name = 6;
 }
 
 // Register various kinds of devices.
@@ -74,20 +77,20 @@ message Register_device {
     // differs from current time a lot.
     required uint64 begin_of_epoch = 1;
     
-    // User defineable key-value pairs
-    repeated Property_field properties = 2;
+    // Vehicle, Adsb receiver, RTK base station, etc...
+    required Device_type type = 2;
+    
+    // User definable key-value pairs
+    repeated Property_field properties = 3;
 
-    // Registers vehicle with its commands, telemetry, etc...
-    optional Register_vehicle register_vehicle = 3;
-
-    // Used by adsb receiver to report data about detected aircrafts
-    optional Register_adsb_aircraft register_adsb_aircraft = 4;
+    // flight controller, gimbal, cameras, etc...
+    repeated Register_subsystem subsystems = 4;
 }
 
 // Invalidates the specified Vsm_message.device_id
 // Presence of this payload means that device has disconnected and all its state should be dropped.
 // Use this to drop any context established via Register_device message.
-// Important: Automatically unregisters all subdevices registered under this device.
+// Important: Automatically unregisters all subsystems registered under this device.
 message Unregister_device {
 }
 
@@ -142,40 +145,6 @@ message Mission_command_map {
     required uint32 mission_command_idx = 2;
 }
 
-// VSM must send this message before any other device specific payloads can be sent.
-message Register_vehicle {
-
-    // User specified identification string of the vehicle
-    optional string vehicle_serial = 1;
-
-    // User specified identification string of the vehicle
-    optional string vehicle_name = 2;
-
-    // Frame identificator (if applicable)
-    optional string frame_type = 3;
-
-    // Connection name (Eg. "COM11" or "tcp:1.2.3.4:12345")
-    optional string port_name = 4;
-
-    // copter, plane, rover, boat
-    required Vehicle_type vehicle_type = 5;
-
-    repeated Register_flight_controller register_flight_controller = 6;
-
-    repeated Register_gimbal register_gimbal = 7;
-
-    repeated Register_camera register_camera = 8;
-
-    repeated Register_adsb_transponder register_adsb_transponder = 9;
-
-    repeated Register_winch register_winch = 10;
-
-    // Registers virtual vehicle
-    // Used to provide vehicle specific functionality without an actual vehicle.
-    // The native route file is returned via Device_response.status field.
-    optional bool is_command_processor = 11;
-}
-
 message Device_command {
 
     // Command id (Must be from previously registered commands)
@@ -193,7 +162,7 @@ message Telemetry_field {
     // Session wide unique field id defined via Register_field message
     required uint32 field_id = 1;
 
-    // Time in ms this value was gathered since begin_of_epoch which set in Register_vehicle message.
+    // Time in ms this value was gathered since begin_of_epoch which set in Register_device message.
     // NOTE: this value is calculated using system_clock and must not be assumed monotonic.
     // It can have negative values if system_clock is turned back while VSM is running.
     required sint64 ms_since_epoch = 2;
@@ -215,11 +184,14 @@ message Property_field {
     required string name = 1;
 
     required Field_value value = 2;
+
+    // Specifies the value type.
+    required Field_semantic semantic = 3;
 }
 
 message Field_value {
 
-    // If this is present field value is one of supported "meta" values: na, unknown, invalid 
+    // If this is present field value is one of supported "meta" values.
     optional Meta_value meta_value = 1;
 
     // value holders for various regular field types.
@@ -269,81 +241,21 @@ message Register_command {
     
     // this command is available as mission item
     optional bool available_in_mission = 4;
-
-    // this command can be issued as seperate command
-    optional bool available_as_command = 5;
 }
 
-message Register_flight_controller {
+message Register_subsystem {
 
-    // Autopilot identificator
-    required string autopilot_type = 2;
+    // Type of subsystem
+    required Subsystem_type type = 1;
 
-    // Autopilot serial number if available
-    optional string autopilot_serial = 3;
+    // Subsystem properties
+    repeated Property_field properties = 2;
 
-    // Telemetry fields supported by device
-    repeated Register_field telemetry_fields = 8;
+    // Telemetry fields supported by subsystem
+    repeated Register_field telemetry_fields = 3;
 
-    // Commands supported by the payload
-    repeated Register_command commands = 9;
-}
-
-message Register_camera {
-
-    // Camera name if available
-    optional string name = 1;
-
-    // Telemetry fields supported by device
-    repeated Register_field telemetry_fields = 2;
-
-    // Commands supported by the payload
-    repeated Register_command commands = 3;
-}
-
-message Register_gimbal {
-
-    // Gimbal name if available
-    optional string name = 1;
-
-    // Telemetry fields supported by device
-    repeated Register_field telemetry_fields = 2;
-
-    // Commands supported by the payload
-    repeated Register_command commands = 3;
-}
-
-message Register_adsb_transponder {
-
-    // Transponder name if available
-    optional string name = 1;
-
-    // Telemetry fields supported by device
-    repeated Register_field telemetry_fields = 2;
-
-    // Commands supported by the payload
-    repeated Register_command commands = 3;
-}
-
-message Register_winch {
-
-    // Winch name if available
-    optional string name = 1;
-
-    // Telemetry fields supported by device
-    repeated Register_field telemetry_fields = 2;
-
-    // Commands supported by the payload
-    repeated Register_command commands = 3;
-}
-
-message Register_adsb_aircraft {
-
-    // 24bit integer uniquely identifying the aircaft
-    required uint32 icao = 1;
-
-    // Telemetry fields supported by device
-    repeated Register_field telemetry_fields = 5;
+    // Commands supported by subsystem
+    repeated Register_command commands = 4;
 }
 
 // Used to send definitions of vehicle supported parameters and telemetry fields to UCS
@@ -359,7 +271,7 @@ message Register_field {
     required Field_semantic semantic = 3;
 
     // Default value to show in client.
-    // If min_value == max_value it means that parameter is not user chengeable and should be set to default_value.
+    // If min_value == max_value it means that parameter is not user changeable and should be set to default_value.
     optional Field_value default_value = 4;
 
     // Minimum value of field
@@ -368,7 +280,7 @@ message Register_field {
     // Maximum value of field
     optional Field_value max_value = 6;
 
-    // User defined enumreation when field_semantic == FIELD_SEMANTIC_ENUM.
+    // User defined enumeration when field_semantic == FIELD_SEMANTIC_ENUM.
     repeated Field_enumeration enumeration = 7;
 }
 
@@ -383,4 +295,3 @@ message Field_enumeration {
     // Description of the value
     required string description = 2;
 }
-

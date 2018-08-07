@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 /*
@@ -428,7 +428,7 @@ Service_discovery_processor::Send_msearch(
         auto notify = SEARCH_METHOD_STRING;
         notify += " * HTTP/1.1\r\nHOST:";
         notify += dest_addr->Get_as_string();
-        notify += "\r\nMAN: \"ssdp:discover\"\r\nMX: 3\nST:";
+        notify += "\r\nMAN: \"ssdp:discover\"\r\nMX: 3\r\nST:";
         notify += type;
         notify += "\r\n\r\n";
         // Send search. Do not care about the Write result.

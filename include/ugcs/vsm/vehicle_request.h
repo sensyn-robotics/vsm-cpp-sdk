@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -6,8 +6,8 @@
  * @file vehicle_request.h
  * Generic asynchronous request for a user vehicle.
  */
-#ifndef _VEHICLE_REQUEST_H_
-#define _VEHICLE_REQUEST_H_
+#ifndef _UGCS_VSM_VEHICLE_REQUEST_H_
+#define _UGCS_VSM_VEHICLE_REQUEST_H_
 
 #include <ugcs/vsm/request_context.h>
 #include <ugcs/vsm/reference_guard.h>
@@ -204,4 +204,4 @@ public:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _VEHICLE_REQUEST_H_ */
+#endif /* _UGCS_VSM_VEHICLE_REQUEST_H_ */

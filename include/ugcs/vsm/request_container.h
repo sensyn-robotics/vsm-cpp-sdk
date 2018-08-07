@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Request container declaration.
  */
 
-#ifndef _REQUEST_CONTAINER_H_
-#define _REQUEST_CONTAINER_H_
+#ifndef _UGCS_VSM_REQUEST_CONTAINER_H_
+#define _UGCS_VSM_REQUEST_CONTAINER_H_
 
 #include <ugcs/vsm/callback.h>
 #include <ugcs/vsm/utils.h>
@@ -693,4 +693,4 @@ typedef Request_container::Request Request;
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _REQUEST_CONTAINER_H_ */
+#endif /* _UGCS_VSM_REQUEST_CONTAINER_H_ */

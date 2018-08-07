@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -6,8 +6,8 @@
  * @file request_temp_completion_context.h
  */
 
-#ifndef _REQUEST_TEMP_COMPLETION_CONTEXT_H_
-#define _REQUEST_TEMP_COMPLETION_CONTEXT_H_
+#ifndef _UGCS_VSM_REQUEST_TEMP_COMPLETION_CONTEXT_H_
+#define _UGCS_VSM_REQUEST_TEMP_COMPLETION_CONTEXT_H_
 
 #include <ugcs/vsm/request_context.h>
 
@@ -42,4 +42,4 @@ public:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _REQUEST_TEMP_COMPLETION_CONTEXT_H_ */
+#endif /* _UGCS_VSM_REQUEST_TEMP_COMPLETION_CONTEXT_H_ */

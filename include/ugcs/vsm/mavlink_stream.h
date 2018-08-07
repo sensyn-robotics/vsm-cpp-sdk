@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file mavlink_stream.h
  */
-#ifndef _MAVLINK_STREAM_H_
-#define _MAVLINK_STREAM_H_
+#ifndef _UGCS_VSM_MAVLINK_STREAM_H_
+#define _UGCS_VSM_MAVLINK_STREAM_H_
 
 #include <ugcs/vsm/io_stream.h>
 #include <ugcs/vsm/mavlink_decoder.h>
@@ -91,7 +91,6 @@ public:
     {
         return send_mavlink2;
     }
-
 
     /** Send Mavlink message to other end asynchronously. Timeout should be
      * always present, otherwise there is a chance to overflow the write queue
@@ -205,4 +204,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _MAVLINK_STREAM_H_ */
+#endif /* _UGCS_VSM_MAVLINK_STREAM_H_ */

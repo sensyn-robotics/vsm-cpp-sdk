@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * HID devices driver.
  */
 
-#ifndef _HID_PROCESSOR_H_
-#define _HID_PROCESSOR_H_
+#ifndef _UGCS_VSM_HID_PROCESSOR_H_
+#define _UGCS_VSM_HID_PROCESSOR_H_
 
 #ifndef VSM_DISABLE_HID
 
@@ -205,4 +205,4 @@ private:
 
 #endif /* VSM_DISABLE_HID */
 
-#endif /* _HID_PROCESSOR_H_ */
+#endif /* _UGCS_VSM_HID_PROCESSOR_H_ */

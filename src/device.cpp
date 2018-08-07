@@ -1,115 +1,11 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 #include <ugcs/vsm/device.h>
 #include <ugcs/vsm/cucs_processor.h>
-#include <ugcs/vsm/actions.h>
 
 using namespace ugcs::vsm;
-
-namespace {
-
-static std::atomic<uint32_t> current_unique_id(1);
-
-uint32_t
-Get_unique_id()
-{
-    return current_unique_id++;
-}
-} // namespace
-
-Vsm_command::Vsm_command(std::string name, bool as_command, bool in_mission):
-    command_id(Get_unique_id()),
-    name(name), as_command(as_command), in_mission(in_mission)
-{
-}
-
-Property::Ptr
-Vsm_command::Add_parameter(
-    std::string name,
-    ugcs::vsm::proto::Field_semantic semantic)
-{
-    auto p = Property::Create(Get_unique_id(), name, semantic);
-    parameters.emplace(p->Get_id(), p);
-    return p;
-}
-
-Property::Ptr
-Vsm_command::Add_parameter(
-    std::string name,
-    Property::Value_type type)
-{
-    auto p = Property::Create(Get_unique_id(), name, type);
-    parameters.emplace(p->Get_id(), p);
-    return p;
-}
-
-void
-Vsm_command::Set_capabilities(ugcs::vsm::proto::Command_availability* msg)
-{
-    msg->set_id(command_id);
-    msg->set_is_available(is_available);
-    msg->set_is_enabled(is_enabled);
-    capability_state_dirty = false;
-}
-
-void
-Vsm_command::Register(ugcs::vsm::proto::Register_command* msg)
-{
-    msg->set_name(name);
-    msg->set_id(command_id);
-    msg->set_available_as_command(as_command);
-    msg->set_available_in_mission(in_mission);
-    for (auto it : parameters) {
-        it.second->Register(msg->add_parameters());
-    }
-}
-
-void
-Vsm_command::Set_enabled(bool value)
-{
-    if (is_enabled != value) {
-        capability_state_dirty = true;
-        is_enabled = value;
-    }
-}
-
-void
-Vsm_command::Set_available(bool value)
-{
-    if (is_available != value) {
-        capability_state_dirty = true;
-        is_available = value;
-    }
-}
-
-Property_list
-Vsm_command::Build_parameter_list(const ugcs::vsm::proto::Device_command &cmd)
-{
-    Property_list ret;
-    for (int i = 0; i < cmd.parameters_size(); i++) {
-        auto fid = cmd.parameters(i).field_id();
-        auto pit = parameters.find(fid);
-        if (pit == parameters.end()) {
-            LOG_ERR("Unknown parameter %d for command %d", fid, cmd.command_id());
-            ret.clear();
-            return ret;
-        }
-        auto param = pit->second;
-        // Create copy of command parameter.
-        auto prop = Property::Create(param);
-        if (prop->Set_value(cmd.parameters(i).value())) {
-            ret.emplace(param->Get_name(), prop);
-            LOG("%s", prop->Dump_value().c_str());
-        } else {
-            LOG_ERR("Invalid parameter %s value for command %s", param->Get_name().c_str(), name.c_str());
-            ret.clear();
-            return ret;
-        }
-    }
-    return ret;
-}
 
 Ucs_request::Ucs_request(ugcs::vsm::proto::Vsm_message m):
     request(std::move(m))
@@ -130,7 +26,7 @@ Ucs_request::Complete(ugcs::vsm::proto::Status_code s, const std::string& descri
     }
 }
 
-Device::Device(bool create_thread)
+Device::Device(proto::Device_type type, bool create_thread): device_type(type)
 {
     completion_ctx = Request_completion_context::Create("Vehicle completion");
     processor = Request_processor::Create("Vehicle processor");
@@ -177,7 +73,6 @@ Device::Enable()
                 req));
     processor->Submit_request(req);
     req->Wait_done(false);
-    Register();
 }
 
 void
@@ -233,10 +128,10 @@ void
 Device::Register()
 {
     if (!my_handle) {
-        CREATE_COMMIT_SCOPE;
         my_handle = Get_unique_id();
         Cucs_processor::Get_instance()->Register_device(Shared_from_this());
         // Push pending telemetry if any.
+        Commit_to_ucs();
     }
 }
 
@@ -249,20 +144,24 @@ Device::Unregister()
     }
 }
 
+bool
+Device::Is_registered()
+{
+    return my_handle != 0;
+}
+
 void
 Device::On_ucs_message(
     ugcs::vsm::proto::Vsm_message message,
     Response_sender completion_handler,
     ugcs::vsm::Request_completion_context::Ptr completion_ctx)
 {
-    Proto_msg_ptr response = nullptr;
-
     auto request = Ucs_request::Create(std::move(message));
 
     if (completion_ctx) {
-        response = completion_handler.Get_arg<1>();
+        request->stream_id = completion_handler.Get_arg<0>();
+        request->response = completion_handler.Get_arg<1>();
         request->Set_completion_handler(completion_ctx, completion_handler);
-        request->response = response;
     }
 
     request->Set_processing_handler(
@@ -291,54 +190,24 @@ Device::Handle_ucs_command(
     ucs_request->Complete(ugcs::vsm::proto::STATUS_FAILED, "Not implemented");
 }
 
-Vsm_command::Ptr
-Device::Add_command(
-    const std::string& name,
-    bool available_as_command,
-    bool available_in_mission)
-{
-    auto c = Vsm_command::Create(name, available_as_command, available_in_mission);
-    commands.emplace(c->Get_id(), c);
-    return c;
-}
-
-Property::Ptr
-Device::Add_telemetry(
-    const std::string& name,
-    ugcs::vsm::proto::Field_semantic semantic,
-    uint32_t timeout)
-{
-    auto t = Property::Create(Get_unique_id(), name, semantic);
-    if (timeout) {
-        t->Set_timeout(timeout);
-    }
-    telemetry_fields.push_back(t);
-    return t;
-}
-
-Property::Ptr
-Device::Add_telemetry(
-    const std::string& name,
-    ugcs::vsm::Property::Value_type type,
-    uint32_t timeout)
-{
-    auto t = Property::Create(Get_unique_id(), name, type);
-    if (timeout) {
-        t->Set_timeout(timeout);
-    }
-    telemetry_fields.push_back(t);
-    return t;
-}
-
 void
-Device::Remove_telemetry(Property::Ptr& p)
+Device::Report_progress(Ucs_request::Ptr request, float progress, const std::string& description)
 {
-    for (auto f = telemetry_fields.begin(); f != telemetry_fields.end(); f++) {
-        if ((*f)->Get_id() == p->Get_id()) {
-            telemetry_fields.erase(f);
-            p = nullptr;
-            return;
+    // Send only if request is valid.
+    if (my_handle && request && !request->Is_completed() && request->response) {
+        // Make a copy of response and send progress report.
+        auto resp = std::make_shared<ugcs::vsm::proto::Vsm_message>(*request->response);
+        resp->mutable_device_response()->set_code(proto::STATUS_IN_PROGRESS);
+        if (progress > 0) {
+            if (progress > 1.0) {
+                progress = 1.0;
+            }
+            resp->mutable_device_response()->set_progress(progress);
         }
+        if (description.size()) {
+            resp->mutable_device_response()->set_status(description);
+        }
+        Cucs_processor::Get_instance()->Send_ucs_message(my_handle, resp, request->stream_id);
     }
 }
 
@@ -352,19 +221,22 @@ Device::Commit_to_ucs()
     }
     auto msg = std::make_shared<ugcs::vsm::proto::Vsm_message>();
     auto report = msg->mutable_device_status();
-    for (auto it : telemetry_fields) {
-        if (it->Is_changed()) {
-            auto tf = report->add_telemetry_fields();
-            it->Write_as_telemetry(tf);
-            tf->set_ms_since_epoch(
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    it->Get_update_time() - begin_of_epoch).count());
-        }
-    }
 
-    for (auto it : commands) {
-        if (it.second->Is_capability_state_dirty()) {
-            it.second->Set_capabilities(report->add_command_availability());
+    for (auto sd : subsystems) {
+        for (auto it : sd->telemetry_fields) {
+            if (it->Is_changed()) {
+                auto tf = report->add_telemetry_fields();
+                it->Write_as_telemetry(tf);
+                tf->set_ms_since_epoch(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        it->Get_update_time() - begin_of_epoch).count());
+            }
+        }
+
+        for (auto it : sd->commands) {
+            if (it.second->Is_capability_state_dirty()) {
+                it.second->Set_capabilities(report->add_command_availability());
+            }
         }
     }
 
@@ -384,12 +256,13 @@ Device::Commit_to_ucs()
 Vsm_command::Ptr
 Device::Get_command(int id)
 {
-    auto cit = commands.find(id);
-    if (cit == commands.end()) {
-        return nullptr;
-    } else {
-        return cit->second;
+    for (auto sd : subsystems) {
+        auto cit = sd->commands.find(id);
+        if (cit != sd->commands.end()) {
+            return cit->second;
+        }
     }
+    return nullptr;
 }
 
 void
@@ -421,4 +294,68 @@ Device::Set_failsafe_actions(Property::Ptr p, std::initializer_list<proto::Fails
     if (i != actions.end()) {
         p->Default_value()->Set_value(*i);
     }
+}
+
+std::string
+Device::Dump_command(const ugcs::vsm::proto::Device_command & vsm_cmd)
+{
+    auto cmd = Get_command(vsm_cmd.command_id());
+    std::string ret = cmd->Get_name() + " (" + std::to_string(vsm_cmd.command_id()) + ")";
+    auto params = cmd->Build_parameter_list(vsm_cmd);
+    for (auto p : params) {
+        ret += "\n  " + p.second->Dump_value();
+    }
+    // Subcommands should be dumped separately because windows hangs on long debug strings.
+    return ret;
+}
+
+Subsystem::Ptr
+Device::Add_subsystem(proto::Subsystem_type type)
+{
+    auto sd = Subsystem::Create(type);
+    subsystems.emplace_back(sd);
+    return sd;
+}
+
+void
+Device::Register(ugcs::vsm::proto::Vsm_message& msg)
+{
+    // Verify device validity
+    switch (device_type) {
+    case proto::DEVICE_TYPE_VEHICLE:
+        for (auto p : {"vehicle_type"}) {
+            if (properties.find(p) == properties.end()) {
+                VSM_EXCEPTION(Invalid_param_exception, "Vehicle must provide parameter %s", p);
+            }
+        }
+        break;
+    case proto::DEVICE_TYPE_ADSB_VEHICLE:
+        for (auto p : {"icao"}) {
+            if (properties.find(p) == properties.end()) {
+                VSM_EXCEPTION(Invalid_param_exception, "ADSB vehicle must provide parameter %s", p);
+            }
+        }
+        break;
+    case proto::DEVICE_TYPE_ADSB_RECEIVER:
+    case proto::DEVICE_TYPE_VEHICLE_COMMAND_PROCESSOR:
+    case proto::DEVICE_TYPE_RTK_BASE_STATION:
+        break;
+    }
+
+    auto dev = msg.mutable_register_device();
+
+    dev->set_begin_of_epoch(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            begin_of_epoch.time_since_epoch()).count());
+
+    dev->set_type(device_type);
+
+    for (auto prop : properties) {
+        prop.second->Write_as_property(dev->add_properties());
+    }
+
+    for (auto subsystem : subsystems) {
+        subsystem->Register(dev->add_subsystems());
+    }
+    // LOG("Register msg:%s", msg.DebugString().c_str());
 }

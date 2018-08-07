@@ -130,16 +130,6 @@ else()
     endif()
     set (PROTOBUF_PROTOC_BINARY $<TARGET_FILE:protobuf_compiler> PARENT_SCOPE)
 
-    if (NOT UGCS_INSTALL_DIR)
-        # Support non-ugcs installation.
-        if (UNIX)
-            set(UGCS_INSTALL_DIR "opt/${CMAKE_PROJECT_NAME}")
-        elseif (WIN32)
-            set(UGCS_INSTALL_DIR "${CMAKE_PROJECT_NAME}")
-        endif ()
-    endif ()
-
     install (TARGETS protobuf_compiler
         RUNTIME DESTINATION "${UGCS_INSTALL_DIR}/share/tools")
 endif()
-

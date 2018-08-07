@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Main include file for VSM SDK.
  */
 
-#ifndef _VSM_H_
-#define _VSM_H_
+#ifndef _UGCS_VSM_VSM_H_
+#define _UGCS_VSM_VSM_H_
 
 #include <ugcs/vsm/vehicle.h>
 #include <ugcs/vsm/properties.h>
@@ -76,4 +76,4 @@ Terminate(bool save_config = false);
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _VSM_H_ */
+#endif /* _UGCS_VSM_VSM_H_ */

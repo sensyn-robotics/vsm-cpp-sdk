@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -9,6 +9,7 @@
 #include <ugcs/vsm/properties.h>
 #include <ugcs/vsm/platform.h>
 #include <ugcs/vsm/debug.h>
+#include <ugcs/vsm/utils.h>
 
 #include <climits>
 #include <cmath>
@@ -26,13 +27,8 @@ Properties::Property::Property(std::string &&value):
     str_repr(std::move(value)),
     description(LINE_TERMINATOR)
 {
-    std::string trimmed = str_repr;
-    trimmed.erase(trimmed.begin(),
-                  std::find_if(trimmed.begin(), trimmed.end(),
-                      std::not1(std::ptr_fun<int, int>(std::isspace))));
-    trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(),
-                      std::not1(std::ptr_fun<int, int>(std::isspace))).base(),
-                  trimmed.end());
+    std::string trimmed(str_repr);
+    Trim(trimmed);
     try {
         size_t pos;
         int_repr = std::stol(trimmed, &pos, 0);

@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -10,8 +10,8 @@
  * notify request handlers about the completion of a particular request.
  */
 
-#ifndef _CALLBACK_H_
-#define _CALLBACK_H_
+#ifndef _UGCS_VSM_CALLBACK_H_
+#define _UGCS_VSM_CALLBACK_H_
 
 #include <ugcs/vsm/defs.h>
 #include <ugcs/vsm/exception.h>
@@ -850,4 +850,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _CALLBACK_H_ */
+#endif /* _UGCS_VSM_CALLBACK_H_ */

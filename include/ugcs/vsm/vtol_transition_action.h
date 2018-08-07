@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file vtol_transition_action.h
  */
-#ifndef _VTOL_TRANSITION_ACTION_H_
-#define _VTOL_TRANSITION_ACTION_H_
+#ifndef _UGCS_VSM_VTOL_TRANSITION_ACTION_H_
+#define _UGCS_VSM_VTOL_TRANSITION_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/mavlink.h>
@@ -47,4 +47,4 @@ struct Action::Mapper<Action::Type::VTOL_TRANSITION> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _VTOL_TRANSITION_ACTION_H_*/
+#endif /* _UGCS_VSM_VTOL_TRANSITION_ACTION_H_*/

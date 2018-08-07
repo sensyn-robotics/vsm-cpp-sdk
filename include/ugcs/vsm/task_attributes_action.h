@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file task_attributes_action.h
  */
-#ifndef _TASK_ATTRIBUTES_ACTION_H_
-#define _TASK_ATTRIBUTES_ACTION_H_
+#ifndef _UGCS_VSM_TASK_ATTRIBUTES_ACTION_H_
+#define _UGCS_VSM_TASK_ATTRIBUTES_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/mavlink.h>
@@ -69,22 +69,6 @@ public:
         }
     }
 
-    /**
-     * Construct task attributes action from Mavlink mission item.
-     *
-     * @param item With command equal to mavlink::ugcs::MAV_CMD::MAV_CMD_DO_SET_ROUTE_ATTRIBUTES
-     */
-    Task_attributes_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
-        Action(Type::TASK_ATTRIBUTES),
-        safe_altitude(item->param1),
-        rc_loss(Mavlink_to_emergency_action(item->param2)),
-        gnss_loss(Mavlink_to_emergency_action(item->param3)),
-        low_battery(Mavlink_to_emergency_action(item->param4))
-    {
-        ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_SET_ROUTE_ATTRIBUTES);
-    }
-
-public:
     /** Safe altitude in meters (MSL). */
     double safe_altitude;
 
@@ -118,4 +102,4 @@ struct Action::Mapper<Action::Type::TASK_ATTRIBUTES> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _TASK_ATTRIBUTES_ACTION_H_ */
+#endif /* _UGCS_VSM_TASK_ATTRIBUTES_ACTION_H_ */

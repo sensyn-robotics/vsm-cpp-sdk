@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,8 +7,8 @@
  *
  * Change airspeed action.
  */
-#ifndef _CHANGE_SPEED_ACTION_H_
-#define _CHANGE_SPEED_ACTION_H_
+#ifndef _UGCS_VSM_CHANGE_SPEED_ACTION_H_
+#define _UGCS_VSM_CHANGE_SPEED_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/mavlink.h>
@@ -28,19 +28,6 @@ public:
     speed(h_speed),
     vertical_speed(v_speed)
     {}
-
-    /**
-     * Construct change speed action from Mavlink extended mission item.
-     *
-     * @param item With command equal to mavlink::MAV_CMD::MAV_CMD_DO_CHANGE_SPEED_EX
-     */
-    Change_speed_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
-        Action(Type::CHANGE_SPEED),
-        speed(item->param1),
-        vertical_speed(item->param2)
-     {
-        ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CHANGE_SPEED_EX);
-     }
 
     /**
      * Construct action from protobuf command.
@@ -72,4 +59,4 @@ struct Action::Mapper<Action::Type::CHANGE_SPEED> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _CHANGE_SPEED_ACTION_H_ */
+#endif /* _UGCS_VSM_CHANGE_SPEED_ACTION_H_ */

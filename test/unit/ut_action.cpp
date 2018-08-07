@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -125,10 +125,10 @@ TEST(convertions_from_base_class_camera_control)
 TEST(convertions_from_base_class_camera_trigger)
 {
     Action::Ptr action = Camera_trigger_action::Create(
-            Camera_trigger_action::State::OFF, std::chrono::seconds(1));
+        proto::CAMERA_MISSION_TRIGGER_STATE_OFF, std::chrono::seconds(1));
     CHECK(Action::Type::CAMERA_TRIGGER == action->Get_type());
     Camera_trigger_action::Ptr ct = action->Get_action<Action::Type::CAMERA_TRIGGER>();
-    CHECK_EQUAL(Camera_trigger_action::State::OFF, ct->state);
+    CHECK_EQUAL(proto::CAMERA_MISSION_TRIGGER_STATE_OFF, ct->state);
     Wait_action::Ptr wa = action->Get_action<Action::Type::WAIT>();
     CHECK(!wa);
 }
@@ -152,14 +152,14 @@ TEST(convertions_from_base_class_task_attributes)
 TEST(convertions_from_base_class_panorama)
 {
     Action::Ptr action = Panorama_action::Create(
-            Panorama_action::Trigger_state::ON,
+            proto::PANORAMA_MODE_PHOTO,
             M_PI,
             M_PI / 10,
             std::chrono::milliseconds(500),
             M_PI / 10);
     CHECK(Action::Type::PANORAMA == action->Get_type());
     Panorama_action::Ptr pa = action->Get_action<Action::Type::PANORAMA>();
-    CHECK_EQUAL(Panorama_action::Trigger_state::ON, pa->trigger_state);
+    CHECK_EQUAL(proto::PANORAMA_MODE_PHOTO, pa->trigger_state);
     CHECK(std::chrono::milliseconds(500) == pa->delay);
     Wait_action::Ptr wa = action->Get_action<Action::Type::WAIT>();
     CHECK(!wa);
@@ -176,258 +176,34 @@ void Fill_mavlink_position(Pld_mission_item_ex& item)
 }
 
 #define CHECK_GEO_POSITION(geo_pos) \
-    CHECK_CLOSE((89.999 * M_PI) / 180.0, geo_pos.latitude, tol); \
-    CHECK_CLOSE((179.999 * M_PI) / 180.0, geo_pos.longitude, tol); \
-    CHECK_EQUAL(42, geo_pos.altitude);
+    CHECK_CLOSE(1, geo_pos.latitude, tol); \
+    CHECK_CLOSE(2, geo_pos.longitude, tol); \
+    CHECK_EQUAL(3, geo_pos.altitude);
 
-TEST(construct_from_mavlink_move)
+#define STRINGIFY_(x_) #x_
+#define STRINGIFY(x_) STRINGIFY_(x_)
+
+TEST(construct_move)
 {
-    mavlink::ugcs::Pld_mission_item_ex item;
-    /* Altitude origin is reset, so elevation should be taken. */
-    item->Reset();
-    item->command = mavlink::MAV_CMD::MAV_CMD_NAV_WAYPOINT;
-    Fill_mavlink_position(item);
-    item->param1 = 10; /* wait 1 sec */
-    item->param2 = 3; /* acceptance radius 3m */
-    item->param3 = 5; /* loiter orbit 5m */
-    item->param4 = 45; /* heading grad */
-    item->elevation = 1.5;
+#define P(n,v) p.emplace(n, Property::Create(n, v, proto::FIELD_SEMANTIC_NUMERIC));
+    Property_list p;
+    P("latitude", 1)
+    P("longitude", 2)
+    P("altitude_amsl", 3)
+    P("acceptance_radius", 3)
+    P("heading", 1)
+    P("loiter_radius", 5)
+    P("wait_time", 1)
+    P("ground_elevation", 1.5)
+    P("turn_type", 1)
 
-    Optional<double> takeoff_altitude;
-    Move_action ma(item, takeoff_altitude);
+    Move_action ma(p);
     CHECK_GEO_POSITION(ma.position.Get_geodetic());
     CHECK_CLOSE(1, ma.wait_time, tol);
     CHECK_EQUAL(3, ma.acceptance_radius);
     CHECK_EQUAL(5, ma.loiter_orbit);
-    CHECK_CLOSE(((45 * M_PI) / 180.0), ma.heading, tol);
-    CHECK_CLOSE(1.5, *takeoff_altitude, tol);
+    CHECK_CLOSE(1, ma.heading, tol);
     CHECK_CLOSE(1.5, ma.elevation, tol);
 }
 
-TEST(construct_from_mavlink_wait)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::MAV_CMD::MAV_CMD_CONDITION_DELAY;
-    item->param1 = 420; /* 42 sec */
 
-    Wait_action wa(item);
-    CHECK_CLOSE(42, wa.wait_time, tol);
-}
-
-TEST(construct_from_mavlink_takeoff)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->Reset();
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_TAKEOFF_EX;
-    Fill_mavlink_position(item);
-    item->param2 = 2; /* meters. */
-    item->param4 = -89; /* grad */
-    item->param3 = 0.42; /* m/s */
-    item->altitude_origin = 4.2;
-    item->elevation = 2.4;
-
-    Optional<double> takeoff_altitude;
-    Takeoff_action ta(item, takeoff_altitude);
-    CHECK_GEO_POSITION(ta.position.Get_geodetic());
-    CHECK_CLOSE(2, ta.acceptance_radius, tol);
-    CHECK_CLOSE((-89.0 * M_PI) / 180.0, ta.heading, tol);
-    CHECK_CLOSE(0.42, ta.climb_rate, tol);
-    CHECK_CLOSE(4.2, *takeoff_altitude, tol);
-    CHECK_CLOSE(2.4, ta.elevation, tol);
-}
-
-TEST(construct_from_mavlink_landing)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_LAND_EX;
-    Fill_mavlink_position(item);
-    item->param2 = 2; /* meters */
-    item->param4 = 0; /* grad */
-    item->param3 = 0.42; /* m/s */
-
-    Landing_action la(item);
-    CHECK_GEO_POSITION(la.position.Get_geodetic());
-    CHECK_CLOSE((0.0 * M_PI) / 180.0, la.heading, tol);
-    CHECK_CLOSE(0.42, la.descend_rate, tol);
-    CHECK_CLOSE(2, la.acceptance_radius, tol);
-}
-
-TEST(construct_from_mavlink_change_speed)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CHANGE_SPEED_EX;
-    item->param1 = 42; /* ms */
-
-    Change_speed_action ca(item);
-    CHECK_EQUAL(42, ca.speed);
-}
-
-TEST(construct_from_mavlink_set_home)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::MAV_CMD::MAV_CMD_DO_SET_HOME;
-    Fill_mavlink_position(item);
-    item->param1 = 0; /* use specified location */
-
-    Set_home_action sa(item);
-    CHECK_GEO_POSITION(sa.home_position.Get_geodetic());
-    CHECK_EQUAL(false, sa.use_current_position);
-
-    item->param1 = 1; /* use current location */
-    Set_home_action sa2(item);
-    CHECK_EQUAL(true, sa2.use_current_position);
-}
-
-TEST(construct_from_mavlink_poi)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::MAV_CMD::MAV_CMD_NAV_ROI;
-    Fill_mavlink_position(item);
-    item->param1 = mavlink::MAV_ROI::MAV_ROI_LOCATION;
-
-    {
-        Poi_action pa(item);
-        CHECK_GEO_POSITION(pa.position.Get_geodetic());
-        CHECK(pa.active);
-    }
-
-    item->param1 = mavlink::MAV_ROI::MAV_ROI_NONE;
-
-    {
-        Poi_action pa(item);
-        CHECK_GEO_POSITION(pa.position.Get_geodetic());
-        CHECK(!pa.active);
-    }
-
-    item->param1 = mavlink::MAV_ROI::MAV_ROI_WPINDEX;
-    CHECK_THROW(Poi_action pa(item), Action::Format_exception);
-}
-
-TEST(construct_from_mavlink_heading)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::MAV_CMD::MAV_CMD_CONDITION_YAW;
-    item->param1 = 180; /* deg */
-    item->param4 = 0; /* absolute angle. */
-
-    Heading_action ha(item);
-    CHECK_CLOSE(M_PI, ha.heading, tol); /* In radians. */
-
-    item->param4 = 1; /* relative angle. */
-    CHECK_THROW(Heading_action ha(item), Action::Format_exception);
-}
-
-TEST(construct_from_mavlink_camera_control)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_PAYLOAD_CONTROL;
-    item->param1 = 0; /* deg, tilt */
-    item->param2 = 90; /* deg, roll */
-    item->param3 = -90; /* deg, yaw */
-    item->param4 = 1; /* zoom. */
-
-    Camera_control_action cc(item);
-    CHECK_EQUAL(0, cc.tilt);
-    CHECK_CLOSE(M_PI/2, cc.roll, tol); /* In radians. */
-    CHECK_CLOSE(-M_PI/2, cc.yaw, tol); /* In radians. */
-    CHECK_EQUAL(1, cc.zoom);
-}
-
-TEST(construct_from_mavlink_camera_trigger)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_TRIGGER;
-    item->param1 = mavlink::ugcs::MAV_CAMERA_TRIGGER_STATE::CAMERA_TRIGGER_STATE_STOP_RECORDING;
-
-    Camera_trigger_action ct(item);
-    CHECK_EQUAL(Camera_trigger_action::State::OFF, ct.state);
-
-    item->param1 = 666666; /* Some unknown value */
-
-    CHECK_THROW(Camera_trigger_action ct(item), Action::Format_exception);
-}
-
-TEST(construct_from_mavlink_task_attributes)
-{
-    using Emerg = mavlink::ugcs::MAV_EMERGENCY_ACTION;
-
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_SET_ROUTE_ATTRIBUTES;
-    item->param1 = 42;
-    item->param2 = Emerg::EMERGENCY_ACTION_GO_HOME;
-    item->param3 = Emerg::EMERGENCY_ACTION_LAND;
-    item->param4 = Emerg::EMERGENCY_ACTION_WAIT;
-
-    Task_attributes_action ta(item);
-    CHECK_EQUAL(42, ta.safe_altitude);
-    CHECK_EQUAL(Task_attributes_action::Emergency_action::GO_HOME, ta.rc_loss);
-    CHECK_EQUAL(Task_attributes_action::Emergency_action::LAND, ta.gnss_loss);
-    CHECK_EQUAL(Task_attributes_action::Emergency_action::WAIT, ta.low_battery);
-
-    item->param2 = 666666; /* Some unknown value */
-
-    CHECK_THROW(Task_attributes_action ta(item), Action::Format_exception);
-}
-
-TEST(construct_from_mavlink_panorama)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_PANORAMA;
-    item->param1 = mavlink::ugcs::MAV_CAMERA_TRIGGER_STATE::CAMERA_TRIGGER_STATE_START_RECORDING;
-    item->param2 = 180; /* Angle. */
-    item->param3 = 180 / 10.0; /* Step. */
-    item->param4 = 500; /* Delay. */
-    item->x = 180 / 20.0; /* Rotation speed. */
-
-    Panorama_action pa(item);
-    CHECK_EQUAL(pa.trigger_state, Panorama_action::Trigger_state::ON);
-    CHECK_CLOSE(M_PI, pa.angle, tol);
-    CHECK_CLOSE(M_PI / 10, pa.step, tol);
-    CHECK(pa.delay == std::chrono::milliseconds(500));
-    CHECK_CLOSE(M_PI / 20, pa.speed, tol);
-
-    item->param1 = 666666; /* Some unknown value. */
-    CHECK_THROW(Panorama_action pa(item), Action::Format_exception);
-}
-
-TEST(construct_from_camera_series_by_time)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_TIME;
-    item->param1 = 42; /* interval */
-    item->param2 = 10; /* count */
-    item->param3 = 20; /* initialDelay */
-
-    Camera_series_by_time_action a(item);
-    CHECK(a.interval == std::chrono::milliseconds(42));
-    CHECK_EQUAL(*a.count, 10);
-    CHECK(a.initial_delay == std::chrono::milliseconds(20));
-}
-
-TEST(construct_from_camera_series_by_time_no_count)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_TIME;
-    item->param1 = 42; /* interval */
-    item->param2 = UINT32_MAX; /* count */
-    item->param3 = 20; /* initialDelay */
-
-    Camera_series_by_time_action a(item);
-    CHECK(a.interval == std::chrono::milliseconds(42));
-    CHECK(!a.count);
-    CHECK(a.initial_delay == std::chrono::milliseconds(20));
-}
-
-TEST(construct_from_camera_series_by_distance)
-{
-    mavlink::ugcs::Pld_mission_item_ex item;
-    item->command = mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_DISTANCE;
-    item->param1 = 42; /* interval */
-    item->param2 = 10; /* count */
-    item->param3 = 20; /* initialDelay */
-
-    Camera_series_by_distance_action a(item);
-    CHECK_EQUAL(a.interval, 42);
-    CHECK_EQUAL(*a.count, 10);
-    CHECK(a.initial_delay == std::chrono::milliseconds(20));
-}

@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file poll_io_controller.h
  */
-#ifndef _POLL_IO_CONTROLLER_H_
-#define _POLL_IO_CONTROLLER_H_
+#ifndef _UGCS_VSM_POLL_IO_CONTROLLER_H_
+#define _UGCS_VSM_POLL_IO_CONTROLLER_H_
 
 #include <ugcs/vsm/file_processor.h>
 #include <poll.h>
@@ -181,4 +181,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _POLL_IO_CONTROLLER_H_ */
+#endif /* _UGCS_VSM_POLL_IO_CONTROLLER_H_ */

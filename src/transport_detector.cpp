@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -500,14 +500,11 @@ Transport_detector::On_timer()
 }
 
 Transport_detector::Port::Port(const std::string &name, Type ctype, Request_worker::Ptr w):
-    state(NONE),
     name(name),
     current_detector(detectors.end()),
-    stream(nullptr),
     re(name, platform_independent_filename_regex_matching_flag),
     worker(w),
-    type(ctype),
-    arbiter(nullptr)
+    type(ctype)
 {
 }
 
@@ -517,12 +514,10 @@ Transport_detector::Port::Port(
     Type type,
     Request_worker::Ptr w,
     int timeout):
-    state(NONE),
     name(local_addr->Get_as_string()),
     local_addr(local_addr),
     peer_addr(peer_addr),
     current_detector(detectors.end()),
-    stream(nullptr),
     re(name, platform_independent_filename_regex_matching_flag),
     worker(w),
     type(type),

@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Abstract stream for I/O operations. Used as a back-end for already created
  * streams.
  */
-#ifndef _IO_STREAM_H_
-#define _IO_STREAM_H_
+#ifndef _UGCS_VSM_IO_STREAM_H_
+#define _UGCS_VSM_IO_STREAM_H_
 
 #include <ugcs/vsm/io_buffer.h>
 #include <ugcs/vsm/request_temp_completion_context.h>
@@ -20,6 +20,18 @@
 
 namespace ugcs {
 namespace vsm {
+
+// Supported UDP packet size. Used as default with UDP sockets for reading.
+// Read on UDP socket must reserve space for maximum payload it can possibly receive.
+// Theoretical max is 64K which will always be fragmented.
+// We use what is typically the largest unfragmented packet.
+// This number is ether_v2 MTU - IP header - UDP header.
+static constexpr int MIN_UDP_PAYLOAD_SIZE_TO_READ = 1500 - 60 - 8;
+
+// TCP socket readers can use this as default max buffer size.
+// Typically reads data worth one MTU.
+// This number is ether_v2 MTU - IP header - TCP header (incl 20 byte options).
+static constexpr int MAX_TCP_PAYLOAD_SIZE_TO_READ = 1500 - 60 - 40;
 
 /** Result of I/O operation. */
 enum class Io_result {
@@ -201,6 +213,10 @@ public:
     /** Initiate read operation.
      * @param max_to_read Maximal number of bytes to read from the stream.
      *      Less bytes can be read in fact.
+     *      If max_to_read is set to 0, then it is determined automatically based on stream type:
+     *      TCP: max_to_read = MAX_TCP_PAYLOAD_SIZE_TO_READ
+     *      UDP: max_to_read = MIN_UDP_PAYLOAD_SIZE_TO_READ
+     *      serial and other stream types: max_to_read = min_to_read
      * @param min_to_read Minimal number of bytes to read from the stream. The
      *      operation is not completed until the specified minimal number of
      *      bytes is read.
@@ -221,7 +237,22 @@ public:
             VSM_EXCEPTION(Invalid_param_exception, "Completion handler can not "
                     "exist without completion context and vice versa.");
         }
-        if (max_to_read < min_to_read) {
+        if (min_to_read && max_to_read == 0) {
+            // For UDP and TCP Let's try to read more than required as it can save us some syscalls later.
+            // In UDP case we need to try read the maximum expected size. Otherwise we can get truncated data.
+            switch (stream_type) {
+            case Type::UDP:
+            case Type::UDP_MULTICAST:
+                max_to_read = MIN_UDP_PAYLOAD_SIZE_TO_READ;
+                break;
+            case Type::TCP:
+                max_to_read = MAX_TCP_PAYLOAD_SIZE_TO_READ;
+                break;
+            default:
+                max_to_read = min_to_read;
+                break;
+            }
+        } else if (max_to_read < min_to_read) {
             VSM_EXCEPTION(Invalid_param_exception, "max_to_read cannot be less than min_to_read");
         }
         return Read_impl(max_to_read, min_to_read, OFFSET_NONE, completion_handler, comp_ctx);
@@ -358,4 +389,4 @@ DEFINE_CALLBACK_BUILDER(Make_read_callback, (Io_buffer::Ptr, Io_result),
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _IO_STREAM_H_ */
+#endif /* _UGCS_VSM_IO_STREAM_H_ */

@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -9,143 +9,147 @@ using namespace ugcs::vsm;
 
 constexpr std::chrono::milliseconds Property::COMMIT_TIMEOUT;
 
-namespace {
-
-ugcs::vsm::proto::Field_semantic
-Get_default_semantic(std::string name)
+proto::Field_semantic
+Property::Get_default_semantic(const std::string& name)
 {
     if (name == "latitude") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_LATITUDE;
+        return proto::FIELD_SEMANTIC_LATITUDE;
     } else if (name == "longitude") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_LONGITUDE;
+        return proto::FIELD_SEMANTIC_LONGITUDE;
     } else if (name == "altitude_amsl") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_ALTITUDE_AMSL;
+        return proto::FIELD_SEMANTIC_ALTITUDE_AMSL;
     } else if (name == "altitude_origin") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_ALTITUDE_AMSL;
+        return proto::FIELD_SEMANTIC_ALTITUDE_AMSL;
     } else if (name == "altitude_raw") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_ALTITUDE_RAW;
+        return proto::FIELD_SEMANTIC_ALTITUDE_RAW;
     } else if (name == "ground_elevation") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_GROUND_ELEVATION;
+        return proto::FIELD_SEMANTIC_GROUND_ELEVATION;
     } else if (name == "acceptance_radius") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_ACCEPTANCE_RADIUS;
+        return proto::FIELD_SEMANTIC_ACCEPTANCE_RADIUS;
     } else if (name == "heading") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_HEADING;
+        return proto::FIELD_SEMANTIC_HEADING;
     } else if (name == "ms") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_MILLISECONDS;
+        return proto::FIELD_SEMANTIC_MILLISECONDS;
     } else if (name == "course") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_HEADING;
+        return proto::FIELD_SEMANTIC_HEADING;
     } else if (name == "pitch") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_PITCH;
+        return proto::FIELD_SEMANTIC_PITCH;
     } else if (name == "yaw") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_HEADING;
+        return proto::FIELD_SEMANTIC_HEADING;
     } else if (name == "roll") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_ROLL;
+        return proto::FIELD_SEMANTIC_ROLL;
     } else if (name == "ground_speed") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_GROUND_SPEED;
+        return proto::FIELD_SEMANTIC_GROUND_SPEED;
     } else if (name == "air_speed") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_AIR_SPEED;
+        return proto::FIELD_SEMANTIC_AIR_SPEED;
     } else if (name == "fov_h") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_FOV_H;
+        return proto::FIELD_SEMANTIC_FOV_H;
     } else if (name == "fov_v") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_FOV_V;
+        return proto::FIELD_SEMANTIC_FOV_V;
     } else if (name == "main_voltage") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_VOLTAGE;
+        return proto::FIELD_SEMANTIC_VOLTAGE;
     } else if (name == "main_current") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_CURRENT;
+        return proto::FIELD_SEMANTIC_CURRENT;
     } else if (name == "satellite_count") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_SATELLITE_COUNT;
+        return proto::FIELD_SEMANTIC_SATELLITE_COUNT;
     } else if (name == "gps_fix") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_GPS_FIX_TYPE;
+        return proto::FIELD_SEMANTIC_GPS_FIX_TYPE;
     } else if (name == "gcs_link_quality") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_GCS_LINK_QUALITY;
+        return proto::FIELD_SEMANTIC_GCS_LINK_QUALITY;
     } else if (name == "rc_link_quality") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_RC_LINK_QUALITY;
+        return proto::FIELD_SEMANTIC_RC_LINK_QUALITY;
     } else if (name == "control_mode") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_CONTROL_MODE;
+        return proto::FIELD_SEMANTIC_CONTROL_MODE;
     } else if (name == "vertical_speed") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_VERTICAL_SPEED;
+        return proto::FIELD_SEMANTIC_VERTICAL_SPEED;
     } else if (name == "climb_rate") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_VERTICAL_SPEED;
+        return proto::FIELD_SEMANTIC_VERTICAL_SPEED;
     } else if (name == "descent_rate") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_VERTICAL_SPEED;
+        return proto::FIELD_SEMANTIC_VERTICAL_SPEED;
     } else if (name == "flight_mode") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_FLIGHT_MODE;
+        return proto::FIELD_SEMANTIC_FLIGHT_MODE;
     } else if (name == "native_flight_mode") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_STRING;
+        return proto::FIELD_SEMANTIC_STRING;
     } else if (name == "autopilot_status") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_AUTOPILOT_STATUS;
+        return proto::FIELD_SEMANTIC_AUTOPILOT_STATUS;
     } else if (name == "name") {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_STRING;
+        return proto::FIELD_SEMANTIC_STRING;
+    } else if (name == "time") {
+        return proto::FIELD_SEMANTIC_TIMESTAMP;
     } else {
-        return ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT;
+        return proto::FIELD_SEMANTIC_DEFAULT;
     }
 }
 
-ugcs::vsm::Property::Value_type
-Get_type_from_semantic(ugcs::vsm::proto::Field_semantic sem)
+Property::Value_type
+Property::Get_type_from_semantic(proto::Field_semantic sem)
 {
     switch (sem) {
-    case ugcs::vsm::proto::FIELD_SEMANTIC_LATITUDE:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_LONGITUDE:
-        return ugcs::vsm::Property::VALUE_TYPE_DOUBLE;
-    case ugcs::vsm::proto::FIELD_SEMANTIC_BOOL:
-        return ugcs::vsm::Property::VALUE_TYPE_BOOL;
-    case ugcs::vsm::proto::FIELD_SEMANTIC_ENUM:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_ADSB_MODE:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_AUTOPILOT_STATUS:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_FLIGHT_MODE:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_CONTROL_MODE:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_GPS_FIX_TYPE:
-        return ugcs::vsm::Property::VALUE_TYPE_ENUM;
-    case ugcs::vsm::proto::FIELD_SEMANTIC_NUMERIC:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_ACCEPTANCE_RADIUS:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_ALTITUDE_AMSL:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_ALTITUDE_AGL:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_ALTITUDE_RAW:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_HEADING:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_VOLTAGE:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_AIR_SPEED:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_GROUND_SPEED:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_VERTICAL_SPEED:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_ROLL:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_PITCH:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_YAW:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_RC_LINK_QUALITY:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_GCS_LINK_QUALITY:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_CURRENT:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_FOV_H:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_FOV_V:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_GROUND_ELEVATION:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_LOITER_RADIUS:
-        return ugcs::vsm::Property::VALUE_TYPE_FLOAT;
-    case ugcs::vsm::proto::FIELD_SEMANTIC_SATELLITE_COUNT:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_ICAO:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_SQUAWK:
-    case ugcs::vsm::proto::FIELD_SEMANTIC_MILLISECONDS:
-        return ugcs::vsm::Property::VALUE_TYPE_INT;
-    case ugcs::vsm::proto::FIELD_SEMANTIC_STRING:
-        return ugcs::vsm::Property::VALUE_TYPE_STRING;
-    case ugcs::vsm::proto::FIELD_SEMANTIC_LIST:
-        return ugcs::vsm::Property::VALUE_TYPE_LIST;
-        default:
-        VSM_EXCEPTION(Invalid_param_exception, "No internal type for semantic %d", sem);
+    case proto::FIELD_SEMANTIC_LATITUDE:
+    case proto::FIELD_SEMANTIC_LONGITUDE:
+        return Property::VALUE_TYPE_DOUBLE;
+    case proto::FIELD_SEMANTIC_BOOL:
+        return Property::VALUE_TYPE_BOOL;
+    case proto::FIELD_SEMANTIC_ENUM:
+    case proto::FIELD_SEMANTIC_ADSB_MODE:
+    case proto::FIELD_SEMANTIC_AUTOPILOT_STATUS:
+    case proto::FIELD_SEMANTIC_FLIGHT_MODE:
+    case proto::FIELD_SEMANTIC_CONTROL_MODE:
+    case proto::FIELD_SEMANTIC_GPS_FIX_TYPE:
+        return Property::VALUE_TYPE_ENUM;
+    case proto::FIELD_SEMANTIC_NUMERIC:
+    case proto::FIELD_SEMANTIC_ACCEPTANCE_RADIUS:
+    case proto::FIELD_SEMANTIC_ALTITUDE_AMSL:
+    case proto::FIELD_SEMANTIC_ALTITUDE_AGL:
+    case proto::FIELD_SEMANTIC_ALTITUDE_RAW:
+    case proto::FIELD_SEMANTIC_HEADING:
+    case proto::FIELD_SEMANTIC_VOLTAGE:
+    case proto::FIELD_SEMANTIC_AIR_SPEED:
+    case proto::FIELD_SEMANTIC_GROUND_SPEED:
+    case proto::FIELD_SEMANTIC_VERTICAL_SPEED:
+    case proto::FIELD_SEMANTIC_ROLL:
+    case proto::FIELD_SEMANTIC_PITCH:
+    case proto::FIELD_SEMANTIC_YAW:
+    case proto::FIELD_SEMANTIC_RC_LINK_QUALITY:
+    case proto::FIELD_SEMANTIC_GCS_LINK_QUALITY:
+    case proto::FIELD_SEMANTIC_CURRENT:
+    case proto::FIELD_SEMANTIC_FOV_H:
+    case proto::FIELD_SEMANTIC_FOV_V:
+    case proto::FIELD_SEMANTIC_GROUND_ELEVATION:
+    case proto::FIELD_SEMANTIC_LOITER_RADIUS:
+    case proto::FIELD_SEMANTIC_CAPACITY_LEVEL:
+        return Property::VALUE_TYPE_FLOAT;
+    case proto::FIELD_SEMANTIC_SATELLITE_COUNT:
+    case proto::FIELD_SEMANTIC_ICAO:
+    case proto::FIELD_SEMANTIC_SQUAWK:
+    case proto::FIELD_SEMANTIC_MILLISECONDS:
+    case proto::FIELD_SEMANTIC_TIMESTAMP:
+        return Property::VALUE_TYPE_INT;
+    case proto::FIELD_SEMANTIC_STRING:
+        return Property::VALUE_TYPE_STRING;
+    case proto::FIELD_SEMANTIC_LIST:
+        return Property::VALUE_TYPE_LIST;
+    case proto::FIELD_SEMANTIC_ANY:
+        return Property::VALUE_TYPE_NONE;
+    case proto::FIELD_SEMANTIC_DEFAULT:
+        VSM_EXCEPTION(Invalid_param_exception, "No internal type for default semantic");
     }
+    return Property::VALUE_TYPE_NONE;
 }
-}   // anon namespace
 
-#define ADD_BUILT_IN_ENUM(x) Add_enum(#x, ugcs::vsm::proto::x)
+#define ADD_BUILT_IN_ENUM(x) Add_enum(#x, proto::x)
 
 Property::Property(
     int id,
     const std::string& name,
-    ugcs::vsm::proto::Field_semantic sem):
+    proto::Field_semantic sem):
     semantic(sem), field_id(id), name(name),
     last_commit_time(std::chrono::steady_clock::now())
 {
-    if (sem == ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT) {
+    if (sem == proto::FIELD_SEMANTIC_DEFAULT) {
         semantic = Get_default_semantic(name);
     }
-    if (semantic == ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT) {
+    if (semantic == proto::FIELD_SEMANTIC_DEFAULT) {
         VSM_EXCEPTION(Invalid_param_exception, "No semantic specified for field %s", name.c_str());
     }
 
@@ -153,15 +157,15 @@ Property::Property(
 
     // Add built-in enum values.
     switch (semantic) {
-    case ugcs::vsm::proto::FIELD_SEMANTIC_ADSB_MODE:
+    case proto::FIELD_SEMANTIC_ADSB_MODE:
         break;
-    case ugcs::vsm::proto::FIELD_SEMANTIC_CONTROL_MODE:
+    case proto::FIELD_SEMANTIC_CONTROL_MODE:
         ADD_BUILT_IN_ENUM(CONTROL_MODE_MANUAL);
         ADD_BUILT_IN_ENUM(CONTROL_MODE_AUTO);
         ADD_BUILT_IN_ENUM(CONTROL_MODE_CLICK_GO);
         ADD_BUILT_IN_ENUM(CONTROL_MODE_JOYSTICK);
         break;
-    case ugcs::vsm::proto::FIELD_SEMANTIC_GPS_FIX_TYPE:
+    case proto::FIELD_SEMANTIC_GPS_FIX_TYPE:
         break;
     default:
         break;
@@ -176,22 +180,22 @@ Property::Property(int id, const std::string& name, Value_type type):
     case VALUE_TYPE_DOUBLE:
     case VALUE_TYPE_INT:
     case VALUE_TYPE_FLOAT:
-        semantic = ugcs::vsm::proto::FIELD_SEMANTIC_NUMERIC;
+        semantic = proto::FIELD_SEMANTIC_NUMERIC;
         break;
     case VALUE_TYPE_BOOL:
-        semantic = ugcs::vsm::proto::FIELD_SEMANTIC_BOOL;
+        semantic = proto::FIELD_SEMANTIC_BOOL;
         break;
     case VALUE_TYPE_STRING:
-        semantic = ugcs::vsm::proto::FIELD_SEMANTIC_STRING;
+        semantic = proto::FIELD_SEMANTIC_STRING;
         break;
     case VALUE_TYPE_ENUM:
-        semantic = ugcs::vsm::proto::FIELD_SEMANTIC_ENUM;
+        semantic = proto::FIELD_SEMANTIC_ENUM;
         break;
     case VALUE_TYPE_LIST:
-        semantic = ugcs::vsm::proto::FIELD_SEMANTIC_LIST;
+        semantic = proto::FIELD_SEMANTIC_LIST;
         break;
-        default:
-        VSM_EXCEPTION(Invalid_param_exception, "Invalid enum id %s", name.c_str());
+    case VALUE_TYPE_NONE:
+        semantic = proto::FIELD_SEMANTIC_ANY;
         break;
     }
 }
@@ -202,7 +206,7 @@ Property::Property(Property::Ptr src)
 }
 
 bool
-Property::Set_value(const ugcs::vsm::proto::Field_value& v)
+Property::Set_value(const proto::Field_value& v)
 {
     is_changed = true;
     if (v.has_meta_value()) {
@@ -213,7 +217,7 @@ Property::Set_value(const ugcs::vsm::proto::Field_value& v)
         }
     }
 
-    int ival = 0;
+    int64_t ival = 0;
     double dval = 0;
 
     if (v.has_double_value()) {
@@ -247,7 +251,7 @@ Property::Set_value(const ugcs::vsm::proto::Field_value& v)
                 int_value = ival;
                 return true;
             } else {
-                VSM_EXCEPTION(Invalid_param_exception, "Value %d is not part of enum %s", ival, name.c_str());
+                VSM_EXCEPTION(Invalid_param_exception, "Value %" PRIi64 " is not part of enum %s", ival, name.c_str());
             }
         } else {
             VSM_EXCEPTION(Invalid_param_exception, "No int value found for enum");
@@ -255,10 +259,10 @@ Property::Set_value(const ugcs::vsm::proto::Field_value& v)
         break;
     case VALUE_TYPE_INT:
         if (max_value && ival > max_value->int_value) {
-            VSM_EXCEPTION(Invalid_param_exception, "Value %d exceeds specified max:%d", ival, max_value->int_value);
+            VSM_EXCEPTION(Invalid_param_exception, "Value %" PRIi64 " exceeds specified max:%" PRIi64, ival, max_value->int_value);
         }
         if (min_value && ival < min_value->int_value) {
-            VSM_EXCEPTION(Invalid_param_exception, "Value %d lower than specified min:%d", ival, max_value->int_value);
+            VSM_EXCEPTION(Invalid_param_exception, "Value %" PRIi64 " lower than specified min:%" PRIi64, ival, max_value->int_value);
         }
         int_value = ival;
         return true;
@@ -280,7 +284,38 @@ Property::Set_value(const ugcs::vsm::proto::Field_value& v)
             return true;
         }
         break;
-        default:
+    case VALUE_TYPE_NONE:
+        // This determines the order of type detection from value: double, int, string, bool, list.
+        if (v.has_double_value()) {
+            double_value = v.double_value();
+            type = VALUE_TYPE_DOUBLE;
+            return true;
+        }
+        if (v.has_float_value()) {
+            double_value = v.float_value();
+            type = VALUE_TYPE_FLOAT;
+            return true;
+        }
+        if (v.has_int_value()) {
+            int_value = v.int_value();
+            type = VALUE_TYPE_INT;
+            return true;
+        }
+        if (v.has_string_value()) {
+            string_value = v.string_value();
+            type = VALUE_TYPE_STRING;
+            return true;
+        }
+        if (v.has_bool_value()) {
+            bool_value = v.bool_value();
+            type = VALUE_TYPE_BOOL;
+            return true;
+        }
+        if (v.has_list_value()) {
+            list_value.CopyFrom(v.list_value());
+            type = VALUE_TYPE_LIST;
+            return true;
+        }
         break;
     }
     return false;
@@ -308,6 +343,9 @@ Property::Add_enum(const std::string& name, int value)
 void
 Property::Set_value(double v)
 {
+    if (type == VALUE_TYPE_NONE) {
+        type = VALUE_TYPE_DOUBLE;
+    }
     switch (type) {
     case VALUE_TYPE_DOUBLE:
     case VALUE_TYPE_FLOAT:
@@ -339,6 +377,9 @@ Property::Set_value(double v)
 void
 Property::Set_value(int v)
 {
+    if (type == VALUE_TYPE_NONE) {
+        type = VALUE_TYPE_INT;
+    }
     switch (type) {
     case VALUE_TYPE_DOUBLE:
     case VALUE_TYPE_FLOAT:
@@ -370,6 +411,9 @@ Property::Set_value(int v)
 void
 Property::Set_value(unsigned int v)
 {
+    if (type == VALUE_TYPE_NONE) {
+        type = VALUE_TYPE_INT;
+    }
     switch (type) {
     case VALUE_TYPE_DOUBLE:
     case VALUE_TYPE_FLOAT:
@@ -395,14 +439,15 @@ Property::Set_value(unsigned int v)
 void
 Property::Set_value(bool v)
 {
-    switch (type) {
-    case VALUE_TYPE_BOOL:
+    if (type == VALUE_TYPE_NONE) {
+        type = VALUE_TYPE_BOOL;
+    }
+    if (type == VALUE_TYPE_BOOL) {
         if (bool_value != v || value_spec != VALUE_SPEC_REGULAR) {
             bool_value = v;
             is_changed = true;
         }
-        break;
-    default:
+    } else {
         VSM_EXCEPTION(Invalid_param_exception, "Property %s type (%d) not bool", name.c_str(), type);
     }
     value_spec = VALUE_SPEC_REGULAR;
@@ -412,6 +457,9 @@ Property::Set_value(bool v)
 void
 Property::Set_value(const char* v)
 {
+    if (type == VALUE_TYPE_NONE) {
+        type = VALUE_TYPE_STRING;
+    }
     if (v) {
         if (type == VALUE_TYPE_STRING) {
             if (string_value != std::string(v) || value_spec != VALUE_SPEC_REGULAR) {
@@ -422,15 +470,18 @@ Property::Set_value(const char* v)
         } else {
             VSM_EXCEPTION(Invalid_param_exception, "Property %s type (%d) not string", name.c_str(), type);
         }
-        update_time = std::chrono::system_clock::now();
     } else {
         Set_value_na();
     }
+    update_time = std::chrono::system_clock::now();
 }
 
 void
 Property::Set_value(const std::string& v)
 {
+    if (type == VALUE_TYPE_NONE) {
+        type = VALUE_TYPE_STRING;
+    }
     if (type == VALUE_TYPE_STRING) {
         if (string_value != v || value_spec != VALUE_SPEC_REGULAR) {
             string_value = v;
@@ -444,8 +495,11 @@ Property::Set_value(const std::string& v)
 }
 
 void
-Property::Set_value(const ugcs::vsm::proto::List_value &v)
+Property::Set_value(const proto::List_value &v)
 {
+    if (type == VALUE_TYPE_NONE) {
+        type = VALUE_TYPE_LIST;
+    }
     if (type == VALUE_TYPE_LIST) {
         bool is_equal = false;
         if (v.values_size() != list_value.values_size()) {
@@ -483,9 +537,7 @@ Property::Set_value_na()
 bool
 Property::Get_value(bool &v)
 {
-    if (    value_spec == VALUE_SPEC_REGULAR
-        &&  type == VALUE_TYPE_BOOL)
-    {
+    if (value_spec == VALUE_SPEC_REGULAR && type == VALUE_TYPE_BOOL) {
         v = bool_value;
         return true;
     } else {
@@ -540,9 +592,7 @@ Property::Get_value(double &v)
 bool
 Property::Get_value(std::string& v)
 {
-    if (    value_spec == VALUE_SPEC_REGULAR
-        &&  type == VALUE_TYPE_STRING)
-    {
+    if (value_spec == VALUE_SPEC_REGULAR && type == VALUE_TYPE_STRING) {
         v = string_value;
         return true;
     } else {
@@ -552,6 +602,18 @@ Property::Get_value(std::string& v)
 
 bool
 Property::Get_value(int &v)
+{
+    int64_t val;
+    if (Get_value(val)) {
+        v = val;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool
+Property::Get_value(int64_t &v)
 {
     if (value_spec == VALUE_SPEC_REGULAR) {
         switch (type) {
@@ -573,7 +635,7 @@ Property::Get_value(int &v)
 }
 
 bool
-Property::Get_value(ugcs::vsm::proto::List_value &v)
+Property::Get_value(proto::List_value &v)
 {
     if (value_spec == VALUE_SPEC_REGULAR
             &&  type == VALUE_TYPE_LIST)
@@ -643,7 +705,7 @@ Property::Max_value()
 }
 
 void
-Property::Register(ugcs::vsm::proto::Register_field* field)
+Property::Register(proto::Register_field* field)
 {
     field->Clear();
     field->set_name(name);
@@ -666,15 +728,16 @@ Property::Register(ugcs::vsm::proto::Register_field* field)
 }
 
 void
-Property::Write_as_property(ugcs::vsm::proto::Property_field* field)
+Property::Write_as_property(proto::Property_field* field)
 {
     field->Clear();
     field->set_name(name);
+    field->set_semantic(semantic);
     Write_value(field->mutable_value());
 }
 
 void
-Property::Write_as_parameter(ugcs::vsm::proto::Parameter_field* tf)
+Property::Write_as_parameter(proto::Parameter_field* tf)
 {
     tf->Clear();
     tf->set_field_id(field_id);
@@ -682,7 +745,7 @@ Property::Write_as_parameter(ugcs::vsm::proto::Parameter_field* tf)
 }
 
 void
-Property::Write_as_telemetry(ugcs::vsm::proto::Telemetry_field* tf)
+Property::Write_as_telemetry(proto::Telemetry_field* tf)
 {
     tf->Clear();
     tf->set_field_id(field_id);
@@ -692,7 +755,7 @@ Property::Write_as_telemetry(ugcs::vsm::proto::Telemetry_field* tf)
 }
 
 void
-Property::Write_value(ugcs::vsm::proto::Field_value* field)
+Property::Write_value(proto::Field_value* field)
 {
     switch (value_spec) {
     case VALUE_SPEC_REGULAR:
@@ -716,13 +779,12 @@ Property::Write_value(ugcs::vsm::proto::Field_value* field)
         case VALUE_TYPE_LIST:
             field->set_allocated_list_value(&list_value);
             break;
-            default:
+        case VALUE_TYPE_NONE:
             VSM_EXCEPTION(Invalid_param_exception, "Property %s type not set", name.c_str());
             break;
         }
         break;
     case VALUE_SPEC_NA:
-    default:
         field->set_meta_value(proto::META_VALUE_NA);
         break;
     }
@@ -733,31 +795,30 @@ Property::Dump_value()
 {
     switch (value_spec) {
     case VALUE_SPEC_NA:
-        return name + "(" + std::to_string(field_id) + ")=N/A";
+        return name + "(" + std::to_string(field_id) + ")= N/A";
     case VALUE_SPEC_REGULAR:
         switch (type) {
         case VALUE_TYPE_DOUBLE:
         case VALUE_TYPE_FLOAT:
-            return name + "(" + std::to_string(field_id) + ")=" + std::to_string(double_value);
+            return name + "(" + std::to_string(field_id) + ")= " + std::to_string(double_value);
         case VALUE_TYPE_ENUM:
         case VALUE_TYPE_INT:
-            return name + "(" + std::to_string(field_id) + ")=" + std::to_string(int_value);
+            return name + "(" + std::to_string(field_id) + ")= " + std::to_string(int_value);
         case VALUE_TYPE_BOOL:
-            return name + "(" + std::to_string(field_id) + ")=" + std::to_string(bool_value);
+            return name + "(" + std::to_string(field_id) + ")= " + std::to_string(bool_value);
         case VALUE_TYPE_STRING:
-            return name + "(" + std::to_string(field_id) + ")='" + string_value + "'";
+            return name + "(" + std::to_string(field_id) + ")= '" + string_value + "'";
         case VALUE_TYPE_NONE:
-            return name + "(" + std::to_string(field_id) + ")=<none>";
+            return name + "(" + std::to_string(field_id) + ")= <none>";
         case VALUE_TYPE_LIST:
-            return name + "(" + std::to_string(field_id) + ")=<size:" + std::to_string(list_value.values_size()) + ">";
+            return name + "(" + std::to_string(field_id) + ")= <size: " + std::to_string(list_value.values_size()) + ">";
         }
     }
-    return name + "=<invalid>";
+    return name + "= <invalid>";
 }
 
-
 bool
-Property::Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs::vsm::proto::Field_value& val2) {
+Property::Fields_are_equal(const proto::Field_value& val1, const proto::Field_value& val2) {
     // do not check lists & meta
     if (val1.has_list_value() || val2.has_list_value() || val1.has_meta_value() || val2.has_meta_value()) {
         return false;

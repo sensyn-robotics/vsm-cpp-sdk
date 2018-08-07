@@ -1,6 +1,9 @@
 # Common things for sdk and all projects depending on this sdk.
 # (vsms, unittests, ...)
 
+set(SDK_VERSION_MAJOR 3)
+set(SDK_VERSION_MINOR 0)
+set(SDK_VERSION_BUILD "dev")
 
 # Convert list to space-separated string.
 # @param LIST List to convert.
@@ -41,7 +44,6 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Windows")
     set(VSM_PLAT_LIBS ws2_32 Userenv bfd iberty dbghelp z iphlpapi)
 endif()
 
-
 # Prepare Android build.
 if (ANDROID)
     # Test if Android NDK is available
@@ -81,11 +83,17 @@ if (NOT DEFINED UGCS_PACKAGING_ENABLED)
         get_filename_component(PACKAGING_SCRIPT_PATH "${PACKAGING_SCRIPT}" PATH)
         set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PACKAGING_SCRIPT_PATH}")
         include("configure_packaging")
-        set(UGCS_PACKAGING_ENABLED YES)
     else()
         set(UGCS_PACKAGING_ENABLED NO)
     endif()
 endif()
+
+# Set the SDK version
+add_definitions(
+    -DSDK_VERSION_MAJOR=${SDK_VERSION_MAJOR}
+    -DSDK_VERSION_MINOR=${SDK_VERSION_MINOR}
+    -DSDK_VERSION_BUILD="${SDK_VERSION_BUILD}"
+    -DVSM_PROJECT_NAME="${CMAKE_PROJECT_NAME}")
 
 if (NOT UGCS_PACKAGING_ENABLED)
     # Set up reasonable defaults for install and package targets.

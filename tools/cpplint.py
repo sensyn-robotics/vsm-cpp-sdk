@@ -1826,7 +1826,7 @@ def CheckForHeaderGuard(filename, clean_lines, error):
           cppvar)
     return
   
-  if ifndef != cppvar:
+  if ifndef != cppvar and ifndef != '_UGCS_VSM' + cppvar:
     ParseNolintSuppressions(filename, raw_lines[ifndef_linenum], ifndef_linenum,
                             error)
     error(filename, ifndef_linenum, 'build/header_guard', 0,
@@ -1839,7 +1839,7 @@ def CheckForHeaderGuard(filename, clean_lines, error):
   # Didn't find the corresponding "//" comment.  If this file does not
   # contain any "//" comments at all, it could be that the compiler
   # only wants "/**/" comments, look for those instead.
-  if not Match(r'#endif\s*/\*\s*' + cppvar + r'(_)?\s*\*/', endif):
+  if not Match(r'#endif\s*/\*\s*(_UGCS_VSM)?' + cppvar + r'(_)?\s*\*/', endif):
     # Didn't find anything
     error(filename, endif_linenum, 'build/header_guard', 5,
           '#endif line should be "#endif  // %s"' % cppvar)
@@ -4652,9 +4652,7 @@ def CheckLanguage(filename, clean_lines, linenum, file_extension,
       if not tok: continue
       if Match(r'\d+', tok): continue
       if Match(r'0[xX][0-9a-fA-F]+', tok): continue
-      if Match(r'k[A-Z0-9]\w*', tok): continue
-      if Match(r'(.+::)?k[A-Z0-9]\w*', tok): continue
-      if Match(r'(.+::)?[A-Z][A-Z0-9_]*', tok): continue
+      if Match(r'^(.+::)*[A-Z][A-Z0-9_]*$', tok): continue
       # A catch all for tricky sizeof cases, including 'sizeof expression',
       # 'sizeof(*type)', 'sizeof(const type)', 'sizeof(struct StructName)'
       # requires skipping the next token because we split on ' ' and '*'.
@@ -4666,7 +4664,7 @@ def CheckLanguage(filename, clean_lines, linenum, file_extension,
     if not is_const:
       error(filename, linenum, 'runtime/arrays', 1,
             'Do not use variable-length arrays.  Use an appropriately named '
-            "('k' followed by CamelCase) compile-time constant for the size.")
+            "(ALL_UPPERCASE) compile-time constant for the size.")
 
   # Check for use of unnamed namespaces in header files.  Registration
   # macros are typically OK, so we allow use of "namespace {" on lines

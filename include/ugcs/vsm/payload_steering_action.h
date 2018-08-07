@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,8 +7,8 @@
  *
  * Payload steering action definition.
  */
-#ifndef _PAYLOAD_STEERING_ACTION_H_
-#define _PAYLOAD_STEERING_ACTION_H_
+#ifndef _UGCS_VSM_PAYLOAD_STEERING_ACTION_H_
+#define _UGCS_VSM_PAYLOAD_STEERING_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 
@@ -34,4 +34,4 @@ struct Action::Mapper<Action::Type::PAYLOAD_STEERING> {
 } // namespace vsm
 } // namespace ugcs
 
-#endif /* _PAYLOAD_STEERING_ACTION_H_ */
+#endif /* _UGCS_VSM_PAYLOAD_STEERING_ACTION_H_ */

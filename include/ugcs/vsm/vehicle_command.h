@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,8 +7,8 @@
  *
  * VSM vehicle command payload definition.
  */
-#ifndef _VEHICLE_COMMAND_H_
-#define _VEHICLE_COMMAND_H_
+#ifndef _UGCS_VSM_VEHICLE_COMMAND_H_
+#define _UGCS_VSM_VEHICLE_COMMAND_H_
 
 #include <ugcs/vsm/mavlink.h>
 #include <ugcs/vsm/coordinates.h>
@@ -84,9 +84,6 @@ public:
 
     // Construct from argument list.
     Vehicle_command(Type type, const Property_list& params);
-
-    /** Construct command of a specific type. */
-    Vehicle_command(Type type, const mavlink::ugcs::Pld_command_long_ex& cmd);
 
     /** Get type of the command. */
     Type
@@ -272,4 +269,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _VEHICLE_COMMAND_H_ */
+#endif /* _UGCS_VSM_VEHICLE_COMMAND_H_ */

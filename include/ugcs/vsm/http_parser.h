@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,8 +7,8 @@
  *
  * Java properties set implementation.
  */
-#ifndef _HTTP_PARSER_H_
-#define _HTTP_PARSER_H_
+#ifndef _UGCS_VSM_HTTP_PARSER_H_
+#define _UGCS_VSM_HTTP_PARSER_H_
 
 #include <ugcs/vsm/exception.h>
 #include <string.h>
@@ -66,4 +66,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _HTTP_PARSER_H_ */
+#endif /* _UGCS_VSM_HTTP_PARSER_H_ */

@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -86,8 +86,7 @@ Linux_serial_mode::Set_serial_config(int fd, uint8_t min_read)
     if (tcsetattr(fd, TCSANOW, &tio)) {
         LOG_ERR("tcsetattr() VTIME=%zu failed, %s", vtime, Log::Get_system_error().c_str());
     }
-    cfsetispeed(&tio, Map_baud_rate(baud));
-    cfsetospeed(&tio, Map_baud_rate(baud));
+    cfsetspeed(&tio, Map_baud_rate(baud));
     if (tcsetattr(fd, TCSANOW, &tio)) {
         LOG_ERR("tcsetattr() baud rate %d failed", baud);
     }
@@ -200,7 +199,7 @@ Serial_file_handle::Configure()
     /* Set max possible VMIN. During actual reading, the lesser of VMIN and
      * requested size takes precedence. It is impossible to set VMIN greater
      * then MAX_VMIN anyway.
-     * Unfortunately the above is not tru in case of OSX.
+     * Unfortunately the above is not true in case of OSX.
      * Therefore we set MAX_VMIN to 1 on Mac.
      */
     mode.Set_serial_config(fd, Serial_processor::MAX_VMIN);

@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -15,6 +15,9 @@ using namespace ugcs::vsm;
 
 constexpr std::chrono::seconds Cucs_processor::WRITE_TIMEOUT;
 constexpr std::chrono::seconds Cucs_processor::REGISTER_PEER_TIMEOUT;
+
+constexpr uint32_t Cucs_processor::SUPPORTED_UCS_VERSION_MAJOR;
+constexpr uint32_t Cucs_processor::SUPPORTED_UCS_VERSION_MINOR;
 
 Singleton<Cucs_processor> Cucs_processor::singleton;
 
@@ -54,15 +57,16 @@ Cucs_processor::Unregister_device(uint32_t handle)
 }
 
 void
-Cucs_processor::Send_ucs_message(uint32_t handle, Proto_msg_ptr message)
+Cucs_processor::Send_ucs_message(uint32_t handle, Proto_msg_ptr message, uint32_t stream_id)
 {
     auto request = Request::Create();
     auto proc_handler = Make_callback(
-            &Cucs_processor::On_send_ucs_message,
-            Shared_from_this(),
-            request,
-            handle,
-            message);
+        &Cucs_processor::On_send_ucs_message,
+        Shared_from_this(),
+        request,
+        handle,
+        message,
+        stream_id);
     request->Set_processing_handler(proc_handler);
     Submit_request(request);
 }
@@ -144,7 +148,7 @@ void
 Cucs_processor::On_incoming_connection(std::string, int, Socket_address::Ptr addr, Io_stream::Ref stream)
 {
     if (stream->Get_type() != Io_stream::Type::TCP) {
-        // support only TCP coneections.
+        // support only TCP connections.
         stream->Close();
         return;
     }
@@ -162,15 +166,11 @@ Cucs_processor::On_incoming_connection(std::string, int, Socket_address::Ptr add
     auto p = msg.mutable_register_peer();
     p->set_peer_id(Get_application_instance_id());
     p->set_peer_type(proto::PEER_TYPE_VSM);
-#ifdef SDK_VERSION_MAJOR
+    // Get the VSM name which must be defined using DEFINE_DEFAULT_VSM_NAME in VSM sources.
+    p->set_name(Get_vsm_name());
     p->set_version_major(SDK_VERSION_MAJOR);
-#endif
-#ifdef SDK_VERSION_MINOR
     p->set_version_minor(SDK_VERSION_MINOR);
-#endif
-#ifdef SDK_VERSION_BUILD
     p->set_version_build(SDK_VERSION_BUILD);
-#endif
     msg.set_device_id(0);
     Send_ucs_message(new_id, msg);
 }
@@ -181,13 +181,13 @@ Cucs_processor::Schedule_next_read(
 {
     sc.read_waiter.Abort();
     sc.read_waiter = sc.stream->Read(
-            sc.to_read,
-            sc.to_read,
-            Make_read_callback(
-                    &Cucs_processor::Read_completed,
-                    Shared_from_this(),
-                    sc.stream_id),
-            completion_ctx);
+        sc.to_read,
+        sc.to_read,
+        Make_read_callback(
+            &Cucs_processor::Read_completed,
+            Shared_from_this(),
+            sc.stream_id),
+        completion_ctx);
     if (!sc.ucs_id) {
         // Close connection if server does not send us Register_peer.
         sc.read_waiter.Timeout(REGISTER_PEER_TIMEOUT);
@@ -322,26 +322,28 @@ Cucs_processor::Read_completed(
                                     }
                                 }
                             }
+
+                            uint32_t ver_major = 0, ver_minor = 0;
+                            if (reg_peer.has_version_major()) {
+                                ver_major = reg_peer.version_major();
+                            }
+                            if (reg_peer.has_version_minor()) {
+                                ver_minor = reg_peer.version_minor();
+                            }
+
                             // From now on we know that this ucs is reachable via this connection.
                             connection.ucs_id = new_peer;
                             if (dupe) {
-                                LOG("Another connection from known UCS %08X detected on %s",
+                                LOG("Another connection from UCS %08X detected from %s",
                                     new_peer,
                                     connection.stream->Get_name().c_str());
                             } else {
                                 // We have connection from new ucs.
                                 connection.primary = true;
 
-                                std::string version;
-                                if (reg_peer.has_version_major()) {
-                                    version += std::to_string(reg_peer.version_major());
-                                }
-                                version += ".";
-                                if (reg_peer.has_version_minor()) {
-                                    version += std::to_string(reg_peer.version_minor());
-                                }
-                                version += ".";
+                                std::string version = std::to_string(ver_major) + "." + std::to_string(ver_minor);
                                 if (reg_peer.has_version_build()) {
+                                    version += ".";
                                     version += reg_peer.version_build();
                                 }
                                 LOG("New UCS %08X detected on %s, version: %s",
@@ -351,6 +353,15 @@ Cucs_processor::Read_completed(
                                 // Activate transport_detector
                                 Transport_detector::Get_instance()->Activate(true);
                             }
+
+                            // We know that UCS below this version uses different protocol.
+                            if (ver_major < SUPPORTED_UCS_VERSION_MAJOR ||
+                                (ver_major == SUPPORTED_UCS_VERSION_MAJOR && ver_minor < SUPPORTED_UCS_VERSION_MINOR))
+                            {
+                                connection.is_compatible = false;
+                                LOG("UCS %08X is incompatible with this VSM.", new_peer);
+                            }
+
                             // Send all known vehicles.
                             Send_vehicle_registrations(connection);
                         } else {
@@ -395,7 +406,7 @@ Cucs_processor::On_register_vehicle(Request::Ptr request, Device::Ptr vehicle)
 
     ctx.registration_message.set_device_id(device_id);
 
-    vehicle->Fill_register_msg(ctx.registration_message);
+    vehicle->Register(ctx.registration_message);
 
     // LOG("Vehicle registered %s",ctx.registration_message.DebugString().c_str());
 
@@ -430,7 +441,11 @@ Cucs_processor::On_unregister_vehicle(Request::Ptr request, uint32_t device_id)
 }
 
 void
-Cucs_processor::On_send_ucs_message(Request::Ptr request, uint32_t device_id, Proto_msg_ptr message)
+Cucs_processor::On_send_ucs_message(
+    Request::Ptr request,
+    uint32_t device_id,
+    Proto_msg_ptr message,
+    uint32_t stream_id)
 {
     auto it = vehicles.find(device_id);
     if (it != vehicles.end()) {
@@ -451,8 +466,11 @@ Cucs_processor::On_send_ucs_message(Request::Ptr request, uint32_t device_id, Pr
             }
         }
         message->set_device_id(device_id);
-        // LOG("sending msg: %s", message->DebugString().c_str());
-        Broadcast_message_to_ucs(*message);
+        if (stream_id) {
+            Send_ucs_message(stream_id, *message);
+        } else {
+            Broadcast_message_to_ucs(*message);
+        }
     } else {
         // This can happen if vehicle is removed while message is dispatched already.
         // Nothing deadly. Ignore.
@@ -495,6 +513,10 @@ Cucs_processor::Send_ucs_message(
                 return;
             }
             message.set_device_id(0);
+        }
+
+        if (!ctx.is_compatible) {
+            return;
         }
 
         if (message.has_register_device()) {

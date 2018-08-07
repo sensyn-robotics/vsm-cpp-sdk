@@ -1,9 +1,9 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
-#ifndef _PROPERTY_H_
-#define _PROPERTY_H_
+#ifndef _UGCS_VSM_PROPERTY_H_
+#define _UGCS_VSM_PROPERTY_H_
 
 #include <ucs_vsm_proto.h>
 #include <ugcs/vsm/utils.h>
@@ -35,7 +35,7 @@ public:
     } Value_spec;
 
     // Create from built in semantics
-    Property(int id, const std::string& name, ugcs::vsm::proto::Field_semantic semantic);
+    Property(int id, const std::string& name, proto::Field_semantic semantic);
 
     // Create with user defined semantic
     Property(int id, const std::string& name, Value_type type);
@@ -43,23 +43,53 @@ public:
     // Create a copy of property
     Property(Property::Ptr);
 
-    // Create and set value.
+    // Create and set value. Derive type from value if semantic is not given.
+    // Throws if
     template<typename Type>
-    Property(
-        const std::string& name,
-        Type value,
-        Value_type value_type):Property(0, name, value_type)
+    Property(const std::string& name, Type value, proto::Field_semantic sem = proto::FIELD_SEMANTIC_DEFAULT):
+        semantic(sem),
+        name(name)
     {
-        Set_value(value);
-    }
+        // First make sure that value of valid type has been passed to us (at compile time)
+        static_assert(
+            std::is_same<Type, bool>::value ||
+            std::is_same<Type, int>::value ||
+            std::is_enum<Type>::value ||
+            std::is_same<Type, unsigned int>::value ||
+            std::is_same<Type, const char*>::value ||
+            std::is_same<Type, std::string>::value ||
+            std::is_floating_point<Type>::value,
+            "Unsupported value type");
 
-    // Create and set value.
-    template<typename Type>
-    Property(
-        const std::string& name,
-        ugcs::vsm::proto::Field_semantic semantic,
-        Type value):Property(0, name, semantic)
-    {
+        // Secondly, try to derive semantic from property name
+        if (semantic == proto::FIELD_SEMANTIC_DEFAULT) {
+            semantic = Get_default_semantic(name);
+        }
+
+        if (semantic == proto::FIELD_SEMANTIC_DEFAULT) {
+            // Semantic is not given then derive property type from value type.
+            if (std::is_same<Type, bool>::value) {
+                type = VALUE_TYPE_BOOL;
+                semantic = proto::FIELD_SEMANTIC_BOOL;
+            } else if (std::is_integral<Type>::value) {
+                type = VALUE_TYPE_INT;
+                semantic = proto::FIELD_SEMANTIC_NUMERIC;
+            } else if (std::is_enum<Type>::value) {
+                type = VALUE_TYPE_ENUM;
+                semantic = proto::FIELD_SEMANTIC_ENUM;
+            } else if (std::is_same<Type, float>::value) {
+                type = VALUE_TYPE_FLOAT;
+                semantic = proto::FIELD_SEMANTIC_NUMERIC;
+            } else if (std::is_floating_point<Type>::value) {
+                type = VALUE_TYPE_DOUBLE;
+                semantic = proto::FIELD_SEMANTIC_NUMERIC;
+            } else if (std::is_same<Type, const char*>::value || std::is_same<Type, std::string>::value) {
+                type = VALUE_TYPE_STRING;
+                semantic = proto::FIELD_SEMANTIC_STRING;
+            }
+        } else {
+            type = Get_type_from_semantic(semantic);
+        }
         Set_value(value);
     }
 
@@ -85,26 +115,26 @@ public:
     Set_value(unsigned int v);
 
     void
-    Set_value(const ugcs::vsm::proto::List_value &v);
+    Set_value(const proto::List_value &v);
 
     void
     Set_value_na();
 
     // Set value from incoming message
     bool
-    Set_value(const ugcs::vsm::proto::Field_value& val);
+    Set_value(const proto::Field_value& val);
 
     void
-    Register(ugcs::vsm::proto::Register_field* field);
+    Register(proto::Register_field* field);
 
     void
-    Write_as_property(ugcs::vsm::proto::Property_field* field);
+    Write_as_property(proto::Property_field* field);
 
     void
-    Write_as_parameter(ugcs::vsm::proto::Parameter_field* field);
+    Write_as_parameter(proto::Parameter_field* field);
 
     void
-    Write_as_telemetry(ugcs::vsm::proto::Telemetry_field* field);
+    Write_as_telemetry(proto::Telemetry_field* field);
 
     void
     Set_timeout(int);
@@ -134,7 +164,10 @@ public:
     Get_value(int &v); // NOLINT(runtime/references)
 
     bool
-    Get_value(ugcs::vsm::proto::List_value &v); // NOLINT(runtime/references)
+    Get_value(int64_t &v); // NOLINT(runtime/references)
+
+    bool
+    Get_value(proto::List_value &v); // NOLINT(runtime/references)
 
     bool
     Is_value_na();
@@ -155,7 +188,7 @@ public:
     std::string
     Get_name() {return name;}
 
-    ugcs::vsm::proto::Field_semantic
+    proto::Field_semantic
     Get_semantic() {return semantic;}
 
     std::chrono::time_point<std::chrono::system_clock>
@@ -165,16 +198,16 @@ public:
     Dump_value();
 
     bool
-    Fields_are_equal(const ugcs::vsm::proto::Field_value& val1, const ugcs::vsm::proto::Field_value& val2);
+    Fields_are_equal(const proto::Field_value& val1, const proto::Field_value& val2);
 
 private:
     void
-    Write_value(ugcs::vsm::proto::Field_value* field);
+    Write_value(proto::Field_value* field);
 
     bool is_changed = false; // new value set. reset to false after sending to ucs.
 
     Value_type type = VALUE_TYPE_NONE;
-    ugcs::vsm::proto::Field_semantic semantic = ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT;
+    proto::Field_semantic semantic = proto::FIELD_SEMANTIC_DEFAULT;
 
     int field_id = 0;
     std::string name;
@@ -182,8 +215,8 @@ private:
     std::string string_value;
     bool bool_value = false;
     double double_value = 0;
-    int int_value = 0;
-    ugcs::vsm::proto::List_value list_value;
+    int64_t int_value = 0;
+    proto::List_value list_value;
 
 
     Property::Ptr default_value;
@@ -202,6 +235,12 @@ private:
     // do not send telemetry field to server more than 5 times per second.
     // TODO: make this configurable
     static constexpr std::chrono::milliseconds COMMIT_TIMEOUT = std::chrono::milliseconds(200);
+
+    static proto::Field_semantic
+    Get_default_semantic(const std::string& name);
+
+    static Value_type
+    Get_type_from_semantic(const proto::Field_semantic sem);
 };
 
 class Property_list : public std::unordered_map<std::string, Property::Ptr>
@@ -209,7 +248,7 @@ class Property_list : public std::unordered_map<std::string, Property::Ptr>
 public:
     template<typename Type>
     bool
-    Get_value(const std::string& name, Type& value) // NOLINT(runtime/references)
+    Get_value(const std::string& name, Type& value) const // NOLINT(runtime/references)
     {
         auto it = find(name);
         if (it != end() && !it->second->Is_value_na()) {
@@ -223,4 +262,4 @@ public:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _PROPERTY_H_ */
+#endif /* _UGCS_VSM_PROPERTY_H_ */

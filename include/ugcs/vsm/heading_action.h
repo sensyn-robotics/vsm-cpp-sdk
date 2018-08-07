@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file heading_action.h
  */
-#ifndef _HEADING_ACTION_H_
-#define _HEADING_ACTION_H_
+#ifndef _UGCS_VSM_HEADING_ACTION_H_
+#define _UGCS_VSM_HEADING_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/mavlink.h>
@@ -28,23 +28,6 @@ public:
         heading(heading) {}
 
     /**
-     * Construct heading action from Mavlink mission item.
-     * @throw Action::Format_exception if mission item has wrong format.
-     *
-     * @param item With command equal to mavlink::MAV_CMD::MAV_CMD_CONDITION_YAW
-     */
-    Heading_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
-        Action(Type::HEADING),
-        heading(item->param1 * M_PI / 180.0)
-    {
-        ASSERT(item->command == mavlink::MAV_CMD::MAV_CMD_CONDITION_YAW);
-        if (item->param4) {
-            VSM_EXCEPTION(Action::Format_exception,
-                    "Heading action wrong angle type %f", item->param4.Get());
-        }
-    }
-
-    /**
      * Heading in radians.
      */
     double heading;
@@ -60,4 +43,4 @@ struct Action::Mapper<Action::Type::HEADING> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _HEADING_ACTION_H_ */
+#endif /* _UGCS_VSM_HEADING_ACTION_H_ */

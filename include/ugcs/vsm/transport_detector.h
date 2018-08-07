@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -6,8 +6,8 @@
  * @file transport_detector.h
  */
 
-#ifndef _TRANSPORT_DETECTOR_H_
-#define _TRANSPORT_DETECTOR_H_
+#ifndef _UGCS_VSM_TRANSPORT_DETECTOR_H_
+#define _UGCS_VSM_TRANSPORT_DETECTOR_H_
 
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/socket_processor.h>
@@ -254,7 +254,7 @@ public:
 
     private:
         /** current state */
-        State state;
+        State state = NONE;
 
         /** Port name */
         std::string name;
@@ -292,15 +292,16 @@ public:
         /** serial or tcp... */
         Type type;
 
-        Shared_mutex_file::Ptr arbiter;
+        Shared_mutex_file::Ptr arbiter = nullptr;
 
         Shared_mutex_file::Acquire_handler arbiter_callback;
 
         /** retry timeout for failed outgoing connections*/
-        std::chrono::seconds retry_timeout;
+        std::chrono::seconds retry_timeout = std::chrono::seconds(0);
 
         /** retry timeout for failed outgoing connections*/
-        std::chrono::time_point<std::chrono::steady_clock> last_reopen;
+        std::chrono::time_point<std::chrono::steady_clock> last_reopen =
+            std::chrono::steady_clock::now() - retry_timeout;
     };
 
     /** Watchdog timer. */
@@ -420,4 +421,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _TRANSPORT_DETECTOR_H_ */
+#endif /* _UGCS_VSM_TRANSPORT_DETECTOR_H_ */

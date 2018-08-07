@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file camera_control_action.h
  */
-#ifndef _CAMERA_SERIES_BY_DISTANCE_ACTION_H_
-#define _CAMERA_SERIES_BY_DISTANCE_ACTION_H_
+#ifndef _UGCS_VSM_CAMERA_SERIES_BY_DISTANCE_ACTION_H_
+#define _UGCS_VSM_CAMERA_SERIES_BY_DISTANCE_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/mavlink.h>
@@ -27,21 +27,6 @@ public:
         count(count),
         initial_delay(initial_delay)
     {}
-
-    /**
-     * Construct camera control action from Mavlink mission item.
-     *
-     * @param item With command equal to mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_DISTANCE
-     */
-    Camera_series_by_distance_action(const mavlink::ugcs::Pld_mission_item_ex& item):
-        Action(Type::CAMERA_SERIES_BY_DISTANCE),
-        interval(item->param1),
-        count(item->param2 == UINT32_MAX ? Optional<int>() : Optional<int>(item->param2)),
-        initial_delay(std::chrono::milliseconds(item->param3))
-    {
-        ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_SERIES_BY_DISTANCE);
-    }
-
     /**
      * Construct action from protobuf command.
      */
@@ -79,4 +64,4 @@ struct Action::Mapper<Action::Type::CAMERA_SERIES_BY_DISTANCE> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _CAMERA_SERIES_BY_DISTANCE_ACTION_H_ */
+#endif /* _UGCS_VSM_CAMERA_SERIES_BY_DISTANCE_ACTION_H_ */

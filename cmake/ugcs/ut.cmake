@@ -15,10 +15,6 @@ foreach (TEST_SRC ${TEST_SRCS})
     list(APPEND TESTS ${TEST_SRC})
 endforeach()
 
-# Make sure the SDK example can be built
-add_executable(hello_world_vsm ${CMAKE_SOURCE_DIR}/../../doc/examples/Hello_world_VSM/hello_world_vsm.cpp ${DLL_IMPORT_LIBS})
-target_link_libraries(hello_world_vsm ${EXT_LIB} ${VSM_PLAT_LIBS})
-
 foreach (TEST ${TESTS})
     set (TEST_BIN ut_${TEST})
     add_executable(${TEST_BIN} ut_${TEST}.cpp main.cpp ${DLL_IMPORT_LIBS})

@@ -1317,6 +1317,14 @@
       <field type="float" name="rpm1">RPM Sensor1</field>
       <field type="float" name="rpm2">RPM Sensor2</field>
     </message>
+    <message name="TETHERED_STATUS" id="240">
+      <description>Additional status info for Tethered Drone</description>
+      <field name="battery_active" type="uint8_t">Safety battery activation flag</field>
+      <field name="battery_voltage_v" type="float">Safety battery voltage (V, up to 6.6V)</field>
+      <field name="motors_status" type="uint8_t">Motors status</field>
+      <field name="landing_gears_deployed" type="uint8_t">Landing Gear Deployment Status (1 - deployed, 0 - retracted)</field>
+      <field name="landing_gears_auto" type="uint8_t">Auto landing gears deploy/retract enabled. LGR_ALT_DEPLOY - defines altiltude of retract</field>
+    </message>
     <!-- ardupilot specific mavlink2 messages starting at 11000-->
     <message id="11000" name="DEVICE_OP_READ">
       <description>Read registers for a device</description>

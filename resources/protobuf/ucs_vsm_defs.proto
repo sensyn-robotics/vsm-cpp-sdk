@@ -10,7 +10,7 @@ enum Peer_type {
     PEER_TYPE_VSM_IOS = 3;
 }
 
-// Response code sent by VSM tu UCS
+// Response code sent by VSM to UCS
 enum Status_code {
     STATUS_OK = 0;
     // Generic error
@@ -26,6 +26,7 @@ enum Status_code {
     STATUS_IN_PROGRESS = 5;
 }
 
+// Used in property "vehicle_type" for Device of type DEVICE_TYPE_VEHICLE
 enum Vehicle_type {
     VEHICLE_TYPE_GROUND = 0;
     VEHICLE_TYPE_FIXED_WING = 1;
@@ -36,6 +37,47 @@ enum Vehicle_type {
 
 enum Meta_value {
     META_VALUE_NA = 0;
+}
+
+// Built in subsystem types natively supported by UgCS. Used in Register_subsystem.type field.
+// Each subsystem can register a arbitrary set of properties, commands and telemetry. 
+// Each subsystem has a set of properties, commands and telemetry fields which are supported natively by UgCS. 
+// Refer to UCS-VSM protocol documentation.
+enum Subsystem_type {
+    SUBSYSTEM_TYPE_USER = 0;    // Can be used for any other subsystem not mentioned below.
+    SUBSYSTEM_TYPE_FLIGHT_CONTROLLER = 1;
+    SUBSYSTEM_TYPE_GIMBAL = 2;
+    SUBSYSTEM_TYPE_CAMERA = 3;
+    SUBSYSTEM_TYPE_ADSB_TRANSPONDER = 4;
+    SUBSYSTEM_TYPE_WINCH = 5;   // Airmast winch
+    SUBSYSTEM_TYPE_DOCK = 6;
+    SUBSYSTEM_TYPE_GPR = 7; //  Ground penetrating radar
+    SUBSYSTEM_TYPE_ADSB_RECEIVER = 8;    // Onboard adsb receiver for vehicle
+    SUBSYSTEM_TYPE_ADSB_VEHICLE = 9;    // Used to report telemetry for devices of type DEVICE_TYPE_ADSB_VEHICLE
+}
+
+// Built in device types natively supported by UgCS. Used in Register_device.type field.
+// Each device can register a arbitrary sets of properties and subsystems.
+// Some device types have properties which are supported natively by UgCS. Some of them are required.
+// Refer to UCS-VSM protocol documentation.
+enum Device_type {
+
+    // Real vehicle which can be controlled by UgCS
+    DEVICE_TYPE_VEHICLE = 0;
+
+    // Device capable of executing vehicle specific commands but does not represent real vehicle.
+    // Used to provide vehicle specific functionality without an actual vehicle.
+    // The native route file is returned via Device_response.status field.
+    DEVICE_TYPE_VEHICLE_COMMAND_PROCESSOR = 1;
+
+    // Adsb receiver connected directly to VSM
+    DEVICE_TYPE_ADSB_RECEIVER = 2;
+
+    // Vehicle reported by ADSB receiver with its own telemetry
+    DEVICE_TYPE_ADSB_VEHICLE = 3;
+
+    // Device capable of sending RTK
+    DEVICE_TYPE_RTK_BASE_STATION = 4;
 }
 
 // Built in telemetry enums
@@ -72,6 +114,52 @@ enum Autopilot_status {
     AUTOPILOT_STATUS_EMERGENCY = 3; // Vehicle is in emergency or crashed
 }
 
+// These types match the Type Code/Emitter Category byte of ADSB message.
+// Do not modify the values!
+enum Adsb_emitter_type {
+    // Category A subtypes
+    ADSB_EMITTER_TYPE_NO_INFO_A = 0;
+    ADSB_EMITTER_TYPE_LIGHT = 1;
+    ADSB_EMITTER_TYPE_SMALL = 2;
+    ADSB_EMITTER_TYPE_LARGE = 3;
+    ADSB_EMITTER_TYPE_HIGH_VORTEX_LARGE = 4;
+    ADSB_EMITTER_TYPE_HEAVY = 5;
+    ADSB_EMITTER_TYPE_HIGH_PERFORMANCE = 6;
+    ADSB_EMITTER_TYPE_ROTORCRAFT = 7;
+    // Category B subtypes
+    ADSB_EMITTER_TYPE_NO_INFO_B = 8;
+    ADSB_EMITTER_TYPE_GLIDER_SAILPLANE = 9;
+    ADSB_EMITTER_TYPE_LIGHTER_THAN_AIR = 10;
+    ADSB_EMITTER_TYPE_SKYDIVER = 11;
+    ADSB_EMITTER_TYPE_ULTRALIGHT_PARAGLIDER = 12;
+    ADSB_EMITTER_TYPE_RESERVED_13 = 13;
+    ADSB_EMITTER_TYPE_UAV = 14;
+    ADSB_EMITTER_TYPE_SPACE_TRANS_ATMOSPHERIC = 15;
+    // Category C subtypes
+    ADSB_EMITTER_TYPE_NO_INFO_C = 16;
+    ADSB_EMITTER_TYPE_SURFACE_EMERGENCY = 17;
+    ADSB_EMITTER_TYPE_SURFACE_SERVICE = 18;
+    ADSB_EMITTER_TYPE_POINT_OBSTACLE = 19;
+    ADSB_EMITTER_TYPE_CLUSTER_OBSTACLE = 20;
+    ADSB_EMITTER_TYPE_LINE_OBSTACLE = 21;
+    ADSB_EMITTER_TYPE_RESERVED_22 = 22;
+    ADSB_EMITTER_TYPE_RESERVED_23 = 23;
+    // Category D subtypes
+    ADSB_EMITTER_TYPE_NO_INFO_D = 24;
+    ADSB_EMITTER_TYPE_RESERVED_25 = 25;
+    ADSB_EMITTER_TYPE_RESERVED_26 = 26;
+    ADSB_EMITTER_TYPE_RESERVED_27 = 27;
+    ADSB_EMITTER_TYPE_RESERVED_28 = 28;
+    ADSB_EMITTER_TYPE_RESERVED_29 = 29;
+    ADSB_EMITTER_TYPE_RESERVED_30 = 30;
+    ADSB_EMITTER_TYPE_RESERVED_31 = 31;
+}
+
+enum Adsb_altitude_source {
+    ADSB_ALTITUDE_SOURCE_BARO = 0;
+    ADSB_ALTITUDE_SOURCE_GNSS = 1;
+}
+
 // Built in command parameter enums
 
 enum Adsb_mode {
@@ -86,6 +174,12 @@ enum Failsafe_action {
     FAILSAFE_ACTION_LAND = 1;
     FAILSAFE_ACTION_WAIT = 2;
     FAILSAFE_ACTION_CONTINUE = 3;
+}
+
+// Action after RTH
+enum Rth_action {
+    RTH_ACTION_LAND = 0;
+    RTH_ACTION_WAIT = 1;
 }
 
 enum Camera_power_state {
@@ -194,13 +288,13 @@ enum Field_semantic {
 
     // Current control mode, int, enum Control_mode
     FIELD_SEMANTIC_CONTROL_MODE = 26;
-    
+
     // Terrain elevation AMSL, meters, numeric
     FIELD_SEMANTIC_GROUND_ELEVATION = 27;
-    
+
     // Waypoint acceptance radius, meters, numeric
     FIELD_SEMANTIC_ACCEPTANCE_RADIUS = 28;
-    
+
     // Waypoint loiter radius, meters, numeric
     FIELD_SEMANTIC_LOITER_RADIUS = 29;
 
@@ -222,10 +316,19 @@ enum Field_semantic {
     // Vehicle flight mode, enum, Flight_mode
     FIELD_SEMANTIC_FLIGHT_MODE = 35;
 
-    // Autopilot status, enum 
-    FIELD_SEMANTIC_AUTOPILOT_STATUS = 36; 
+    // Autopilot status, enum
+    FIELD_SEMANTIC_AUTOPILOT_STATUS = 36;
+
+    // Time since Unix epoch (1970-01-01T00:00:00Z), int64, milliseconds
+    FIELD_SEMANTIC_TIMESTAMP = 37;
 
     // Generic types used for user-defined telemetry fields.
+
+    // Value can be of any type. Field can hold any one of supported values.
+    // VSM will determine the value type depending on which value is present in Field_value.
+    // The order is: double, int, string, bool, list.
+    // For example, if field contains both int and string values then string value will be ignored.
+    FIELD_SEMANTIC_ANY = 100;
 
     // Generic number type. Exact type (float, int, etc...) will be detected automatically
     FIELD_SEMANTIC_NUMERIC = 101;

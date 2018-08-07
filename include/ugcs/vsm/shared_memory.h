@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -9,8 +9,8 @@
  *      Author: Janis
  */
 
-#ifndef _SHARED_MEMORY_H_
-#define _SHARED_MEMORY_H_
+#ifndef _UGCS_VSM_SHARED_MEMORY_H_
+#define _UGCS_VSM_SHARED_MEMORY_H_
 
 #include <ugcs/vsm/utils.h>
 
@@ -119,4 +119,4 @@ protected:
 
 } /* namespace vsm */
 } /* namespace ugcs */
-#endif /* _SHARED_MEMORY_H_ */
+#endif /* _UGCS_VSM_SHARED_MEMORY_H_ */

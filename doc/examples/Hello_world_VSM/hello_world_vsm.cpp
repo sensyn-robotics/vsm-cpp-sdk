@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -12,6 +12,8 @@
 #include <ugcs/vsm/vsm.h>
 /** [main include] */
 
+DEFINE_DEFAULT_VSM_NAME;
+
 /* Custom vehicle defined by VSM developer. */
 /** [custom vehicle] */
 class Custom_vehicle:public ugcs::vsm::Device
@@ -24,28 +26,45 @@ public:
      * but serial number and model name are passed to the constructor.
      */
     /** [vehicle constructor] */
-    Custom_vehicle(const std::string& serial_number): serial_number(serial_number)
+    Custom_vehicle(const std::string& serial_number):
+        Device(ugcs::vsm::proto::DEVICE_TYPE_VEHICLE)
     {
     /** [vehicle constructor] */
+
+        /* This parameter is mandatory
+         */
+        Set_property("vehicle_type", ugcs::vsm::proto::VEHICLE_TYPE_MULTICOPTER);
+
+        /* This parameter is optional
+         */
+        Set_property("serial_number", serial_number);
+
+        /* Create flight_controller component
+         */
+        flight_controller = Add_subsystem(ugcs::vsm::proto::SUBSYSTEM_TYPE_FLIGHT_CONTROLLER);
+
+        // autopilot_type is mandatory.
+        flight_controller->Set_property("autopilot_type", "my_t");
+
         /* Create telemetry fields
          * The exact type of the field is derived from name. */
-        t_control_mode = Add_telemetry("control_mode");
-        t_main_voltage = Add_telemetry("main_voltage");
-        t_heading = Add_telemetry("heading");
-        t_altitude_raw = Add_telemetry("altitude_raw");
+        t_control_mode = flight_controller->Add_telemetry("control_mode");
+        t_main_voltage = flight_controller->Add_telemetry("main_voltage");
+        t_heading = flight_controller->Add_telemetry("heading");
+        t_altitude_raw = flight_controller->Add_telemetry("altitude_raw");
 
         /* For telemetry fields without hardcoded type it can be specified explicitly. */
-        t_uplink_present = Add_telemetry("uplink_present", ugcs::vsm::proto::FIELD_SEMANTIC_BOOL);
-        t_is_armed = Add_telemetry("is_armed", ugcs::vsm::proto::FIELD_SEMANTIC_BOOL);
-        t_downlink_present = Add_telemetry("downlink_present", ugcs::vsm::Property::VALUE_TYPE_BOOL);
+        t_uplink_present = flight_controller->Add_telemetry("uplink_present", ugcs::vsm::proto::FIELD_SEMANTIC_BOOL);
+        t_is_armed = flight_controller->Add_telemetry("is_armed", ugcs::vsm::proto::FIELD_SEMANTIC_BOOL);
+        t_downlink_present = flight_controller->Add_telemetry("downlink_present", ugcs::vsm::Property::VALUE_TYPE_BOOL);
 
         /* Create commands which are available as standalone commands */
-        c_mission_upload = Add_command("mission_upload", true, false);
-        c_arm = Add_command("arm", true, false);
-        c_disarm = Add_command("disarm", true, false);
+        c_mission_upload = flight_controller->Add_command("mission_upload", false);
+        c_arm = flight_controller->Add_command("arm", false);
+        c_disarm = flight_controller->Add_command("disarm", false);
 
         /* Create commands which can be issued as part of mission */
-        c_move = Add_command("move", false, true);
+        c_move = flight_controller->Add_command("move", true);
         c_move->Add_parameter("latitude");
         c_move->Add_parameter("longitude");
         c_move->Add_parameter("altitude_amsl");
@@ -54,45 +73,6 @@ public:
         c_move->Add_parameter("wait_time", ugcs::vsm::Property::VALUE_TYPE_FLOAT);
         c_move->Add_parameter("heading");
         c_move->Add_parameter("ground_elevation");
-    }
-
-    virtual void
-    Fill_register_msg(ugcs::vsm::proto::Vsm_message& msg)
-    {
-        auto dev = msg.mutable_register_device();
-
-        // Set up the begin of epoch. This is required to maintain correct timestamps for telemetry.
-        dev->set_begin_of_epoch(
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                begin_of_epoch.time_since_epoch()).count());
-
-        auto reg = dev->mutable_register_vehicle();
-
-        // Set vehicle specific properties.
-        reg->set_vehicle_type(ugcs::vsm::proto::VEHICLE_TYPE_MULTICOPTER);
-        reg->set_vehicle_serial(serial_number);
-        reg->set_port_name("simulation");
-
-        // Register "flight controller" subsystem.
-        auto sd = reg->add_register_flight_controller();
-
-        // autopilot_type is mandatory.
-        sd->set_autopilot_type("my_t");
-
-        // Associate telemetry fields with flight controller.
-        t_control_mode->Register(sd->add_telemetry_fields());
-        t_main_voltage->Register(sd->add_telemetry_fields());
-        t_heading->Register(sd->add_telemetry_fields());
-        t_altitude_raw->Register(sd->add_telemetry_fields());
-        t_is_armed->Register(sd->add_telemetry_fields());
-        t_uplink_present->Register(sd->add_telemetry_fields());
-        t_downlink_present->Register(sd->add_telemetry_fields());
-
-        // Associate commands with flight controller.
-        c_mission_upload->Register(sd->add_commands());
-        c_disarm->Register(sd->add_commands());
-        c_arm->Register(sd->add_commands());
-        c_move->Register(sd->add_commands());
     }
 
     /* Override enable method to perform initialization. In this example -
@@ -260,6 +240,7 @@ private:
          * SDK will send only modified values thus saving bandwidth */
         Commit_to_ucs();
 
+        LOG("send tm");
         /* Return true to reschedule the same timer again. */
         return true;
     }
@@ -282,6 +263,8 @@ private:
     double climb_speed = 0;
 
     bool is_armed = false;
+
+    ugcs::vsm::Subsystem::Ptr flight_controller = nullptr;
 
     /* Define supported telemetry fields */
     ugcs::vsm::Property::Ptr t_control_mode = nullptr;
@@ -312,6 +295,11 @@ int main(int, char* [])
     /** [instance creation] */
     /* Should be always called right after vehicle instance creation. */
     vehicle->Enable();
+    /** [instance registration] */
+    /* Should be always called after Enable once all the necessary detection is done
+     * and parameters set.
+     */
+    vehicle->Register();
     /** [instance creation and enable] */
     /** [main loop] */
     /* Now vehicle is visible to UgCS. Requests for the vehicle will be executed

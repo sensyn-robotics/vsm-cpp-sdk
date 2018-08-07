@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file piped_request_waiter.h
  */
-#ifndef _PIPED_REQUEST_WAITER_H_
-#define _PIPED_REQUEST_WAITER_H_
+#ifndef _UGCS_VSM_PIPED_REQUEST_WAITER_H_
+#define _UGCS_VSM_PIPED_REQUEST_WAITER_H_
 
 #include <ugcs/vsm/request_container.h>
 #include <ugcs/vsm/utils.h>
@@ -62,4 +62,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _PIPED_REQUEST_WAITER_H_ */
+#endif /* _UGCS_VSM_PIPED_REQUEST_WAITER_H_ */

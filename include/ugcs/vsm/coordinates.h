@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,18 +8,13 @@
  * Coordinates manipulation.
  */
 
-#ifndef _COORDINATES_H_
-#define _COORDINATES_H_
+#ifndef _UGCS_VSM_COORDINATES_H_
+#define _UGCS_VSM_COORDINATES_H_
 
 #include <ugcs/vsm/exception.h>
+#include <ugcs/vsm/math.h>
 
 #include <cmath>
-
-/* Might not be defined in <cmath> (not standard). */
-#ifndef M_PI
-/** PI constant. */
-#define M_PI 3.14159265358979323846
-#endif
 
 namespace ugcs {
 namespace vsm {
@@ -333,4 +328,4 @@ Normalize_angle_minuspi_pi(float a);
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _COORDINATES_H_ */
+#endif /* _UGCS_VSM_COORDINATES_H_ */

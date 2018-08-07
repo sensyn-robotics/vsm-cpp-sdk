@@ -104,7 +104,9 @@ function (Create_android_build ANDROID_ABI ANDROID_PLATFORM SOURCES INCLUDE_DIRS
     set (ANDROID_APPLICATION_MK "${ANDROID_BINARY_DIR}/jni/Application.mk")
     set (ANDROID_ANDROID_MK "${ANDROID_BINARY_DIR}/jni/Android.mk")
     
-    set(ANDROID_CFLAGS "")
+    set(ANDROID_CFLAGS "-DSDK_VERSION_MAJOR=${SDK_VERSION_MAJOR} -DSDK_VERSION_MINOR=${SDK_VERSION_MINOR}")
+    set(ANDROID_CFLAGS "${ANDROID_CFLAGS} -DSDK_VERSION_BUILD=\\\"${SDK_VERSION_BUILD}\\\"")
+    set(ANDROID_CFLAGS "${ANDROID_CFLAGS} -DVSM_PROJECT_NAME=\\\"${CMAKE_PROJECT_NAME}\\\"")
     set(NDK_BUILD_PARAMS "")
     if(CMAKE_BUILD_TYPE MATCHES "RELEASE")
         set(ANDROID_CFLAGS "${ANDROID_CFLAGS} -O2")
@@ -143,6 +145,7 @@ function(Add_cppcheck_target)
             "--suppress=unusedFunction"
             "--suppress=missingIncludeSystem"
             "--suppress=unmatchedSuppression"
+            "--inline-suppr"
             "-UANDROID")
         # Gather compile defs
         get_directory_property(PLIST COMPILE_DEFINITIONS)

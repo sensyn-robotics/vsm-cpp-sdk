@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,8 +7,8 @@
  *
  * General navigation action definition.
  */
-#ifndef _MOVE_ACTION_H_
-#define _MOVE_ACTION_H_
+#ifndef _UGCS_VSM_MOVE_ACTION_H_
+#define _UGCS_VSM_MOVE_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/coordinates.h>
@@ -46,31 +46,6 @@ public:
                 elevation(elevation),
                 turn_type(TURN_TYPE_STRAIGHT)
             {}
-
-    /**
-     * Construct move action from Mavlink extended mission item.
-     *
-     * @param item With command equal to mavlink::MAV_CMD::MAV_CMD_NAV_WAYPOINT
-     */
-    Move_action(const mavlink::ugcs::Pld_mission_item_ex& item, Optional<double>& takeoff_altitude) :
-        Action(Type::MOVE),
-        position(Geodetic_tuple(item->x * M_PI / 180.0,
-                item->y * M_PI / 180.0,
-                item->z)),
-                wait_time(0.1 * item->param1),
-                acceptance_radius(item->param2),
-                loiter_orbit(item->param3),
-                heading(item->param4 * M_PI / 180.0),
-                elevation(item->elevation)
-    {
-        ASSERT(item->command == mavlink::MAV_CMD::MAV_CMD_NAV_WAYPOINT);
-        if (item->altitude_origin.Is_reset()) {
-            takeoff_altitude = item->elevation;
-        } else {
-            takeoff_altitude = item->altitude_origin;
-        }
-        turn_type = static_cast<Turn_type>(item->turn_type.Get());
-    }
 
     /**
      * Construct move action from protobuf command.
@@ -151,4 +126,4 @@ struct Action::Mapper<Action::Type::MOVE> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _MOVE_ACTION_H_ */
+#endif /* _UGCS_VSM_MOVE_ACTION_H_ */

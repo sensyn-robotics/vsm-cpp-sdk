@@ -445,7 +445,7 @@ def GenerateMessageIdEnum(f):
 
 def GenerateEnums(f):
     FormatComment(f, '''
-Copyright (c) 2017, Smart Projects Holdings Ltd
+Copyright (c) 2018, Smart Projects Holdings Ltd
 All rights reserved.
 See LICENSE file for license details.
 
@@ -593,7 +593,7 @@ def GenerateMsgsHdr(f):
     global opts
     
     FormatComment(f, '''
-Copyright (c) 2017, Smart Projects Holdings Ltd
+Copyright (c) 2018, Smart Projects Holdings Ltd
 All rights reserved.
 See LICENSE file for license details.
 
@@ -655,7 +655,7 @@ def GenerateMsgsImpl(f):
     global opts
     
     FormatComment(f, '''
-Copyright (c) 2017, Smart Projects Holdings Ltd
+Copyright (c) 2018, Smart Projects Holdings Ltd
 All rights reserved.
 See LICENSE file for license details.
 
@@ -886,7 +886,7 @@ function mavlink_proto.dissector(buffer,pinfo,tree)
     local offset = 0
     local colinfo = ""
     local frame_count = 0
-    local header_len
+    local header_len = 0
     local trailer_len = 2
 
     local version 
@@ -915,6 +915,10 @@ function mavlink_proto.dissector(buffer,pinfo,tree)
                 end
             end
             offset = offset + 1
+        end
+
+        if (header_len == 0) then
+            break
         end
 
         -- HEADER ----------------------------------------

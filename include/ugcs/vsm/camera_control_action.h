@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file camera_control_action.h
  */
-#ifndef _CAMERA_CONTROL_ACTION_H_
-#define _CAMERA_CONTROL_ACTION_H_
+#ifndef _UGCS_VSM_CAMERA_CONTROL_ACTION_H_
+#define _UGCS_VSM_CAMERA_CONTROL_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/mavlink.h>
@@ -23,21 +23,6 @@ public:
     Camera_control_action(double tilt, double roll, double yaw, double zoom) :
         Action(Type::CAMERA_CONTROL),
         tilt(tilt), roll(roll), yaw(yaw), zoom(zoom) {}
-
-    /**
-     * Construct camera control action from Mavlink mission item.
-     *
-     * @param item With command equal to mavlink::ugcs::MAV_CMD::MAV_CMD_DO_CAMERA_CONTROL
-     */
-    Camera_control_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
-        Action(Type::CAMERA_CONTROL),
-        tilt(item->param1 * M_PI / 180.0),
-        roll(item->param2 * M_PI / 180.0),
-        yaw(item->param3 * M_PI / 180.0),
-        zoom(item->param4)
-    {
-        ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_DO_PAYLOAD_CONTROL);
-    }
 
     /**
      * Construct action from protobuf command.
@@ -80,4 +65,4 @@ struct Action::Mapper<Action::Type::CAMERA_CONTROL> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _CAMERA_CONTROL_ACTION_H_ */
+#endif /* _UGCS_VSM_CAMERA_CONTROL_ACTION_H_ */

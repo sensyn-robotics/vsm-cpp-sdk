@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,8 +7,8 @@
  *
  * Java properties set implementation.
  */
-#ifndef _PROPERTIES_H_
-#define _PROPERTIES_H_
+#ifndef _UGCS_VSM_PROPERTIES_H_
+#define _UGCS_VSM_PROPERTIES_H_
 
 #include <ugcs/vsm/exception.h>
 #include <ugcs/vsm/singleton.h>
@@ -164,7 +164,7 @@ private:
         /** User description of the property. */
         std::string description;
         /** place in properties file */
-        int seq_number;
+        int seq_number = -1;
 
         /** Construct property from string value. */
         Property(std::string &&value);
@@ -320,4 +320,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _PROPERTIES_H_ */
+#endif /* _UGCS_VSM_PROPERTIES_H_ */

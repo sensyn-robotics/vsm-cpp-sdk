@@ -1,14 +1,16 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
-#ifndef _DEVICE_H_
-#define _DEVICE_H_
+#ifndef _UGCS_VSM_DEVICE_H_
+#define _UGCS_VSM_DEVICE_H_
 
 #include <ugcs/vsm/property.h>
 #include <ugcs/vsm/callback.h>
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/optional.h>
+#include <ugcs/vsm/subsystem.h>
+
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -17,67 +19,6 @@ namespace ugcs {
 namespace vsm {
 
 typedef std::shared_ptr<ugcs::vsm::proto::Vsm_message> Proto_msg_ptr;
-
-class Vsm_command: public std::enable_shared_from_this<Vsm_command>
-{
-    DEFINE_COMMON_CLASS(Vsm_command, Vsm_command)
-
-public:
-    Vsm_command(std::string name, bool as_command, bool in_mission);
-
-    Property::Ptr
-    Add_parameter(
-        std::string,
-        ugcs::vsm::proto::Field_semantic semantic = ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT);
-
-    Property::Ptr
-    Add_parameter(std::string name, Property::Value_type type);
-
-    // Fill registration message
-    void
-    Register(ugcs::vsm::proto::Register_command* command);
-
-    // Fill availability message
-    void
-    Set_capabilities(ugcs::vsm::proto::Command_availability* msg);
-
-    void
-    Set_enabled(bool is_enabled = true);
-
-    void
-    Set_available(bool is_available = true);
-
-    int
-    Get_id() {return command_id;}
-
-    bool
-    Is_capability_state_dirty() {return capability_state_dirty;}
-
-    // create a list of command param values from proto message
-    Property_list
-    Build_parameter_list(const ugcs::vsm::proto::Device_command &cmd);
-
-    std::string
-    Get_name()
-    {return name;}
-
-    bool
-    Is_mission_item()
-        {return in_mission;}
-
-private:
-    uint32_t command_id = 0;
-    std::unordered_map<int, Property::Ptr> parameters;
-    std::string name;
-
-    bool as_command = false;
-    bool in_mission = false;
-
-    bool is_available = false;
-    bool is_enabled = false;
-    bool capability_state_dirty = true;
-    friend class Device;
-};
 
 class Ucs_request :public Request
 {
@@ -91,7 +32,12 @@ public:
         ugcs::vsm::proto::Status_code = ugcs::vsm::proto::STATUS_OK,
         const std::string& description = std::string());
 
-    Proto_msg_ptr response;
+    // Device can modify device_response of this message
+    Proto_msg_ptr response = nullptr;
+
+    // Used to send in-progress status for the request.
+    uint32_t stream_id = 0;
+
     ugcs::vsm::proto::Vsm_message request;
 };
 
@@ -100,20 +46,21 @@ class Device: public std::enable_shared_from_this<Device>
     DEFINE_COMMON_CLASS(Device, Device)
 
 public:
-    Device(bool create_thread = true);
+    Device(proto::Device_type type, bool create_thread = true);
 
     typedef Callback_proxy<
             void,
             std::vector<Property::Ptr>>
             Command_handler;
 
+    /** Completion handler type of the request. */
+    typedef Callback_proxy<void, uint32_t, Proto_msg_ptr> Response_sender;
+
     virtual
     ~Device();
 
     /** Enable the instance. Should be called right after vehicle instance
      * creation.
-     * @throw Invalid_param_exception If vehicle with the same model and and
-     * serial number is already registered.
      */
     void
     Enable();
@@ -139,9 +86,6 @@ public:
     void
     Process_requests();
 
-    /** Completion handler type of the request. */
-    typedef Callback_proxy<void, uint32_t, Proto_msg_ptr> Response_sender;
-
     /**
      * Command has arrived from UCS and should be executed by the vehicle.
      */
@@ -153,35 +97,26 @@ public:
 
     // Used by Cucs_processor only.
     // Derived class must override.
-    virtual void
-    Fill_register_msg(ugcs::vsm::proto::Vsm_message&) = 0;
-
-    template<typename Type>
     void
-    Add_property(
+    Register(ugcs::vsm::proto::Vsm_message&);
+
+    // Create/replace property value. By default type is derived from value.
+    template<typename Type>
+    Property::Ptr
+    Set_property(
         const std::string& name,
         Type value,
-        Property::Value_type value_type)
+        proto::Field_semantic semantic = proto::FIELD_SEMANTIC_DEFAULT)
     {
-        if (properties.find(name) != properties.end()) {
-            VSM_EXCEPTION(Exception, "Property %s already added", name.c_str());
+        auto it = properties.find(name);
+        if (it == properties.end()) {
+            auto f = Property::Create(name, value, semantic);
+            properties.emplace(name, f);
+            return f;
+        } else {
+            it->second->Set_value(value);
+            return it->second;
         }
-        auto f = Property::Create(name, value, value_type);
-        properties.emplace(name, f);
-    }
-
-    template<typename Type>
-    void
-    Add_property(
-        const std::string& name,
-        ugcs::vsm::proto::Field_semantic semantic,
-        Type value)
-    {
-        if (properties.find(name) != properties.end()) {
-            VSM_EXCEPTION(Exception, "Property %s already added", name.c_str());
-        }
-        auto f = Property::Create(name, semantic, value);
-        properties.emplace(name, f);
     }
 
     uint32_t
@@ -194,7 +129,6 @@ public:
     static void
     Set_failsafe_actions(Property::Ptr p, std::initializer_list<proto::Failsafe_action> actions);
 
-protected:
     /** Register device instance to UCS processor. After registration is done,
      * UCS servers sees that new vehicle is available.
      */
@@ -205,6 +139,17 @@ protected:
     void
     Unregister();
 
+    /** Returns true if vehicle is registered with ucs. */
+    bool
+    Is_registered();
+
+    std::string
+    Dump_command(const ugcs::vsm::proto::Device_command &);
+
+    Subsystem::Ptr
+    Add_subsystem(proto::Subsystem_type);
+
+protected:
     /** Get default processing context of the vehicle. */
     Request_processor::Ptr
     Get_processing_ctx();
@@ -232,42 +177,24 @@ protected:
     Handle_ucs_command(
         Ucs_request::Ptr request);
 
+    /** Sends Device_response with status code==STATUS_IN_PROGRESS with optional progress and description.
+     * Used to display progress-bar and/or some description.
+     * @param progress float in range [0..1]. If progress < 0, it is not sent.
+     * @param description Description of current progress. Not sent if empty.
+     */
+    void
+    Report_progress(
+        Ucs_request::Ptr request,
+        float progress = -1.0,
+        const std::string& description = std::string());
+
     void
     Send_ucs_message(Proto_msg_ptr msg);
 
     Vsm_command::Ptr
     Get_command(int id);
 
-    Property::Ptr
-    Add_telemetry(
-        const std::string& name,
-        ugcs::vsm::proto::Field_semantic sem = ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT,
-        uint32_t timeout = 0);   // timeout in seconds. default: do not specify timeout
-
-    Property::Ptr
-    Add_telemetry(
-        const std::string& name,
-        Property::Value_type type,
-        uint32_t timeout = 0);   // timeout in seconds. default: do not specify timeout
-
-    void
-
-    // Remove previously added telemetry field.
-    // Invalidates the t_field.
-    Remove_telemetry(Property::Ptr& t_field);
-
-    Vsm_command::Ptr
-    Add_command(
-        const std::string& name,
-        bool as_command,
-        bool in_mission);
-
-    Request_completion_context::Ptr completion_ctx;
-    Request_processor::Ptr processor;
-    std::chrono::time_point<std::chrono::system_clock> begin_of_epoch;
-    // All properties.
-    std::unordered_map<std::string, Property::Ptr> properties;
-
+    // Append to the list of status messages. Commit_to_ucs will push all to ucs.
     void
     Add_status_message(const std::string& m);
 
@@ -287,13 +214,15 @@ protected:
     void
     Commit_to_ucs();
 
+    Request_completion_context::Ptr completion_ctx;
+    Request_processor::Ptr processor;
+    std::chrono::time_point<std::chrono::system_clock> begin_of_epoch;
+
+    std::vector<Subsystem::Ptr> subsystems;
+
 private:
     Request_worker::Ptr worker;
 
-    // All registered telemetry fields.
-    std::vector<Property::Ptr> telemetry_fields;
-    // All commands supported by device
-    std::unordered_map<int, Vsm_command::Ptr> commands;
     // Status messages to be sent to ucs.
     std::list<std::string> device_status_messages;
 
@@ -301,6 +230,10 @@ private:
 
     /** Is vehicle enabled. */
     bool is_enabled = false;
+
+    const proto::Device_type device_type;
+
+    std::unordered_map<std::string, Property::Ptr> properties;
 };
 
 /** Convenience vehicle logging macro. Vehicle should be given by value (no
@@ -328,4 +261,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _DEVICE_H_ */
+#endif /* _UGCS_VSM_DEVICE_H_ */

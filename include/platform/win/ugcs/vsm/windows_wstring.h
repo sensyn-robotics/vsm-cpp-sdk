@@ -1,9 +1,9 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
-#ifndef _WINDOWS_WSTRING_H_
-#define _WINDOWS_WSTRING_H_
+#ifndef _UGCS_VSM_WINDOWS_WSTRING_H_
+#define _UGCS_VSM_WINDOWS_WSTRING_H_
 
 #include <string>
 #include <windows.h>
@@ -42,4 +42,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _WINDOWS_WSTRING_H_ */
+#endif /* _UGCS_VSM_WINDOWS_WSTRING_H_ */

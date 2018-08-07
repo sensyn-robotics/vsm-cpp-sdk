@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file text_stream_filter.h
  */
-#ifndef _TEXT_STREAM_FILTER_H_
-#define _TEXT_STREAM_FILTER_H_
+#ifndef _UGCS_VSM_TEXT_STREAM_FILTER_H_
+#define _UGCS_VSM_TEXT_STREAM_FILTER_H_
 
 #include <ugcs/vsm/vsm.h>
 
@@ -176,4 +176,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _TEXT_STREAM_FILTER_H_ */
+#endif /* _UGCS_VSM_TEXT_STREAM_FILTER_H_ */

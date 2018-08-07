@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -9,8 +9,8 @@
  * some systems but it is not standardized and thus not cross-platform.
  */
 
-#ifndef _ENDIAN_H_
-#define _ENDIAN_H_
+#ifndef _UGCS_VSM_ENDIAN_H_
+#define _UGCS_VSM_ENDIAN_H_
 
 #include <ugcs/vsm/defs.h>
 
@@ -432,4 +432,4 @@ typedef Be_value<double> Be_double;
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _ENDIAN_H_ */
+#endif /* _UGCS_VSM_ENDIAN_H_ */

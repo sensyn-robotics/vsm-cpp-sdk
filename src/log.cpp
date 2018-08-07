@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -28,7 +28,8 @@ constexpr const char* const Log::LOG_FILE_ROTATOR_FIND_PATTERN;
 
 Log::Log()
 {
-    plat_logger = Platform_logger::Create(*this);
+    // Do not use platform specific logger.
+    // plat_logger = Platform_logger::Create(*this);
 }
 
 Log::~Log()
@@ -255,7 +256,7 @@ Log::Write_message_v_inst(Level level, const char *msg, std::va_list args)
     Write_custom_message(thread_id, level, msg, args);
 
     /* Output to platform-dependent system log. */
-    plat_logger->Write_message(level, msg, args);
+    // plat_logger->Write_message(level, msg, args);
 }
 
 void

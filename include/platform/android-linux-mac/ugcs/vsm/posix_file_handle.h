@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file posix_file_handle.h
  */
-#ifndef _POSIX_FILE_HANDLE_H_
-#define _POSIX_FILE_HANDLE_H_
+#ifndef _UGCS_VSM_POSIX_FILE_HANDLE_H_
+#define _UGCS_VSM_POSIX_FILE_HANDLE_H_
 
 #include <ugcs/vsm/poll_io_controller.h>
 #include <ugcs/vsm/platform_sockets.h>
@@ -134,4 +134,4 @@ protected:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _POSIX_FILE_HANDLE_H_ */
+#endif /* _UGCS_VSM_POSIX_FILE_HANDLE_H_ */

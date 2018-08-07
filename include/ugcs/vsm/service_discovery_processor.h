@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 /**
@@ -8,8 +8,8 @@
  *      Author: janis
  */
 
-#ifndef _SERVICE_DISCOVERY_PROCESSOR_H_
-#define _SERVICE_DISCOVERY_PROCESSOR_H_
+#ifndef _UGCS_VSM_SERVICE_DISCOVERY_PROCESSOR_H_
+#define _UGCS_VSM_SERVICE_DISCOVERY_PROCESSOR_H_
 
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/socket_processor.h>
@@ -267,4 +267,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _SERVICE_DISCOVERY_PROCESSOR_H_ */
+#endif /* _UGCS_VSM_SERVICE_DISCOVERY_PROCESSOR_H_ */

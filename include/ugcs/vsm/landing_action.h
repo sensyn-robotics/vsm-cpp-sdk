@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -6,8 +6,8 @@
  * @file landing_action.h
  * Landing action definition.
  */
-#ifndef _LANDING_ACTION_H_
-#define _LANDING_ACTION_H_
+#ifndef _UGCS_VSM_LANDING_ACTION_H_
+#define _UGCS_VSM_LANDING_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/coordinates.h>
@@ -30,24 +30,6 @@ public:
     elevation(elevation),
     descend_rate(descend_rate),
     acceptance_radius(acceptance_radius) {}
-
-    /**
-     * Construct landing action from Mavlink extended mission item.
-     *
-     * @param item With command equal to mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_LAND_EX
-     */
-    Landing_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
-        Action(Type::LANDING),
-        position(Geodetic_tuple(item->x * M_PI / 180.0,
-                                item->y * M_PI / 180.0,
-                                item->z)),
-        heading(item->param4 * M_PI / 180.0),
-        elevation(item->elevation),
-        descend_rate(item->param3),
-        acceptance_radius(item->param2)
-    {
-        ASSERT(item->command == mavlink::ugcs::MAV_CMD::MAV_CMD_NAV_LAND_EX);
-    }
 
     /**
      * Construct move action from protobuf command.
@@ -106,4 +88,4 @@ struct Action::Mapper<Action::Type::LANDING> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _LANDING_ACTION_H_ */
+#endif /* _UGCS_VSM_LANDING_ACTION_H_ */

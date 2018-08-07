@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Singleton class definition.
  */
 
-#ifndef _SINGLETON_H_
-#define _SINGLETON_H_
+#ifndef _UGCS_VSM_SINGLETON_H_
+#define _UGCS_VSM_SINGLETON_H_
 
 #include <memory>
 #include <mutex>
@@ -102,4 +102,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _SINGLETON_H_ */
+#endif /* _UGCS_VSM_SINGLETON_H_ */

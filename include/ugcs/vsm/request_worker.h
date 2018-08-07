@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Request worker.
  */
 
-#ifndef _REQUEST_WORKER_H_
-#define _REQUEST_WORKER_H_
+#ifndef _UGCS_VSM_REQUEST_WORKER_H_
+#define _UGCS_VSM_REQUEST_WORKER_H_
 
 #include <ugcs/vsm/request_context.h>
 
@@ -82,4 +82,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _REQUEST_WORKER_H_ */
+#endif /* _UGCS_VSM_REQUEST_WORKER_H_ */

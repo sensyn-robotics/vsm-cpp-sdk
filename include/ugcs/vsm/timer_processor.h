@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Timer processor. Provides asynchronous timers.
  */
 
-#ifndef _TIMER_PROCESSOR_H_
-#define _TIMER_PROCESSOR_H_
+#ifndef _UGCS_VSM_TIMER_PROCESSOR_H_
+#define _UGCS_VSM_TIMER_PROCESSOR_H_
 
 #include <ugcs/vsm/request_context.h>
 #include <ugcs/vsm/singleton.h>
@@ -189,4 +189,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _TIMER_PROCESSOR_H_ */
+#endif /* _UGCS_VSM_TIMER_PROCESSOR_H_ */

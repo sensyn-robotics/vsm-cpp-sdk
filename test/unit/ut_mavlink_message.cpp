@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -79,11 +79,6 @@ TEST(basic_functionality)
     CHECK_EQUAL(std::numeric_limits<int16_t>::max(), msg->param_index);
     CHECK(msg->param_index.Is_reset());
 
-    ::ugcs::vsm::mavlink::ugcs::Pld_mission_item_ex mi;
-    CHECK(!mi->param2.Is_reset()); /* For float. */
-    mi->param2.Reset();
-    CHECK(mi->param2.Is_reset());
-    CHECK(std::isnan(mi->param2));
 }
 
 TEST(version_field)

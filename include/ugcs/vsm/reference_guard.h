@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Reference guard class definition.
  */
 
-#ifndef _REFERENCE_GUARD_H_
-#define _REFERENCE_GUARD_H_
+#ifndef _UGCS_VSM_REFERENCE_GUARD_H_
+#define _UGCS_VSM_REFERENCE_GUARD_H_
 
 #include <ugcs/vsm/defs.h>
 
@@ -204,4 +204,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _REFERENCE_GUARD_H_ */
+#endif /* _UGCS_VSM_REFERENCE_GUARD_H_ */

@@ -36,7 +36,7 @@
  *	@(#)glob.h	8.1 (Berkeley) 6/2/93
  */
 
-#ifndef _GLOB_H_
+#ifndef _UGCS_VSM_GLOB_H_
 #define	_GLOB_H_
 
 #include <sys/cdefs.h>

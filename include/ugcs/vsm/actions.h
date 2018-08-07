@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Convenience include file for all VSM task actions.
  */
 
-#ifndef _ACTIONS_H_
-#define _ACTIONS_H_
+#ifndef _UGCS_VSM_ACTIONS_H_
+#define _UGCS_VSM_ACTIONS_H_
 
 #include <ugcs/vsm/move_action.h>
 #include <ugcs/vsm/landing_action.h>
@@ -30,4 +30,4 @@
 #include <ugcs/vsm/repeat_servo_action.h>
 #include <ugcs/vsm/vtol_transition_action.h>
 
-#endif  // _ACTIONS_H_
+#endif  // _UGCS_VSM_ACTIONS_H_

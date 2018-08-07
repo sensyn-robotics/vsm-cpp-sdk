@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,8 +7,8 @@
  *
  * Various common utilities
  */
-#ifndef _UTILS_H_
-#define _UTILS_H_
+#ifndef _UGCS_VSM_UTILS_H_
+#define _UGCS_VSM_UTILS_H_
 
 #include <ugcs/vsm/debug.h>
 #include <ugcs/vsm/exception.h>
@@ -130,7 +130,17 @@ uint32_t Get_application_instance_id();
 uint64_t
 Get_random_seed();
 
+//
+std::string&
+Ltrim(std::string & str);
+
+std::string&
+Rtrim(std::string & str);
+
+std::string&
+Trim(std::string & str);
+
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _UTILS_H_ */
+#endif /* _UGCS_VSM_UTILS_H_ */

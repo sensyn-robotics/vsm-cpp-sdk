@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file mavlink_encoder.h
  */
-#ifndef _MAVLINK_ENCODER_H_
-#define _MAVLINK_ENCODER_H_
+#ifndef _UGCS_VSM_MAVLINK_ENCODER_H_
+#define _UGCS_VSM_MAVLINK_ENCODER_H_
 
 #include <ugcs/vsm/io_buffer.h>
 #include <ugcs/vsm/mavlink.h>
@@ -113,4 +113,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _MAVLINK_ENCODER_H_ */
+#endif /* _UGCS_VSM_MAVLINK_ENCODER_H_ */

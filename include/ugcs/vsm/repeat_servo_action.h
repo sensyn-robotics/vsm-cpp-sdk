@@ -1,12 +1,12 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
 /**
  * @file set_servo_action.h
  */
-#ifndef _REPEAT_SERVO_ACTION_H_
-#define _REPEAT_SERVO_ACTION_H_
+#ifndef _UGCS_VSM_REPEAT_SERVO_ACTION_H_
+#define _UGCS_VSM_REPEAT_SERVO_ACTION_H_
 
 #include <ugcs/vsm/action.h>
 #include <ugcs/vsm/mavlink.h>
@@ -20,21 +20,6 @@ class Repeat_servo_action: public Action {
     DEFINE_COMMON_CLASS(Repeat_servo_action, Action)
 
 public:
-    /**
-     * Construct wait action from Mavlink extended mission item.
-     *
-     * @param item With command equal to mavlink::MAV_CMD::MAV_CMD_DO_REPEAT_SERVO
-     */
-    Repeat_servo_action(const mavlink::ugcs::Pld_mission_item_ex& item) :
-        Action(Type::REPEAT_SERVO),
-        servo_id(item->param1),
-        pwm(item->param2),
-        count(item->param3),
-        period(item->param4)
-    {
-        ASSERT(item->command == mavlink::MAV_CMD::MAV_CMD_DO_REPEAT_SERVO);
-    }
-
     /**
      * Construct action from protobuf command.
      */
@@ -63,4 +48,4 @@ struct Action::Mapper<Action::Type::REPEAT_SERVO> {
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _REPEAT_SERVO_ACTION_H_*/
+#endif /* _UGCS_VSM_REPEAT_SERVO_ACTION_H_*/

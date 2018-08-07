@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Defines platform specific parts of socket implementation.
  */
 
-#ifndef _SOCKETS_H_
-#define _SOCKETS_H_
+#ifndef _UGCS_VSM_SOCKETS_H_
+#define _UGCS_VSM_SOCKETS_H_
 
 #include <ugcs/vsm/platform_sockets.h>
 
@@ -45,4 +45,4 @@ Prepare_for_listen(Socket_handle, bool is_multicast);
 } // namespace vsm
 } // namespace ugcs
 
-#endif /* _SOCKETS_H_ */
+#endif /* _UGCS_VSM_SOCKETS_H_ */

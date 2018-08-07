@@ -13,8 +13,8 @@
 // $Revision: 863 $
 //
 
-#ifndef __DEELX_REGEXP__H__
-#define __DEELX_REGEXP__H__
+#ifndef _UGCS_VSM__DEELX_REGEXP__H__
+#define _UGCS_VSM__DEELX_REGEXP__H__
 #include <limits.h>
 
 extern "C" {

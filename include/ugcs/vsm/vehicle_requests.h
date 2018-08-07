@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -7,8 +7,8 @@
  *
  * Convenience types for all specific vehicle requests.
  */
-#ifndef _VEHICLE_REQUESTS_H_
-#define _VEHICLE_REQUESTS_H_
+#ifndef _UGCS_VSM_VEHICLE_REQUESTS_H_
+#define _UGCS_VSM_VEHICLE_REQUESTS_H_
 
 #include <ugcs/vsm/vehicle_request.h>
 #include <ugcs/vsm/task.h>
@@ -26,4 +26,4 @@ typedef Vehicle_request_spec<Vehicle_command> Vehicle_command_request;
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _VEHICLE_REQUESTS_H_ */
+#endif /* _UGCS_VSM_VEHICLE_REQUESTS_H_ */

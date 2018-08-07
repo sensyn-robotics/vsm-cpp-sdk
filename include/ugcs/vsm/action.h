@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Generic action. Represents some activity, that can be designed by the
  * system user and afterwards uploaded and executed by the vehicle.
  */
-#ifndef _ACTION_H_
-#define _ACTION_H_
+#ifndef _UGCS_VSM_ACTION_H_
+#define _UGCS_VSM_ACTION_H_
 
 #include <ugcs/vsm/utils.h>
 #include <ugcs/vsm/coordinates.h>
@@ -148,4 +148,4 @@ private:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _ACTION_H_ */
+#endif /* _UGCS_VSM_ACTION_H_ */

@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -39,6 +39,7 @@ Send_ucs_message(
     Io_buffer::Ptr buffer = Io_buffer::Create(std::move(user_data));
 
     ucs_stream->Write(buffer);
+    // LOG("Sent msg=%s", message.DebugString().c_str());
 }
 
 void
@@ -61,7 +62,7 @@ Read_ucs_message(
 
     if (vsm_msg.ParseFromArray(ucs_buf->Get_data(), ucs_buf->Get_length())) {
         LOG("Got message len=%zu", ucs_buf->Get_length());
-        //LOG("msg=%s", vsm_msg.DebugString().c_str());
+        // LOG("Got msg=%s", vsm_msg.DebugString().c_str());
     } else {
         LOG_ERR("ParseFromArray failed.");
     }
@@ -74,12 +75,12 @@ public:
     int some_prop;
 
     Some_vehicle(int some_prop):
-        Vehicle(mavlink::MAV_TYPE::MAV_TYPE_QUADROTOR,
-                mavlink::MAV_AUTOPILOT::MAV_AUTOPILOT_ARDUPILOTMEGA,
-                Vehicle::Capabilities(),
-                "123456", "SuperCopter"),
-                some_prop(some_prop)
+        some_prop(some_prop)
     {
+        Set_vehicle_type(proto::VEHICLE_TYPE_MULTICOPTER);
+        Set_autopilot_type("myvehicle");
+        Set_model_name("SuperCopter");
+        Set_serial_number("123456");
     }
 
     void
@@ -100,6 +101,7 @@ TEST(basic_usage)
 
     auto v = Some_vehicle::Create(10);
     v->Enable();
+    v->Register();
     CHECK_EQUAL(10, v->some_prop);
 
     Socket_processor::Ptr sp = ugcs::vsm::Socket_processor::Get_instance();
@@ -120,7 +122,11 @@ TEST(basic_usage)
 
     // send server hello message
     ugcs::vsm::proto::Vsm_message vsm_msg;
-    vsm_msg.mutable_register_peer()->set_peer_id(111222);
+    auto r = vsm_msg.mutable_register_peer();
+    r->set_peer_id(111222);
+    // simulate server has the same version as VSM.
+    r->set_version_major(SDK_VERSION_MAJOR);
+    r->set_version_minor(SDK_VERSION_MINOR);
     Send_ucs_message(vsm_msg);
 
     // read vsm hello

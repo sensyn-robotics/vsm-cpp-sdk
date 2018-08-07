@@ -1,5 +1,0 @@
-package ugcs;
-
-message Test2 {
-  optional int32 id = 1;
-}

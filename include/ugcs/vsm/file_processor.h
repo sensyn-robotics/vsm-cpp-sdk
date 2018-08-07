@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Processor for handling file I/O.
  */
 
-#ifndef _FILE_PROCESSOR_H_
-#define _FILE_PROCESSOR_H_
+#ifndef _UGCS_VSM_FILE_PROCESSOR_H_
+#define _UGCS_VSM_FILE_PROCESSOR_H_
 
 #include <ugcs/vsm/io_request.h>
 #include <ugcs/vsm/request_worker.h>
@@ -650,4 +650,4 @@ protected:
 } /* namespace vsm */
 } /* namespace ugcs */
 
-#endif /* _FILE_PROCESSOR_H_ */
+#endif /* _UGCS_VSM_FILE_PROCESSOR_H_ */

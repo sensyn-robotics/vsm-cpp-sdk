@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 #include <ugcs/vsm/vehicle_command.h>
@@ -73,81 +73,6 @@ Vehicle_command::Vehicle_command(Type type, const Property_list& p):
         } else {
             p.at("heading")->Get_value(heading);
         }
-        break;
-    default:
-        // Other commands do not have parameters.
-        break;
-    }
-}
-
-/** Construct command with parameters. */
-Vehicle_command::Vehicle_command(Type type, const mavlink::ugcs::Pld_command_long_ex& cmd):
-    type(type),
-    position(Geodetic_tuple(cmd->param5 * M_PI / 180.0,
-                    cmd->param6 * M_PI / 180.0,
-                    cmd->param7))
-{
-    switch (type) {
-    case Vehicle_command::Type::DIRECT_VEHICLE_CONTROL:
-        roll = cmd->param1.Get();
-        pitch = cmd->param2.Get();
-        yaw = cmd->param3.Get();
-        throttle = cmd->param4.Get();
-        break;
-    case Vehicle_command::Type::DIRECT_PAYLOAD_CONTROL:
-        roll = cmd->param1.Get();
-        pitch = cmd->param2.Get();
-        yaw = cmd->param3.Get();
-        zoom = cmd->param4.Get();
-        payload_id = cmd->param7.Get();
-        break;
-    case Vehicle_command::Type::CAMERA_VIDEO_SOURCE:
-        payload_id = cmd->param7.Get();
-        break;
-    case Vehicle_command::Type::CAMERA_POWER:
-        payload_id = cmd->param7.Get();
-        if (cmd->param1.Is_reset()) {
-            power_state = Camera_power_state::UNKNOWN;
-        } else {
-            switch (static_cast<mavlink::ugcs::MAV_PAYLOAD_POWER_STATE>(cmd->param1.Get())) {
-            case mavlink::ugcs::MAV_PAYLOAD_POWER_STATE_OFF:
-                power_state = Camera_power_state::OFF;
-                break;
-            case mavlink::ugcs::MAV_PAYLOAD_POWER_STATE_ON:
-                power_state = Camera_power_state::ON;
-                break;
-            case mavlink::ugcs::MAV_PAYLOAD_POWER_STATE_TOGGLE:
-                power_state = Camera_power_state::TOGGLE;
-                break;
-            }
-        }
-        break;
-    case Vehicle_command::Type::CAMERA_TRIGGER:
-        payload_id = cmd->param7.Get();
-        if (cmd->param1.Is_reset()) {
-            trigger_state = Camera_trigger_state::UNKNOWN;
-        } else {
-            switch (static_cast<mavlink::ugcs::MAV_CAMERA_TRIGGER_STATE>(cmd->param1.Get())) {
-            case mavlink::ugcs::CAMERA_TRIGGER_STATE_SINGLE_SHOT:
-                trigger_state = Camera_trigger_state::SINGLE_SHOT;
-                break;
-            case mavlink::ugcs::CAMERA_TRIGGER_STATE_START_RECORDING:
-                trigger_state = Camera_trigger_state::VIDEO_START;
-                break;
-            case mavlink::ugcs::CAMERA_TRIGGER_STATE_STOP_RECORDING:
-                trigger_state = Camera_trigger_state::VIDEO_STOP;
-                break;
-            case mavlink::ugcs::CAMERA_TRIGGER_STATE_TOGGLE_RECORDING:
-                trigger_state = Camera_trigger_state::VIDEO_TOGGLE;
-                break;
-            }
-        }
-        break;
-    case Type::WAYPOINT:
-        acceptance_radius = cmd->param1.Get();
-        takeoff_altitude = cmd->param2.Get();
-        speed = cmd->param3.Get();
-        heading = cmd->param4 * M_PI / 180.0;
         break;
     default:
         // Other commands do not have parameters.

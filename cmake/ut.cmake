@@ -10,6 +10,7 @@
 # Run unit tests by "ctest" command. Optional "--output-on-failure" option can
 # be specified.
 
+include("ugcs/common")
 include("sdk_common")
 
 enable_testing()
@@ -74,4 +75,9 @@ add_library(ut_vsm_sdk STATIC ${SDK_SRCS} $<TARGET_OBJECTS:protobuf_objlib>)
 add_dependencies(ut_vsm_sdk unittestpp initial_config)
 
 set(EXT_LIB ut_vsm_sdk)
+
+# Make sure the SDK example can be built
+add_executable(hello_world_vsm ${CMAKE_SOURCE_DIR}/../../doc/examples/Hello_world_VSM/hello_world_vsm.cpp ${DLL_IMPORT_LIBS})
+target_link_libraries(hello_world_vsm ${EXT_LIB} ${VSM_PLAT_LIBS})
+
 include(ugcs/ut)

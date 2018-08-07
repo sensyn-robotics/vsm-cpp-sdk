@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -11,8 +11,8 @@
  * In linux build Run_as_service() does nothing and returns SERVICE_RESULT_NORMAL_INVOCATION.
  */
 
-#ifndef _RUN_AS_SERVICE_H_
-#define _RUN_AS_SERVICE_H_
+#ifndef _UGCS_VSM_RUN_AS_SERVICE_H_
+#define _UGCS_VSM_RUN_AS_SERVICE_H_
 
 #include <ugcs/vsm/callback.h>
 
@@ -152,4 +152,4 @@ Run_as_service(const char* service_name, int argc, char *argv[], Program_init pr
 
 } /* namespace vsm */
 } /* namespace ugcs */
-#endif /* _RUN_AS_SERVICE_H_ */
+#endif /* _UGCS_VSM_RUN_AS_SERVICE_H_ */

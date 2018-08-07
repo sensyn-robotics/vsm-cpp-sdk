@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -9,8 +9,8 @@
  * vehicles.
  */
 
-#ifndef _CUCS_PROCESSOR_H_
-#define _CUCS_PROCESSOR_H_
+#ifndef _UGCS_VSM_CUCS_PROCESSOR_H_
+#define _UGCS_VSM_CUCS_PROCESSOR_H_
 
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/device.h>
@@ -23,6 +23,12 @@
 
 namespace ugcs {
 namespace vsm {
+
+// Declare function to get VSM name. Used when registering VSM with server.
+// It must be defined in VSM sources (typically in main.cpp) via
+// the helper #define DEFINE_DEFAULT_VSM_NAME located in ugcs/vsm/defs.h
+const char*
+Get_vsm_name();
 
 /** Handles interactions with CUCS. Intermediate version. */
 class Cucs_processor: public Request_processor {
@@ -42,7 +48,8 @@ public:
         return singleton.Get_instance(std::forward<Args>(args)...);
     }
 
-    /** Registration of a vehicle instance in the processor. */
+    /** Registration of a vehicle instance in the processor.
+     * Returns only when device registration has completed. */
     void
     Register_device(Device::Ptr);
 
@@ -51,7 +58,11 @@ public:
     Unregister_device(uint32_t handle);
 
     void
-    Send_ucs_message(uint32_t handle, Proto_msg_ptr message);
+    Send_ucs_message(uint32_t handle, Proto_msg_ptr message, uint32_t stream_id = 0);
+
+    // VSM will not communicate with server version below this:
+    constexpr static uint32_t SUPPORTED_UCS_VERSION_MAJOR = 2;
+    constexpr static uint32_t SUPPORTED_UCS_VERSION_MINOR = 14;
 
 private:
     /** Write operations timeout. */
@@ -92,6 +103,9 @@ private:
         // This is primary connection with this server.
         // VSM will use this as primary connection.
         bool primary = false;
+
+        // Is this connection able to accept vehicle registrations?
+        bool is_compatible = true;
 
         // List of device_ids which has successfully registered on this connection.
         // Used to avoid sending telemetry to connections which are not ready for it.
@@ -167,7 +181,7 @@ private:
     On_unregister_vehicle(Request::Ptr, uint32_t handle);
 
     void
-    On_send_ucs_message(Request::Ptr request, uint32_t handle, Proto_msg_ptr message);
+    On_send_ucs_message(Request::Ptr request, uint32_t handle, Proto_msg_ptr message, uint32_t stream_id);
 
     void
     Send_ucs_message(
@@ -208,4 +222,4 @@ private:
 
 } /* namespace vsm */
 } /* namespace ugcs */
-#endif /* _CUCS_PROCESSOR_H_ */
+#endif /* _UGCS_VSM_CUCS_PROCESSOR_H_ */

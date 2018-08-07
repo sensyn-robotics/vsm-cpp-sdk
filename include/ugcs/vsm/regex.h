@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -9,8 +9,8 @@
  * the standard library. Once it is done, this file should be removed.
  */
 
-#ifndef _REGEX_H_
-#define _REGEX_H_
+#ifndef _UGCS_VSM_REGEX_H_
+#define _UGCS_VSM_REGEX_H_
 
 #include <string.h>
 #include <list>
@@ -37,7 +37,7 @@ namespace regex {
 
 #ifdef ANDROID
 // Android NDK does not have bsearch, so we are providing our own. Defined in utils.cpp
-void
+const void
 *bsearch(
         const void *key,
         const void *base,
@@ -244,4 +244,4 @@ regex_search(const std::string &s, smatch &m, regex &re)
 
 } /* namespace regex */
 
-#endif /* _REGEX_H_ */
+#endif /* _UGCS_VSM_REGEX_H_ */

@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Smart Projects Holdings Ltd
+// Copyright (c) 2018, Smart Projects Holdings Ltd
 // All rights reserved.
 // See LICENSE file for license details.
 
@@ -8,8 +8,8 @@
  * Debugging and troubleshooting helpers.
  */
 
-#ifndef _DEBUG_H_
-#define _DEBUG_H_
+#ifndef _UGCS_VSM_DEBUG_H_
+#define _UGCS_VSM_DEBUG_H_
 
 #include <ugcs/vsm/log.h>
 
@@ -72,4 +72,4 @@
 
 #endif /* DEBUG */
 
-#endif /* _DEBUG_H_ */
+#endif /* _UGCS_VSM_DEBUG_H_ */
