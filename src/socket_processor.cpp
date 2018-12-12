@@ -410,8 +410,11 @@ Socket_processor::Stream::Process_udp_read_requests()
                 req->Complete(Request::Status::OK, std::move(locker));
                 read_requests.pop_front();
             }
+        } else if (req->Is_aborted()) {
+            // Do not care about aborted requests.
+            read_requests.pop_front();
         } else {
-            // aborted/cancelled requests are handled in On_cancel()
+            // Cancelled requests are handled in On_cancel()
             // Let On_cancel handle the possibly cancelled request and then get back here for other pending requests.
             break;
         }
@@ -772,9 +775,12 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
                     break;
                 }
             } while (buffer->Get_length());
+        } else if (request->Is_aborted()) {
+            // Do not care about aborted requests.
+            stream->write_requests.pop_front();
         } else {
-            // aborted/cancelled requests are handled in On_cancel()
-            // Let On_cancnel handle the possibly cancelled request and then get back here for other pending requests.
+            // Cancelled requests are handled in On_cancel()
+            // Let On_cancel handle the possibly cancelled request and then get back here for other pending requests.
             return;
         }
 
@@ -902,8 +908,11 @@ Socket_processor::Handle_read_requests(Stream::Ptr stream)
             if (close_stream)
                 Close_stream(stream, false);
             // try next request
+        } else if (request->Is_aborted()) {
+            // Do not care about aborted requests.
+            stream->read_requests.pop_front();
         } else {
-            // aborted/cancelled requests are handled in On_cancel()
+            // cancelled requests are handled in On_cancel()
             // Let On_cancel handle the possibly cancelled request and then get back here for other pending requests.
             return;
         }

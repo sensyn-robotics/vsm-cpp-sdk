@@ -161,8 +161,6 @@ TEST_FIXTURE(Test_case_wrapper, socket_processor_listen_accept)
         {
             server_stream = s;
             auto addr = s->Get_peer_address();
-            if (addr)
-                std::cout << "Connection from: " << addr->Get_as_string() << std::endl;
             s->Read(1000, 1, Make_callback(server_read_complete, server_buf, server_result, s), worker);
         }
     };
@@ -212,6 +210,24 @@ TEST_FIXTURE(Test_case_wrapper, socket_processor_listen_accept)
     CHECK(client_result == Io_result::OK);
     // Check the data
     CHECK_EQUAL("abcdefghij", client_buf->Get_string().c_str());
+
+    // Abort on pending read should not block subsequent reads.
+    // Pend read.
+    auto read_op = client_stream->Read(100, 10, Make_setter(client_buf, client_result));
+    // Let it some time to actually call select.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // Abort the read op.
+    read_op.Abort();
+    // Write something to server (it will return it back and trigger the aborted read handler)
+    client_stream->Write(Io_buffer::Create("abcdefghij"), Make_setter(client_result));
+    // Read the result.
+    client_stream->Read(100, 10, Make_setter(client_buf, client_result)).Timeout(std::chrono::seconds(1));
+    CHECK(client_result == Io_result::OK);
+    if (client_result == Io_result::OK) {
+        // Check the data
+        CHECK_EQUAL("abcdefghij", client_buf->Get_string().c_str());
+    }
+
     client_stream->Close();
     listener->Close();
     server_stream->Close();

@@ -95,6 +95,13 @@ Cucs_processor::On_enable()
         Transport_detector::Get_instance()->Activate(false);
     }
 
+    timer = Timer_processor::Get_instance()->Create_timer(
+        REGISTER_PEER_TIMEOUT,
+        Make_callback(
+            &Cucs_processor::On_timer,
+            Shared_from_this()),
+            completion_ctx);
+
     ucs_connector->Enable();
     ucs_connector->Add_detector(
         ugcs::vsm::Transport_detector::Make_connect_handler(
@@ -107,6 +114,7 @@ Cucs_processor::On_enable()
 void
 Cucs_processor::On_disable()
 {
+    timer->Cancel();
     auto req = Request::Create();
     req->Set_processing_handler(
             Make_callback(
@@ -144,6 +152,33 @@ Cucs_processor::Process_on_disable(Request::Ptr request)
     request->Complete();
 }
 
+bool
+Cucs_processor::On_timer()
+{
+    for (auto& iter : ucs_connections) {
+        auto now = std::chrono::steady_clock::now();
+        if (iter.second.last_message_time + REGISTER_PEER_TIMEOUT < now) {
+            if (iter.second.ucs_id) {
+                if (iter.second.last_message_time + REGISTER_PEER_TIMEOUT * 2 < now) {
+// TODO: Uncomment this once server responds to pings.
+//                    LOG("server connection timed out");
+//                    iter.second.stream->Close();
+                } else {
+                    ugcs::vsm::proto::Vsm_message ping_msg;
+                    ping_msg.set_device_id(0);
+                    ping_msg.set_response_required(true); // this will set message_id automatically.
+                    Send_ucs_message(iter.first, ping_msg);
+                }
+            } else {
+                LOG("server connection timed out");
+                iter.second.stream->Close();
+            }
+
+        }
+    }
+    return true;
+}
+
 void
 Cucs_processor::On_incoming_connection(std::string, int, Socket_address::Ptr addr, Io_stream::Ref stream)
 {
@@ -158,6 +193,7 @@ Cucs_processor::On_incoming_connection(std::string, int, Socket_address::Ptr add
     sc.stream = stream;
     sc.stream_id = new_id;
     sc.address = addr;
+    sc.last_message_time = std::chrono::steady_clock::now();
     Schedule_next_read(sc);
 
     ucs_connections.emplace(sc.stream_id, std::move(sc));
@@ -188,10 +224,6 @@ Cucs_processor::Schedule_next_read(
             Shared_from_this(),
             sc.stream_id),
         completion_ctx);
-    if (!sc.ucs_id) {
-        // Close connection if server does not send us Register_peer.
-        sc.read_waiter.Timeout(REGISTER_PEER_TIMEOUT);
-    }
 }
 
 void
@@ -222,7 +254,7 @@ Cucs_processor::Read_completed(
             }
             if (byte & 0x80) {
                 // there is more
-                connection.shift +=7;
+                connection.shift += 7;
             } else {
                 connection.shift = 0;
                 if (connection.message_size) {
@@ -240,6 +272,7 @@ Cucs_processor::Read_completed(
                 // LOG("received msg: %s", vsm_msg.DebugString().c_str());
                 if (connection.ucs_id) {
                     // knwon ucs
+                    connection.last_message_time = std::chrono::steady_clock::now();
                     if (vsm_msg.has_device_response()) {
                         // This is a response to VSM request.
                         auto conn_it = connection.pending_registrations.find(vsm_msg.message_id());
@@ -298,6 +331,7 @@ Cucs_processor::Read_completed(
                     // ucs id still unknown.
                     if (vsm_msg.has_register_peer()) {
                         // message has Register_peer payload.
+                        connection.last_message_time = std::chrono::steady_clock::now();
                         auto& reg_peer = vsm_msg.register_peer();
                         if (!reg_peer.has_peer_type() || reg_peer.peer_type() == proto::PEER_TYPE_SERVER)
                         {
@@ -521,16 +555,14 @@ Cucs_processor::Send_ucs_message(
 
         if (message.has_register_device()) {
             // Force response_required for Register_device.
-            uint32_t msg_id = Get_next_id();
-            message.set_message_id(msg_id);
-            ctx.pending_registrations.insert(std::make_pair(msg_id, message.device_id()));
             message.set_response_required(true);
-        } else if (message.has_register_peer()) {
-            // Register_peer does not check registered_devices
-        } else {
+            message.set_message_id(Get_next_id());
+            ctx.pending_registrations.insert(std::make_pair(message.message_id(), message.device_id()));
+        } else if (message.device_id() != 0) {
+            // This is a message from some device.
             auto it = ctx.registered_devices.find(message.device_id());
             if (it == ctx.registered_devices.end()) {
-                // Not sending telemetry if device is not registered with this connection.
+                // Not sending if device is not registered with this connection.
                 return;
             } else {
                 if (message.has_unregister_device()) {
@@ -671,10 +703,10 @@ Cucs_processor::On_ucs_message(
         // Need this to send the response into the same connection as request.
         auto resp = std::make_shared<ugcs::vsm::proto::Vsm_message>();
         resp->set_message_id(message.message_id());
-        // by default assume failure
-        resp->mutable_device_response()->set_code(ugcs::vsm::proto::STATUS_FAILED);
         resp->set_device_id(dev_id);
         if (dev) {
+            // by default assume failure
+            resp->mutable_device_response()->set_code(ugcs::vsm::proto::STATUS_FAILED);
             // pass response message template to vehicle, default to failed.
             auto completion_handler = Make_callback(
                 &Cucs_processor::Send_ucs_message_ptr,
@@ -688,8 +720,14 @@ Cucs_processor::On_ucs_message(
                 completion_ctx);
             return;     // completion handler will send the response.
         } else {
-            resp->mutable_device_response()->set_code(ugcs::vsm::proto::STATUS_INVALID_SESSION_ID);
-            LOG_ERR("Received message for unknown device %d", dev_id);
+            if (dev_id) {
+                resp->mutable_device_response()->set_code(ugcs::vsm::proto::STATUS_INVALID_SESSION_ID);
+                LOG_ERR("Received message for unknown device %d", dev_id);
+            } else {
+                // Respond OK to any request for the peer itself.
+                resp->mutable_device_response()->set_code(ugcs::vsm::proto::STATUS_OK);
+
+            }
         }
         // Message not passed to vehicle. Send response.
         Send_ucs_message_ptr(stream_id, resp);
@@ -699,7 +737,9 @@ Cucs_processor::On_ucs_message(
             // Call vehicle handler. No completion handler needed.
             dev->On_ucs_message(std::move(message));
         } else {
-            LOG_ERR("Received message for unknown vehicle %d", dev_id);
+            if (dev_id) {
+                LOG_ERR("Received message for unknown vehicle %d", dev_id);
+            } // else ignore messages destined for this peer.
         }
     }
 }

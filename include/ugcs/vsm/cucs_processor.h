@@ -113,6 +113,9 @@ private:
 
         // Map request_id -> device_id used to keep track of pending registrations.
         std::unordered_map<uint32_t, uint32_t> pending_registrations;
+
+        // Last time we have received something form this server.
+        std::chrono::time_point<std::chrono::steady_clock> last_message_time;
     } Server_context;
 
     typedef struct {
@@ -144,6 +147,8 @@ private:
     /** Leave transport detector on when there are no server connections. */
     bool transport_detector_on_when_diconnected = false;
 
+    ugcs::vsm::Timer_processor::Timer::Ptr timer;
+
     virtual void
     On_enable() override;
 
@@ -152,6 +157,9 @@ private:
 
     void
     Process_on_disable(Request::Ptr);
+
+    bool
+    On_timer();
 
     /** Incoming connection from UCS arrived. */
     void

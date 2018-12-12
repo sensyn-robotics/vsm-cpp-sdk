@@ -99,7 +99,6 @@ List of autopilots which can be reported by VSM when registering subsystem of ty
 |---|---|
 ardupilot   |ArdupilotMega, Ardupilot on Pixhawk
 px4         |PX4
-ardrone     |Parrot ArDrone
 dji_a2      |DJI A2
 dji_a3      |DJI A3
 dji_wkm     |DJI Wookong
@@ -109,12 +108,14 @@ dji_phantom2_vp|DJI Phantom2 Vision Plus
 dji_phantom3|DJI Phantom3
 dji_phantom4|DJI Phantom4
 dji_phantom4_pro|DJI Phantom4 Pro
+dji_phantom4_pro_v2|DJI Phantom4 Pro V2.0
 dji_inspire1|DJI Inspire1
 dji_inspire2|DJI Inspire2
 dji_matrice100|DJI Matrice 100
 dji_matrice600|DJI Matrice 600
 dji_ace|DJI ACE
 dji_mavic|DJI Mavic
+dji_spark|DJI Spark
 dji_n3|DJI N3
 microdrones |Microdrones MD200, MD1000
 mikrokopter |Mikrokopter
@@ -152,7 +153,6 @@ generic_vtol        |Generic VTOL capable vehicle
 dji_phantom         |DJI Phantom2/3/4
 dji_matrice         |DJI Matrice 100
 dji_inspire         |DJI Inspire1
-ardrone             |ArDRone
 yuneec_h520         |Yuneec Typhoon H520
 
 */

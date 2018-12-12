@@ -40,8 +40,8 @@ enum Meta_value {
 }
 
 // Built in subsystem types natively supported by UgCS. Used in Register_subsystem.type field.
-// Each subsystem can register a arbitrary set of properties, commands and telemetry. 
-// Each subsystem has a set of properties, commands and telemetry fields which are supported natively by UgCS. 
+// Each subsystem can register a arbitrary set of properties, commands and telemetry.
+// Each subsystem has a set of properties, commands and telemetry fields which are supported natively by UgCS.
 // Refer to UCS-VSM protocol documentation.
 enum Subsystem_type {
     SUBSYSTEM_TYPE_USER = 0;    // Can be used for any other subsystem not mentioned below.
@@ -50,10 +50,11 @@ enum Subsystem_type {
     SUBSYSTEM_TYPE_CAMERA = 3;
     SUBSYSTEM_TYPE_ADSB_TRANSPONDER = 4;
     SUBSYSTEM_TYPE_WINCH = 5;   // Airmast winch
-    SUBSYSTEM_TYPE_DOCK = 6;
+    SUBSYSTEM_TYPE_HANGAR = 6;
     SUBSYSTEM_TYPE_GPR = 7; //  Ground penetrating radar
     SUBSYSTEM_TYPE_ADSB_RECEIVER = 8;    // Onboard adsb receiver for vehicle
     SUBSYSTEM_TYPE_ADSB_VEHICLE = 9;    // Used to report telemetry for devices of type DEVICE_TYPE_ADSB_VEHICLE
+    SUBSYSTEM_TYPE_WEATHER_STATION = 10;
 }
 
 // Built in device types natively supported by UgCS. Used in Register_device.type field.
@@ -112,6 +113,13 @@ enum Autopilot_status {
     AUTOPILOT_STATUS_ACTIVE = 1;    // Vehicle is active, airborne
     AUTOPILOT_STATUS_CRITICAL = 2;  // Vehicle is in critical state, failsafe is on
     AUTOPILOT_STATUS_EMERGENCY = 3; // Vehicle is in emergency or crashed
+}
+
+enum Dock_part_status {
+    DOCK_PART_OPENED = 0;
+    DOCK_PART_CLOSED = 1;
+    DOCK_PART_OPENING = 2;
+    DOCK_PART_CLOSING = 3;
 }
 
 // These types match the Type Code/Emitter Category byte of ADSB message.
@@ -321,6 +329,16 @@ enum Field_semantic {
 
     // Time since Unix epoch (1970-01-01T00:00:00Z), int64, milliseconds
     FIELD_SEMANTIC_TIMESTAMP = 37;
+
+	// Temperature, celsius, numeric
+    FIELD_SEMANTIC_TEMPERATURE = 38;
+
+	// Humidity, percentage, numeric, [0..100]
+    FIELD_SEMANTIC_HUMIDITY = 39;
+
+	// Precipitation, mm/hour, numeric, [0,2..150]
+    FIELD_SEMANTIC_PRECIPITATION = 42;
+
 
     // Generic types used for user-defined telemetry fields.
 

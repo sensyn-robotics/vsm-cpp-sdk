@@ -34,7 +34,10 @@ enum {
     /** @ref System_id value denoting an unknown system, or all systems
      * depending on context.
      */
-    SYSTEM_ID_NONE = 0
+    SYSTEM_ID_NONE = 0,
+
+    /** Special value representing any Mavlink system id. */
+    SYSTEM_ID_ANY = -1
 };
 
 static constexpr size_t MAVLINK_1_HEADER_LEN = 6;
@@ -441,6 +444,8 @@ protected:
     virtual internal::Field_descriptor *
     Get_fields() const = 0;
 };
+
+typedef std::vector<Payload_base::Ptr> Payload_list;
 
 /** Generalized MAVLink message payload.
  * @param TData Structure for payload data.

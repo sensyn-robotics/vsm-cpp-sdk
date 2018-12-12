@@ -51,7 +51,10 @@ public:
      * this vehicle. It is recommended to leave this value as default, i.e.
      * "true".
      */
-    Vehicle(proto::Device_type type = proto::DEVICE_TYPE_VEHICLE, bool create_thread = true);
+    Vehicle(
+        proto::Device_type type = proto::DEVICE_TYPE_VEHICLE,
+        Request_processor::Ptr processor = nullptr,
+        Request_completion_context::Ptr completion_ctx = nullptr);
 
     /** Make sure class is polymorphic. */
     virtual
@@ -204,6 +207,7 @@ protected:
     Vsm_command::Ptr c_get_native_route = nullptr;
     Vsm_command::Ptr c_set_relative_heading = nullptr;
     Vsm_command::Ptr c_write_parameter = nullptr;
+    Vsm_command::Ptr c_mission_clear = nullptr;
 
     Vsm_command::Ptr c_wait = nullptr;
     Vsm_command::Ptr c_move = nullptr;

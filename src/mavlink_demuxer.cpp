@@ -71,31 +71,31 @@ Mavlink_demuxer::Demux_try(
         uint8_t component_id,
         uint32_t request_id)
 {
+    bool processed = false;
     /* Try exact match first. */
     if (Demux_try_one(buffer, message_id, system_id, component_id,
             system_id, component_id, request_id)) {
-        return true;
+        processed = true;
     }
 
     /* Try all components for specific system. */
     if (Demux_try_one(buffer, message_id, system_id, COMPONENT_ID_ANY,
             system_id, component_id, request_id)) {
-        return true;
+        processed = true;
     }
 
     /* Try specific component for any system. */
     if (Demux_try_one(buffer, message_id, SYSTEM_ID_ANY, component_id,
             system_id, component_id, request_id)) {
-        return true;
+        processed = true;
     }
 
     /* Finally try any system and any component. */
     if (Demux_try_one(buffer, message_id, SYSTEM_ID_ANY, COMPONENT_ID_ANY,
             system_id, component_id, request_id)) {
-        return true;
+        processed = true;
     }
-
-    return false;
+    return processed;
 }
 
 bool

@@ -49,6 +49,7 @@ By registering command from this list VSM notifies the UgCS that vehicle is capa
 |[land_command](@ref c_land_command) | FC | - | + | Land command
 |[land_mission](@ref c_land_mission)| FC | + | - | Landing waypoint |
 |[manual](@ref c_manual) | FC | - | + | Enable manual control mode
+|[mission_clear](@ref c_mission_clear) | FC | - | + | Delete the route from vehicle
 |[mission_pause](@ref c_mission_pause) | FC | - | + | Mission can be paused from client
 |[mission_resume](@ref c_mission_resume) | FC | - | + | Mission can be resumed from client
 |[mission_upload](@ref c_mission_upload) | FC | - | + | Vehicle supports mission flight. Can contain commands marked here as available in mission.
@@ -63,7 +64,7 @@ By registering command from this list VSM notifies the UgCS that vehicle is capa
 |[set_heading](@ref c_set_heading)| FC | + | - | Set vehicle heading|
 |[set_home](@ref c_set_home)| FC | + | - | Specify Home location|
 |[set_parameter](@ref c_set_parameter) | FC, ADSB | + | + | Vehicle configuration. Contains a list of parameter definitions which can be set for the vehicle.
-|[set_poi](@ref c_set_poi)| FC | + | - | Set Point Of Interest|
+|[set_poi](@ref c_set_poi)| FC | + | + | Set Point Of Interest|
 |[set_position_offset](@ref c_set_position_offset) | FC | - | + | Set position offset of vehicle (i.e. moving relatively to current position)
 |[set_relative_heading](@ref c_set_relative_heading) | FC | - | + | Set heading of vehicle by turning relatively to current heading
 |[set_servo](@ref c_set_servo) | FC | + | + | Set servo to given PWM value
@@ -315,6 +316,14 @@ Parameters
 Command ID: "manual"
 
 Description: Put vehicle in MANUAL control mode. Vehicle can be controlled via RC transmitter.
+
+There are no parameters for this command.
+
+@subsection c_mission_clear Delete route from vehicle
+
+Command ID: "mission_clear"
+
+Description: Deletes the current route from vehuicle.
 
 There are no parameters for this command.
 

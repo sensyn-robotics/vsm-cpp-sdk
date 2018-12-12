@@ -103,6 +103,9 @@ public:
      * # for CAN bus connections:
      * connection.can.\<conn_id\>.name = \<can interface name\>
      *
+     * # for pipe connections:
+     * connection.pipe.\<conn_id\>.name = \<pipe name\>
+     *
      *
      * Example ardupilot config file for linux:
      *
@@ -186,6 +189,7 @@ public:
             UDP_IN_ANY,
             UDP_OUT,
             PROXY,  // outgoing TCP connection to a vehicle proxy.
+            PIPE,
             CAN     // can bus
         } Type;
 
@@ -222,6 +226,9 @@ public:
 
         void
         Open_serial(bool ok_to_open);
+
+        void
+        Open_pipe();
 
         void
         Ip_connected(
@@ -347,8 +354,9 @@ private:
             int retry_timeout);
 
     void
-    Add_can_detector(
-            const std::string can_interface,
+    Add_file_detector(
+            const std::string name,
+            Port::Type type,
             Connect_handler,
             Request_processor::Ptr,
             Request::Ptr);

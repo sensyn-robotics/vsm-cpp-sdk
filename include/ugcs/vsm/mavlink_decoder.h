@@ -10,6 +10,8 @@
 #include <ugcs/vsm/callback.h>
 #include <ugcs/vsm/mavlink.h>
 
+#include <unordered_map>
+
 #ifndef _UGCS_VSM_MAVLINK_DECODER_H_
 #define _UGCS_VSM_MAVLINK_DECODER_H_
 
@@ -53,29 +55,28 @@ public:
 
     /** Decoder statistics. */
     struct Stats {
-        /** Messages processed by registered handler. */
-        uint64_t handled;
-        /** Messages without handler, dropped. */
-        uint64_t no_handler;
-        /** Messages with wrong checksum. */
-        uint64_t bad_checksum;
-        /** Messages with wrong length, but correct checksum. */
-        uint64_t bad_length;
+        /** Messages processed by registered handler. Total and per system_id. */
+        uint64_t handled = 0;
+        /** Messages without handler, dropped. Total and per system_id. */
+        uint64_t no_handler = 0;
+        /** Messages with wrong checksum. Only total for the connection is counted. */
+        uint64_t bad_checksum = 0;
+        /** Messages with wrong length, but correct checksum. Total and per system_id. */
+        uint64_t bad_length = 0;
         /** Messages with unknown id. Note that checksum is not verified for
-         * such messages.
+         * such messages. Only total for the connection is counted.
          */
-        uint64_t unknown_id;
-        /** Total received bytes, including any error or not handled messages. */
-        uint64_t bytes_received;
+        uint64_t unknown_id = 0;
+        /** Total received bytes, including any error or not handled messages. Only total for the connection is counted. */
+        uint64_t bytes_received = 0;
         /** Number of STX bytes found during decoding, i.e. how many times packet
-         * decode was tried to be started. */
-        uint64_t stx_syncs;
+         * decode was tried to be started. Only total for the connection is counted. */
+        uint64_t stx_syncs = 0;
     };
 
 
     /** Default constructor. */
     Mavlink_decoder():
-        stats(),
         packet_buf(ugcs::vsm::Io_buffer::Create())
     {
     }
@@ -121,6 +122,7 @@ public:
 
         while (true) {
             size_t buffer_len = packet_buf->Get_length();
+            stats[mavlink::SYSTEM_ID_ANY].bytes_received += buffer_len;
             if (state == State::STX) {
                 size_t len_skipped = 0;
                 if (buffer_len < mavlink::MAVLINK_1_MIN_FRAME_LEN) {
@@ -134,7 +136,7 @@ public:
                     if (*data == mavlink::START_SIGN) {
                         // found preamble. Start receiving payload.
                         state = State::VER1;
-                        stats.stx_syncs++;
+                        stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
                         // slice off the preamble.
                         packet_buf = packet_buf->Slice(1);
                         break;
@@ -142,7 +144,7 @@ public:
                     if (*data == mavlink::START_SIGN2) {
                         // found preamble. Start receiving payload.
                         state = State::VER2;
-                        stats.stx_syncs++;
+                        stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
                         // slice off the preamble.
                         packet_buf = packet_buf->Slice(1);
                         break;
@@ -194,7 +196,7 @@ public:
         state = State::STX;
         packet_buf = ugcs::vsm::Io_buffer::Create();
         if (reset_stats) {
-            stats = Stats();
+            stats.clear();
         }
     }
 
@@ -208,11 +210,22 @@ public:
         return next_read_len;
     }
 
-    /** Get read-only access to statistics. */
+    /** Get read-only access to statistics.
+     * Supports multiple system_ids on one connection.
+     * @param system_id system id to get statistics for. Use mavlink::SYSTEM_ID_ANY to get total for all system_ids.
+     * @return Readonly reference to the Stats structure for given system_id.
+     * */
     const Mavlink_decoder::Stats &
-    Get_stats() const
+    Get_stats(int system_id)
     {
-        return stats;
+        return stats[system_id];
+    }
+
+    /** Get read-only access to common statistics. */
+    const Mavlink_decoder::Stats &
+    Get_common_stats()
+    {
+        return stats[mavlink::SYSTEM_ID_ANY];
     }
 
 private:
@@ -251,7 +264,7 @@ private:
         if (    !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::Extension::Get())
             &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::apm::Extension::Get())
             &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::sph::Extension::Get())) {
-            stats.unknown_id++;
+            stats[mavlink::SYSTEM_ID_ANY].unknown_id++;
             // LOG_DEBUG("Unknown Mavlink message id: %d (%X)", msg_id, msg_id);
             return false;
         }
@@ -272,19 +285,22 @@ private:
              */
             if (handler) {
                 handler(Io_buffer::Create(*buffer, header_len, payload_len), msg_id, system_id, component_id, seq);
-                stats.handled++;
+                stats[system_id].handled++;
+                stats[mavlink::SYSTEM_ID_ANY].handled++;
             } else {
-                stats.no_handler++;
+                stats[system_id].no_handler++;
+                stats[mavlink::SYSTEM_ID_ANY].no_handler++;
                 LOG_DEBUG("Mavlink message %d handler not registered.", msg_id);
             }
             return true;
         } else {
-            if (!cksum_ok) {
-                stats.bad_checksum++;
-            } else {
-                stats.bad_length++;
+            if (cksum_ok) {
+                stats[system_id].bad_length++;
+                stats[mavlink::SYSTEM_ID_ANY].bad_length++;
                 LOG_DEBUG("Mavlink payload length mismatch, recv=%d wanted=%d.",
                     payload_len, crc_byte_len_pair.second);
+            } else {
+                stats[mavlink::SYSTEM_ID_ANY].bad_checksum++;
             }
             return false;
         }
@@ -301,7 +317,7 @@ private:
     Raw_data_handler data_handler;
 
     /** Statistics. */
-    Stats stats;
+    std::unordered_map<int, Stats> stats;
 
     /** Packet buffer. */
     ugcs::vsm::Io_buffer::Ptr packet_buf;

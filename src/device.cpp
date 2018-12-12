@@ -26,19 +26,26 @@ Ucs_request::Complete(ugcs::vsm::proto::Status_code s, const std::string& descri
     }
 }
 
-Device::Device(proto::Device_type type, bool create_thread): device_type(type)
+Device::Device(
+    proto::Device_type type,
+    Request_processor::Ptr proc,
+    Request_completion_context::Ptr comp_ctx):
+        device_type(type),
+        begin_of_epoch(std::chrono::system_clock::now())
 {
-    completion_ctx = Request_completion_context::Create("Vehicle completion");
-    processor = Request_processor::Create("Vehicle processor");
-    if (create_thread) {
+    if (proc && comp_ctx) {
+        processor = proc;
+        completion_ctx = comp_ctx;
+    } else if (proc == nullptr && comp_ctx == nullptr) {
+        processor = Request_processor::Create("Device processor");
+        completion_ctx = Request_completion_context::Create("Device completion");
         worker = Request_worker::Create(
-                "Vehicle worker",
-                std::initializer_list<Request_container::Ptr>(
-                        {completion_ctx, processor}));
+            "Vehicle worker",
+            std::initializer_list<Request_container::Ptr>(
+                {completion_ctx, processor}));
     } else {
-        worker = nullptr;
+        VSM_EXCEPTION(Internal_error_exception, "Both contexts must be provided");
     }
-    begin_of_epoch = std::chrono::system_clock::now();
 }
 
 Device::~Device()
@@ -55,9 +62,9 @@ void
 Device::Enable()
 {
     ASSERT(!is_enabled);
-    completion_ctx->Enable();
-    processor->Enable();
     if (worker) {
+        completion_ctx->Enable();
+        processor->Enable();
         worker->Enable();
     }
     is_enabled = true;
@@ -93,9 +100,9 @@ Device::Disable()
                 req));
     processor->Submit_request(req);
     req->Wait_done(false);
-    completion_ctx->Disable();
-    processor->Disable();
     if (worker) {
+        completion_ctx->Disable();
+        processor->Disable();
         worker->Disable();
     }
     completion_ctx = nullptr;
@@ -114,14 +121,6 @@ Request_processor::Ptr
 Device::Get_processing_ctx()
 {
     return processor;
-}
-
-void
-Device::Process_requests()
-{
-    ASSERT(!worker);
-    completion_ctx->Process_requests();
-    processor->Process_requests();
 }
 
 void
@@ -212,7 +211,7 @@ Device::Report_progress(Ucs_request::Ptr request, float progress, const std::str
 }
 
 void
-Device::Commit_to_ucs()
+Device::Commit_to_ucs(bool log_message)
 {
     if (!my_handle) {
         // Do not send any telemetry if not registered thus
@@ -249,6 +248,9 @@ Device::Commit_to_ucs()
         ||  report->command_availability_size()
         ||  report->status_messages_size())
     {
+        if (log_message) {
+            LOG("%s", msg->DebugString().c_str());
+        }
         Send_ucs_message(msg);
     }
 }

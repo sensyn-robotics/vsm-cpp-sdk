@@ -17,8 +17,11 @@ using namespace ugcs::vsm;
 
 std::hash<Vehicle*> Vehicle::Hasher::hasher;
 
-Vehicle::Vehicle(proto::Device_type type, bool create_thread):
-    Device(type, create_thread)
+Vehicle::Vehicle(
+    proto::Device_type type,
+    Request_processor::Ptr proc,
+    Request_completion_context::Ptr comp):
+    Device(type, proc, comp)
 {
     Property::Ptr prop;
 
@@ -604,7 +607,7 @@ Vehicle::Set_frame_type(const std::string& s)
 const std::string&
 Vehicle::Get_frame_type() const
 {
-    return model_name;
+    return frame_type;
 }
 
 void

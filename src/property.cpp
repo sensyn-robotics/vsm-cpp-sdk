@@ -76,6 +76,12 @@ Property::Get_default_semantic(const std::string& name)
         return proto::FIELD_SEMANTIC_STRING;
     } else if (name == "time") {
         return proto::FIELD_SEMANTIC_TIMESTAMP;
+    } else if (name == "humidity") {
+        return proto::FIELD_SEMANTIC_HUMIDITY;
+    } else if (name == "temperature") {
+        return proto::FIELD_SEMANTIC_TEMPERATURE;
+    } else if (name == "precipitation") {
+        return proto::FIELD_SEMANTIC_PRECIPITATION;
     } else {
         return proto::FIELD_SEMANTIC_DEFAULT;
     }
@@ -118,6 +124,9 @@ Property::Get_type_from_semantic(proto::Field_semantic sem)
     case proto::FIELD_SEMANTIC_GROUND_ELEVATION:
     case proto::FIELD_SEMANTIC_LOITER_RADIUS:
     case proto::FIELD_SEMANTIC_CAPACITY_LEVEL:
+    case proto::FIELD_SEMANTIC_PRECIPITATION:
+    case proto::FIELD_SEMANTIC_TEMPERATURE:
+    case proto::FIELD_SEMANTIC_HUMIDITY:
         return Property::VALUE_TYPE_FLOAT;
     case proto::FIELD_SEMANTIC_SATELLITE_COUNT:
     case proto::FIELD_SEMANTIC_ICAO:
@@ -669,7 +678,7 @@ Property::Is_changed()
         // timeout specified and value is still present.
         if ((std::chrono::system_clock::now() - update_time) > timeout) {
             // value expired, set to na.
-            LOG("Setting %d to na", field_id);
+            // LOG("Setting %d to na", field_id);
             Set_value_na();
             return true;
         }
@@ -880,3 +889,60 @@ Property::Fields_are_equal(const proto::Field_value& val1, const proto::Field_va
     return true;
 }
 
+bool
+Property::Is_equal(const Property& p)
+{
+    if (value_spec != p.value_spec || type != p.type) {
+        return false;
+    }
+    switch (value_spec) {
+    case VALUE_SPEC_NA:
+        return true;
+    case VALUE_SPEC_REGULAR:
+        switch (type) {
+        case VALUE_TYPE_DOUBLE:
+        case VALUE_TYPE_FLOAT:
+            return double_value == p.double_value;
+        case VALUE_TYPE_ENUM:
+        case VALUE_TYPE_INT:
+            return int_value == p.int_value;
+        case VALUE_TYPE_BOOL:
+            return bool_value == p.bool_value;
+        case VALUE_TYPE_STRING:
+            return string_value == p.string_value;
+        case VALUE_TYPE_NONE:
+            return true;
+        case VALUE_TYPE_LIST:
+            if (list_value.values_size() == p.list_value.values_size()) {
+                for (int i = 0; i < list_value.values_size(); i++) {
+                    if (!Fields_are_equal(list_value.values(i), p.list_value.values(i))) {
+                        return false;
+                    }
+                }
+            } else {
+                return false;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+bool
+Property_list::Is_equal(const Property_list& plist)
+{
+    if (size() != plist.size()) {
+        return false;
+    }
+    for (auto&f : plist) {
+        auto it = find(f.first);
+        if (it == plist.end()) {
+            return false;
+        } else {
+            if (!f.second->Is_equal(*it->second)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}

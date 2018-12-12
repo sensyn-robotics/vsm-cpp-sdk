@@ -62,7 +62,7 @@ Registering different semantic for these values will lead to undesired results.
 | is_armed | FIELD_SEMANTIC_BOOL | FC |  |
 | latitude | FIELD_SEMANTIC_LATITUDE | FC |  |
 | longitude | FIELD_SEMANTIC_LONGITUDE | FC |  |
-| main_power_level | FIELD_SEMANTIC_CAPACITY_LEVEL | FC | 0..1 |
+| remaining_power_level | FIELD_SEMANTIC_CAPACITY_LEVEL | FC | 0..1 |
 | main_voltage | FIELD_SEMANTIC_MAIN_VOLTAGE  |FC |  |
 | motor_pwm_1 | FIELD_SEMANTIC_NUMERIC | FC |  |
 | motor_pwm_2 | FIELD_SEMANTIC_NUMERIC | FC |  |

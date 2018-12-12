@@ -101,9 +101,16 @@ Transport_detector::Add_detector(
         properties = Properties::Get_instance();
     }
 
-    static constexpr int POS_TYPE = 1;
-    static constexpr int POS_ID = 2;
-    static constexpr int POS_NAME = 3;
+    int count = 0;
+    std::string::size_type start_pos = 0;
+    while (std::string::npos != (start_pos = prefix.find(tokenizer, start_pos))) {
+        ++start_pos;
+        ++count;
+    }
+
+    const int POS_TYPE = count + 1;
+    const int POS_ID = count + 2;
+    const int POS_NAME = count + 3;
 
     // load port data
     for (auto it = properties->begin(prefix, tokenizer); it != properties->end(); it++)
@@ -235,9 +242,23 @@ Transport_detector::Add_detector(
                 auto iface = properties->Get(vpref + tokenizer + "name");
                 Request::Ptr request = Request::Create();
                 auto proc_handler = Make_callback(
-                    &Transport_detector::Add_can_detector,
+                    &Transport_detector::Add_file_detector,
                     Shared_from_this(),
                     iface,
+                    Port::CAN,
+                    handler,
+                    context,
+                    request);
+                request->Set_processing_handler(proc_handler);
+                Submit_request(request);
+            } else if (it[POS_TYPE] == "pipe" && it[POS_NAME] == "name") {
+                auto iface = properties->Get(vpref + tokenizer + "name");
+                Request::Ptr request = Request::Create();
+                auto proc_handler = Make_callback(
+                    &Transport_detector::Add_file_detector,
+                    Shared_from_this(),
+                    iface,
+                    Port::PIPE,
                     handler,
                     context,
                     request);
@@ -384,18 +405,19 @@ Transport_detector::Add_ip_detector_impl(
 }
 
 void
-Transport_detector::Add_can_detector(
-        const std::string can_interface,
-        Connect_handler handler,
-        Request_processor::Ptr ctx,
-        Request::Ptr request)
+Transport_detector::Add_file_detector(
+    const std::string can_interface,
+    Port::Type type,
+    Connect_handler handler,
+    Request_processor::Ptr ctx,
+    Request::Ptr request)
 {
     // Put it directly in active config.
     std::string name;
     auto it = active_config.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(can_interface),
-            std::forward_as_tuple(can_interface, Port::CAN, worker)).first;
+            std::forward_as_tuple(can_interface, type, worker)).first;
     it->second.Add_detector(0, handler, ctx);
     request->Complete();
 }
@@ -703,6 +725,63 @@ Transport_detector::Port::Open_serial(bool ok_to_open)
 }
 
 void
+Transport_detector::Port::Open_pipe()
+{
+    if (current_detector != detectors.end()) {
+        try {
+            stream = nullptr;
+            stream = File_processor::Get_instance()->Open(name, "r+", false);
+            LOG("Opened pipe %s", name.c_str());
+            /* XXX Workaround against submitting into
+             * disabled context. Full redesign is needed to fix it properly.
+             */
+            auto ctx_lock = current_detector->Get_ctx()->Get_waiter()->Lock_notify();
+            if (current_detector->Get_ctx()->Is_enabled()) {
+                Request::Ptr request = Request::Create();
+                /* temporary handler to haul parameters to user context.
+                 * We cannot call handler->Set_args() here directly because it is possible
+                 * to overwrite other request which is on the way to get processed in
+                 * user provided context (ctx)
+                 * So, we pass our arguments along with the callback and let the user context
+                 * call Set_args() just before invocation. This works assuming user context
+                 * is executing in one thread only.
+                 */
+                Connect_handler h = current_detector->Get_handler();
+                auto temp_handler = Make_callback(
+                    [h](std::string name, Io_stream::Ref stream,
+                        Request::Ptr req)
+                        {
+                            h.Set_args(name, 0, nullptr, stream);
+                            h.Invoke();
+                            req->Complete();
+                        },
+                        name,
+                        stream,
+                        request);
+                request->Set_processing_handler(temp_handler);
+                current_detector->Get_ctx()->Submit_request_locked(
+                    request,
+                    std::move(ctx_lock));
+            } else {
+                /* Simulate jump to next detector. */
+                LOG_INFO("Workaround for disabled context [%s] in "
+                        "transport detector used (serial)!",
+                        current_detector->Get_ctx()->Get_name().c_str());
+                ctx_lock.Unlock();
+                stream->Close();
+            }
+
+            current_detector++;
+            state = CONNECTED;
+            return; // Success.
+        } catch (const Exception &) {
+            LOG("Open failed for pipe %s", name.c_str());
+        }
+    }
+    state = NONE;
+}
+
+void
 Transport_detector::Port::Reopen_and_call_next_handler()
 {
     if (stream) {
@@ -741,12 +820,12 @@ Transport_detector::Port::Reopen_and_call_next_handler()
     case TCP_OUT:
         socket_connecting_op.Abort();
         socket_connecting_op =
-                Socket_processor::Get_instance()->Connect(
-                peer_addr,
-                Make_socket_connect_callback(
-                        &Transport_detector::Port::Ip_connected,
-                        this),
-                worker);
+            Socket_processor::Get_instance()->Connect(
+            peer_addr,
+            Make_socket_connect_callback(
+                &Transport_detector::Port::Ip_connected,
+                this),
+            worker);
         socket_connecting_op.Timeout(Transport_detector::TCP_CONNECT_TIMEOUT);
         break;
     case TCP_IN:
@@ -825,13 +904,16 @@ Transport_detector::Port::Reopen_and_call_next_handler()
     case CAN:
         socket_connecting_op.Abort();
         socket_connecting_op =
-                Socket_processor::Get_instance()->Bind_can(
-                name,
-                std::vector<int>(),
-                Make_socket_listen_callback(
-                    &Transport_detector::Port::Ip_connected,
-                    this),
-                worker);
+            Socket_processor::Get_instance()->Bind_can(
+            name,
+            std::vector<int>(),
+            Make_socket_listen_callback(
+                &Transport_detector::Port::Ip_connected,
+                this),
+            worker);
+        break;
+    case PIPE:
+        Open_pipe();
         break;
     default:
         VSM_EXCEPTION(Internal_error_exception, "Reopen_and_call_next_handler: unsupported port type %d", type);
@@ -976,19 +1058,19 @@ Transport_detector::Port::Ip_connected(
              * is executing in one thread only.
              */
             auto temp_handler = Make_callback(
-                    [](std::string peer, Io_stream::Ref stream,
-                            Socket_address::Ptr peer_addr, Connect_handler h,
-                            Request::Ptr request)
-                            {
-                h.Set_args(peer, 0, peer_addr, stream);
-                h.Invoke();
-                request->Complete();
-                            },
-                            address,
-                            new_stream,
-                            Socket_address::Create(peer_addr),
-                            handler,
-                            request);
+                [](std::string peer, Io_stream::Ref stream,
+                    Socket_address::Ptr peer_addr, Connect_handler h,
+                    Request::Ptr request)
+                    {
+                        h.Set_args(peer, 0, peer_addr, stream);
+                        h.Invoke();
+                        request->Complete();
+                    },
+                address,
+                new_stream,
+                Socket_address::Create(peer_addr),
+                handler,
+                request);
             request->Set_processing_handler(temp_handler);
             ctx->Submit_request_locked(request, std::move(ctx_lock));
         } else {
@@ -1029,9 +1111,9 @@ Transport_detector::Port::Protocol_not_detected(Io_stream::Ref str)
 
 void
 Transport_detector::Port::Add_detector(
-        int baud,
-        Connect_handler handler,
-        Request_processor::Ptr ctx)
+    int baud,
+    Connect_handler handler,
+    Request_processor::Ptr ctx)
 {
     // do naive search over the existing detector list to avoid duplicate detectors
     // when several configured regexps match the same real port name

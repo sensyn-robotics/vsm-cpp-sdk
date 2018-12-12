@@ -46,7 +46,15 @@ class Device: public std::enable_shared_from_this<Device>
     DEFINE_COMMON_CLASS(Device, Device)
 
 public:
-    Device(proto::Device_type type, bool create_thread = true);
+    // Constructor for device with provided processor and completion context.
+    // If processor and completion_ctx are not specified then
+    // Device will create it's own contexts and execute them in separate thread.
+    // If processor and completion_ctx are specified then
+    // Device will use provided contexts and will not create the thread.
+    Device(
+        proto::Device_type type,
+        Request_processor::Ptr processor = nullptr,
+        Request_completion_context::Ptr completion_ctx = nullptr);
 
     typedef Callback_proxy<
             void,
@@ -77,14 +85,6 @@ public:
 
     /** Disable copying. */
     Device(const Device &) = delete;
-
-    /** Process requests assigned to vehicle in user thread, i.e. the thread
-     * which calls this method. Supposed to be called only when vehicle is
-     * created without its own thread.
-     *
-     */
-    void
-    Process_requests();
 
     /**
      * Command has arrived from UCS and should be executed by the vehicle.
@@ -211,17 +211,21 @@ protected:
     // add Commit_to_ucs() before each return.
     #define CREATE_COMMIT_SCOPE auto auto_device_commit_scope = Commit_scope(*this)
 
+    // Set log_message to true to see what gets sent to the server.
     void
-    Commit_to_ucs();
+    Commit_to_ucs(bool log_message = false);
 
-    Request_completion_context::Ptr completion_ctx;
+    const proto::Device_type device_type;
+
     Request_processor::Ptr processor;
+    Request_completion_context::Ptr completion_ctx;
+
     std::chrono::time_point<std::chrono::system_clock> begin_of_epoch;
 
     std::vector<Subsystem::Ptr> subsystems;
 
 private:
-    Request_worker::Ptr worker;
+    Request_worker::Ptr worker = nullptr;
 
     // Status messages to be sent to ucs.
     std::list<std::string> device_status_messages;
@@ -230,8 +234,6 @@ private:
 
     /** Is vehicle enabled. */
     bool is_enabled = false;
-
-    const proto::Device_type device_type;
 
     std::unordered_map<std::string, Property::Ptr> properties;
 };

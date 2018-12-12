@@ -200,6 +200,9 @@ public:
     bool
     Fields_are_equal(const proto::Field_value& val1, const proto::Field_value& val2);
 
+    bool
+    Is_equal(const Property&);
+
 private:
     void
     Write_value(proto::Field_value* field);
@@ -256,6 +259,10 @@ public:
         }
         return false;
     }
+
+    // true if property all values are the same in both lists.
+    bool
+    Is_equal(const Property_list&);
 };
 
 

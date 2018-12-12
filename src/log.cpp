@@ -274,14 +274,14 @@ Log::Write_custom_message(int thread_id, Log::Level level, const char *msg,
     char ts_buf[128];
     auto now = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(now);
-    std::strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
+    std::strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S", std::gmtime(&t));
 
     auto duration = now.time_since_epoch();
     uint64_t ms =
             std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() % 1000;
 
     for (;;) {
-        ssize_t res = std::fprintf(custom_log_file, "%s.%03u - <%s> %d ",
+        ssize_t res = std::fprintf(custom_log_file, "%s.%03u UTC %s %d ",
                 ts_buf,
                 static_cast<uint32_t>(ms), /* Remainder of 1000. */
                 Log::Get_level_str(level),
@@ -338,14 +338,14 @@ Log::Write_console_message_v_inst(int thread_id, Level level, const char *msg,
     char ts_buf[128];
     auto now = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(now);
-    std::strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
+    std::strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S", std::gmtime(&t));
 
     auto duration = now.time_since_epoch();
     uint32_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() % 1000;
 
     std::va_list con_args;
     va_copy(con_args, args);
-    Printf_utf8("%s.%03u - <%s> %d ", ts_buf, ms, Get_level_str(level), thread_id);
+    Printf_utf8("%s.%03u UTC %s %d ", ts_buf, ms, Get_level_str(level), thread_id);
     Vprintf_utf8(msg, con_args);
     std::cout << std::endl;
     fflush(stdout);
@@ -379,7 +379,7 @@ Log::Do_cleanup(int thread_id)
     std::time_t t = std::chrono::system_clock::to_time_t(now);
 
     // If you change this pattern then you fix the Remove_old_log_files, too.
-    std::strftime(ts_buf, sizeof(ts_buf), LOG_FILE_ROTATOR_SUFFIX_FORMAT, std::localtime(&t));
+    std::strftime(ts_buf, sizeof(ts_buf), LOG_FILE_ROTATOR_SUFFIX_FORMAT, std::gmtime(&t));
 
     std::string base_name = custom_log_file_name + ts_buf;
 

@@ -2,7 +2,7 @@
 # (vsms, unittests, ...)
 
 set(SDK_VERSION_MAJOR 3)
-set(SDK_VERSION_MINOR 0)
+set(SDK_VERSION_MINOR 1)
 set(SDK_VERSION_BUILD "dev")
 
 # Convert list to space-separated string.

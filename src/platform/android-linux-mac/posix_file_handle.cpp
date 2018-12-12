@@ -260,6 +260,9 @@ Posix_file_handle::Read_complete_cbk()
 
     Io_result result;
     if (size < 0 || error != 0) {
+        if (error == EAGAIN) {
+            return;
+        }
         errno = error;
         LOG_ERROR("Read failed (async): %s", Log::Get_system_error().c_str());
         result = Map_error(error);

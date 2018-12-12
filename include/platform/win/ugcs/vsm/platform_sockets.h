@@ -15,10 +15,10 @@
 #ifndef PLATFORM_SOCKETS_H_
 #define PLATFORM_SOCKETS_H_
 
-// default value for FD_SETSIZE in winsock is 64.  
-// it's too small if we are oprating large fleets.  
-#define FD_SETSIZE 1024  
-  
+// default value for FD_SETSIZE in winsock is 64. 
+// it's too small if we are oprating large fleets. 
+#define FD_SETSIZE 1024 
+ 
 // Windows specific headers for socket stuff
 #include <winsock2.h>
 #include <ws2tcpip.h> // for socklen_t
