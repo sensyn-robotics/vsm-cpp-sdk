@@ -149,6 +149,7 @@ protected:
     Property::Ptr t_longitude = nullptr;
     Property::Ptr t_altitude_raw = nullptr;
     Property::Ptr t_altitude_amsl = nullptr;
+    Property::Ptr t_altitude_agl = nullptr;
     Property::Ptr t_ground_speed = nullptr;
     Property::Ptr t_air_speed = nullptr;
     Property::Ptr t_course = nullptr;
@@ -472,6 +473,10 @@ private:
 
     /** Frame type */
     std::string frame_type;
+
+    /** Vehicle serial prefix
+     * Used as prefix serial (if reported) for all vehicles connected to this VSM. */
+    std::string vehicle_serial_prefix;
 };
 
 /** Convenience vehicle logging macro. Vehicle should be given by value (no

@@ -120,82 +120,70 @@ public:
         return M_PI / latlen / 180.0;
     }
 
-     /** One meter expressed in longitude radians */
-     double
-     Long_meter() const
-     {
-         // XXX valid only for WGS-84
-         static constexpr double P1 = 111412.84;
-         static constexpr double P2 = -93.5;
-         static constexpr double P3 = 0.118;
-         double longlen = P1 * cos(coord.latitude) +
-                          P2 * cos(3.0 * coord.latitude) +
-                          P3 * cos(5.0 * coord.latitude);
+    /** One meter expressed in longitude radians */
+    double
+    Long_meter() const
+    {
+        // XXX valid only for WGS-84
+        static constexpr double P1 = 111412.84;
+        static constexpr double P2 = -93.5;
+        static constexpr double P3 = 0.118;
+        double longlen = P1 * cos(coord.latitude) +
+            P2 * cos(3.0 * coord.latitude) +
+            P3 * cos(5.0 * coord.latitude);
         return M_PI / longlen / 180.0;
-     }
+    }
 
-     /** Get bearing in radians (-PI; +PI) to the target. */
-     double
-     Bearing(const Position &target)
-     {
-         double lat_m = (Lat_meter() + target.Lat_meter()) / 2.0;
-         double long_m = (Long_meter() + target.Long_meter()) / 2.0;
-         double d_lat = (target.coord.latitude - coord.latitude) / lat_m;
-         double d_long = (target.coord.longitude - coord.longitude) / long_m;
-         double d = sqrt(d_lat * d_lat + d_long * d_long);
-         double r = d_lat / d;
-         if (r > 1.0) {
-             r = 1.0;
-         } else if (r < -1.0) {
-             r = -1.0;
-         }
-         double a = std::acos(r);
-         if (d_long < 0) {
-             a = -a;
-         }
-         return a;
-     }
+    /** Get bearing in radians to the target. */
+    double
+    Bearing(const Position &target)
+    {
+        return atan2(
+            cos(target.coord.latitude) * sin(target.coord.longitude - coord.longitude),
+            cos(coord.latitude) * sin(target.coord.latitude) -
+                sin(coord.latitude) * cos(target.coord.latitude) * cos(target.coord.longitude - coord.longitude));
+    }
 
-     /** The Earth's mean radius of curvature (averaging over all directions) at
-      * a latitude of the position.
-      */
-     double
-     Earth_radius() const
-     {
-         static constexpr double n =
-                 Datum::EQUATORIAL_RADIUS * Datum::EQUATORIAL_RADIUS *
-                 Datum::POLAR_RADIUS;
-         double d1 = Datum::EQUATORIAL_RADIUS * std::cos(Get_geodetic().latitude);
-         double d2 = Datum::POLAR_RADIUS * std::sin(Get_geodetic().latitude);
-         return n / (d1 * d1 + d2 * d2);
-     }
+    /** The Earth's mean radius of curvature (averaging over all directions) at
+    * a latitude of the position.
+    */
+    double
+    Earth_radius() const
+    {
+        static constexpr double n =
+            Datum::EQUATORIAL_RADIUS * Datum::EQUATORIAL_RADIUS *
+            Datum::POLAR_RADIUS;
+        double d1 = Datum::EQUATORIAL_RADIUS * std::cos(Get_geodetic().latitude);
+        double d2 = Datum::POLAR_RADIUS * std::sin(Get_geodetic().latitude);
+        return n / (d1 * d1 + d2 * d2);
+    }
 
-     /** Calculate the surface (altitude is not taken into account) distance in
-      * meters between this and given positions using spherical law of cosines
-      * formula and mean Earth radius of curvature between these points.
-      */
-     double
-     Distance(const Position& pos) const
-     {
-         auto p1 = Get_geodetic();
-         auto p2 = pos.Get_geodetic();
-         Position avg(Geodetic_tuple((p1.latitude + p2.latitude) / 2, 0, 0));
-         double acos_arg = std::sin(p1.latitude) * std::sin(p2.latitude) +
-                 std::cos(p1.latitude) * std::cos(p2.latitude) *
-                 std::cos(p2.longitude - p1.longitude);
-         /* It was noticed (at least on Windows builds), that the formula above
-          * might give values which are slightly more than 1 (or less than -1)
-          * due to calculation errors. This happens when coordinates are very
-          * close. Normalize it to be in the range [-1; 1] to avoid NaN result
-          * from acos.
-          */
-         if (acos_arg > 1) {
-             acos_arg = 1;
-         } else if (acos_arg < -1) {
-             acos_arg = -1;
-         }
-         return std::acos(acos_arg) * avg.Earth_radius();
-     }
+    /** Calculate the surface (altitude is not taken into account) distance in
+    * meters between this and given positions using spherical law of cosines
+    * formula and mean Earth radius of curvature between these points.
+    */
+    double
+    Distance(const Position& pos) const
+    {
+        auto p1 = Get_geodetic();
+        auto p2 = pos.Get_geodetic();
+        Position avg(Geodetic_tuple((p1.latitude + p2.latitude) / 2, 0, 0));
+        double acos_arg = std::sin(p1.latitude) * std::sin(p2.latitude) +
+        std::cos(p1.latitude) * std::cos(p2.latitude) *
+        std::cos(p2.longitude - p1.longitude);
+        /* It was noticed (at least on Windows builds), that the formula above
+        * might give values which are slightly more than 1 (or less than -1)
+        * due to calculation errors. This happens when coordinates are very
+        * close. Normalize it to be in the range [-1; 1] to avoid NaN result
+        * from acos.
+        */
+        if (acos_arg > 1) {
+            acos_arg = 1;
+        } else if (acos_arg < -1) {
+            acos_arg = -1;
+        }
+        return std::acos(acos_arg) * avg.Earth_radius();
+    }
 
 private:
     /** Internally stored in geodetic CS. */

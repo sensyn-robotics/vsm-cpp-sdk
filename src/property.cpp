@@ -22,6 +22,8 @@ Property::Get_default_semantic(const std::string& name)
         return proto::FIELD_SEMANTIC_ALTITUDE_AMSL;
     } else if (name == "altitude_raw") {
         return proto::FIELD_SEMANTIC_ALTITUDE_RAW;
+    } else if (name == "altitude_agl") {
+        return proto::FIELD_SEMANTIC_ALTITUDE_AGL;
     } else if (name == "ground_elevation") {
         return proto::FIELD_SEMANTIC_GROUND_ELEVATION;
     } else if (name == "acceptance_radius") {

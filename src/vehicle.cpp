@@ -45,6 +45,7 @@ Vehicle::Vehicle(
     ADD_TS(uplink_present, proto::FIELD_SEMANTIC_BOOL);
     ADD_T(altitude_raw);
     ADD_T(altitude_amsl);
+    ADD_T(altitude_agl);
     ADD_T(air_speed);
     ADD_T(course);
     ADD_T(ground_speed);
@@ -301,6 +302,7 @@ Vehicle::Vehicle(
                     command_try_count);
         }
     }
+
     if (props->Exists("vehicle.command_timeout")) {
         command_timeout =
             std::chrono::milliseconds(
@@ -313,6 +315,10 @@ Vehicle::Vehicle(
                     serial_number.c_str(),
                     command_timeout.count());
         }
+    }
+
+    if (props->Exists("vehicle.serial_prefix")) {
+        vehicle_serial_prefix = props->Get("vehicle.serial_prefix");
     }
 }
 
@@ -587,7 +593,12 @@ Vehicle::Handle_vehicle_request(Vehicle_command_request::Handle)
 void
 Vehicle::Set_serial_number(const std::string& s)
 {
-    Set_property("vehicle_serial", s);
+
+    if (vehicle_serial_prefix.size()) {
+        Set_property("vehicle_serial", vehicle_serial_prefix + s);
+    } else {
+        Set_property("vehicle_serial", s);
+    }
     serial_number = s;
 }
 

@@ -347,10 +347,6 @@ The output is
 
     2013-10-02 17:40:52.873 - <DEBUG> [async_workflow.cpp:312] Request completed, result 20.000000, user param 30
 
-
-@todo Operation_waiter usage
-@todo Requests cancellations
-
 There is the source for all examples in this article: @ref async_workflow.cpp
 
 */
