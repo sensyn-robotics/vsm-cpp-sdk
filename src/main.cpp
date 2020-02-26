@@ -174,7 +174,7 @@ ugcs::vsm::Initialize(const std::string &props_file)
             // ignore parsing errors.
         }
     }
-    LOG_INFO("VSM instance ID=%08X, version=%d.%d.%s",
+    LOG_INFO("VSM instance ID=%08X, SDK version=%d.%d.%s",
         Get_application_instance_id(),
         SDK_VERSION_MAJOR,
         SDK_VERSION_MINOR,

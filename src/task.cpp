@@ -5,6 +5,7 @@
 #include <ugcs/vsm/task.h>
 #include <ugcs/vsm/move_action.h>
 #include <ugcs/vsm/set_home_action.h>
+#include <ugcs/vsm/takeoff_action.h>
 
 using namespace ugcs::vsm;
 
@@ -44,16 +45,26 @@ Task::Get_home_position_impl() const
     bool first_move_found = false;
 
     for (auto& action : actions) {
+        // Looks like that SET_HOME is obsolete on Server since 3.4
         if (action->Get_type() == Action::Type::SET_HOME) {
             Set_home_action::Ptr a = action->Get_action<Action::Type::SET_HOME>();
             pos = &a->home_position;
             elevation = a->elevation;
+            LOG_INFO("Set home from Mission Set Home command. Elevation = %f ", elevation);
             break;
         }
-        if (action->Get_type() == Action::Type::MOVE && !first_move_found) {
+        if ((action->Get_type() == Action::Type::TAKEOFF)  && !first_move_found) {
+            Takeoff_action::Ptr a = action->Get_action<Action::Type::TAKEOFF>();
+            pos = &a->position;
+            elevation = a->elevation;
+            LOG_INFO("Set home from mission Takeoff command. Elevation = %f ", elevation);
+            first_move_found = true;
+        }
+        if ((action->Get_type() == Action::Type::MOVE)  && !first_move_found) {
             Move_action::Ptr a = action->Get_action<Action::Type::MOVE>();
             pos = &a->position;
             elevation = a->elevation;
+            LOG_INFO("Set home from mission first Move command (takeoff cmd is missing). Elevation = %f ", elevation);
             first_move_found = true;
         }
     }

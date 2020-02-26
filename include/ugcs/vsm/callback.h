@@ -86,14 +86,15 @@ template<typename Result>
 class Callback_base {
 public:
     /** Result type. */
-    typedef Result Result_t;
+    using Result_t = Result;
 
     /** Pointer class type. It is callable for convenient callback invocation.*/
     template <class Callback = Callback_base>
     class Ptr: public std::shared_ptr<Callback> {
+
     public:
         /** Type of target callback. */
-        typedef Callback Callback_type;
+        using Callback_type = Callback;
 
         /** Constructor accepts the same arguments as std::shared_ptr. */
         template <typename... Args>
@@ -118,6 +119,9 @@ public:
     /** Execute callback. */
     virtual Result_t
     operator()() = 0;
+
+    virtual
+    ~Callback_base() = default;
 };
 
 #ifndef NO_DOXYGEN
@@ -143,7 +147,7 @@ template<int... s>
 struct Sequence_generator<0, s...>
 {
     /** Generated sequence type. */
-    typedef Sequence<s...> Sequence_type;
+    using Sequence_type = Sequence<s...>;
 };
 
 /** Adapt parameter type to the form suitable for storing in callback arguments
@@ -152,14 +156,14 @@ struct Sequence_generator<0, s...>
 template <typename T>
 struct Adapt_arg_type {
     /** Just remove reference and CV-qualifiers in generic version. */
-    typedef typename std::remove_cv<typename std::remove_reference<T>::type>::type type;
+    using type = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 };
 
 /** Specialization for characters array which is assumed to be string literal. */
 template <size_t size>
 struct Adapt_arg_type<const char (&)[size]> {
     /** Transform to pointer. */
-    typedef const char *type;
+    using type = const char *;
 };
 
 /** Adapt callable parameter type to the form suitable for storing in callback
@@ -168,7 +172,7 @@ struct Adapt_arg_type<const char (&)[size]> {
 template <typename T, typename Enable = void>
 struct Adapt_callable_type {
     /** Just remove reference and CV-qualifiers in generic version. */
-    typedef typename std::remove_cv<typename std::remove_reference<T>::type>::type type;
+    using type = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 };
 
 /** Specialization for function. */
@@ -178,7 +182,7 @@ struct Adapt_callable_type<F,
             std::is_function<
                 typename std::remove_reference<F>::type>::value>::type> {
     /** Preserve as is. */
-    typedef F type;
+    using type =  F;
 };
 
 /** Evaluated to true is callable object is a class method (versus lambda or
@@ -214,10 +218,9 @@ class Callback:
     public Callback_base<typename std::result_of<Callable(Args...)>::type> {
 public:
     /** Base class type. */
-    typedef Callback_base<typename std::result_of<Callable(Args...)>::type>
-        Base_type;
+    using Base_type = Callback_base<typename std::result_of<Callable(Args...)>::type>;
     /** Callable pointer class type. */
-    typedef typename Base_type::template Ptr<Callback> Ptr;
+    using Ptr = typename Base_type::template Ptr<Callback>;
 
 private:
     /** Type for stored arguments tuple. */
@@ -303,10 +306,9 @@ class Callback<Method,
     public Callback_base<typename std::result_of<Method(Class_ptr, Args...)>::type> {
 public:
     /** Base class type. */
-    typedef Callback_base<typename std::result_of<Method(Class_ptr, Args...)>::type>
-        Base_type;
+    using Base_type = Callback_base<typename std::result_of<Method(Class_ptr, Args...)>::type>;
     /** Callable pointer class type. */
-    typedef typename Base_type::template Ptr<Callback> Ptr;
+    using Ptr = typename Base_type::template Ptr<Callback>;
 
 private:
     /** Type for stored arguments tuple. */
@@ -401,9 +403,9 @@ template <class Result, typename... Args>
 class Dummy_callback_helper {
 public:
     /** Callable type. */
-    typedef std::function<Result(Args...)> Callable;
+    using Callable = std::function<Result(Args...)>;
     /** Resulted callback type. */
-    typedef Callback<Callable, void, Args...> Callback_type;
+    using Callback_type = Callback<Callable, void, Args...>;
 
     /** Create callable object. */
     static Callable
@@ -420,9 +422,9 @@ template <typename... Args>
 class Dummy_callback_helper<void, Args...> {
 public:
     /** Callable type. */
-    typedef std::function<void(Args...)> Callable;
+    using Callable = std::function<void(Args...)>;
     /** Resulted callback type. */
-    typedef Callback<Callable, void, Args...> Callback_type;
+    using Callback_type = Callback<Callable, void, Args...>;
 
     /** Create callable object. */
     static Callable
@@ -445,7 +447,7 @@ template <class Result, typename... Args>
 typename callback_internal::Dummy_callback_helper<Result, Args...>::Callback_type::Ptr
 Make_dummy_callback()
 {
-    typedef callback_internal::Dummy_callback_helper<Result, Args...> Helper;
+    using Helper = callback_internal::Dummy_callback_helper<Result, Args...>;
     return Make_callback<typename Helper::Callable>(Helper::Create(), Args()...);
 }
 
@@ -466,7 +468,7 @@ struct Callback_args_checker<Callback, 0> {
 template <class Callback, size_t idx, typename Arg>
 struct Callback_args_checker<Callback, idx, Arg> {
     /** Corresponding real argument type in the callback. */
-    typedef typename Callback::template Arg_type<idx> Cbk_arg;
+    using Cbk_arg = typename Callback::template Arg_type<idx>;
     /** Indicates whether the check passed or failed. */
     constexpr static bool value = std::is_convertible<Cbk_arg, Arg>::value;
 
@@ -477,7 +479,7 @@ struct Callback_args_checker<Callback, idx, Arg> {
 template <class Callback, size_t idx, typename Arg, typename... Args>
 struct Callback_args_checker<Callback, idx, Arg, Args...> {
     /** Corresponding real argument type in the callback. */
-    typedef typename Callback::template Arg_type<idx> Cbk_arg;
+    using Cbk_arg = typename Callback::template Arg_type<idx>;
     /** Indicates whether the check passed or failed. */
     constexpr static bool value = std::is_convertible<Cbk_arg, Arg>::value &&
         Callback_args_checker<Callback, idx + 1, Args...>::value;
@@ -500,8 +502,7 @@ template <class Callback_ptr, typename Result, typename... Args>
 constexpr void
 Callback_check_type()
 {
-    typedef typename
-        std::remove_reference<decltype(*std::declval<Callback_ptr>())>::type Callback;
+    using Callback = typename std::remove_reference<decltype(*std::declval<Callback_ptr>())>::type;
 
     /* Check result type. */
     static_assert(std::is_convertible<typename Callback::Base_type::Result_t, Result>::value,
@@ -538,14 +539,17 @@ public:
 
     /** Resulted callback class type. */
     template <class Forced_args_tuple>
-    using Callback_type = decltype(Callback_forced_args_helper::Create(
-                                          std::declval<Callable>(),
-                                          std::declval<Forced_args_tuple>(),
-                                          std::declval<Args>()...));
+    using Callback_ptr = decltype(Callback_forced_args_helper::Create(
+                                    std::declval<Callable>(),
+                                    std::declval<Forced_args_tuple>(),
+                                    std::declval<Args>()...));
+
+    template <class Forced_args_tuple>
+    using Callback_type = decltype(*std::declval<Callback_ptr<Forced_args_tuple>>());
 
 private:
     template <class Forced_args_tuple, class All_args_tuple, int... args_seq>
-    static typename Callback_type<Forced_args_tuple>::Ptr
+    static Callback_ptr<Forced_args_tuple>
     Create_impl(Callable &&callable, All_args_tuple &&all_args_tuple,
                 callback_internal::Sequence<args_seq...>)
     {
@@ -561,7 +565,7 @@ template <class Method, class Class_ptr, typename... Args>
 class Callback_forced_args_helper<
     Method,
     typename std::enable_if<callback_internal::Is_method_ptr<Method>()>::type,
-                            Class_ptr, Args...> {
+    Class_ptr, Args...> {
 public:
     template <typename... Forced_args>
     static typename Callback<Method, void, Class_ptr, Forced_args..., Args...>::Ptr
@@ -579,14 +583,15 @@ public:
 
     /** Resulted callback class type. */
     template <class Forced_args_tuple>
-    using Callback_type = decltype(Callback_forced_args_helper::Create(
-                                          std::declval<Method>(),
-                                          std::declval<Forced_args_tuple>(),
-                                          std::declval<Class_ptr>(),
-                                          std::declval<Args>()...));
+    using Callback_ptr = decltype(Callback_forced_args_helper::Create(
+                                    std::declval<Method>(),
+                                    std::declval<Forced_args_tuple>(),
+                                    std::declval<Class_ptr>(),
+                                    std::declval<Args>()...));
+
 private:
     template <class Forced_args_tuple, class All_args_tuple, int... args_seq>
-    static typename Callback_type<Forced_args_tuple>::Ptr
+    static Callback_ptr<Forced_args_tuple>
     Create_impl(Method &&method, All_args_tuple &&all_args_tuple,
                 callback_internal::Sequence<args_seq...>)
     {
@@ -627,12 +632,12 @@ private:
 template <class Callable, class Forced_args_tuple, typename... Args>
 class Callback_forced_args:
     public callback_internal::Callback_forced_args_helper<Callable, void, Args...>::
-           template Callback_type<Forced_args_tuple> {
+           template Callback_ptr<Forced_args_tuple> {
 public:
     /** Helper type. */
-    typedef callback_internal::Callback_forced_args_helper<Callable, void, Args...> Helper;
+    using Helper = callback_internal::Callback_forced_args_helper<Callable, void, Args...>;
     /** Resulted callback type. */
-    typedef typename Helper::template Callback_type<Forced_args_tuple> Callback_type;
+    using Callback_ptr = typename Helper::template Callback_ptr<Forced_args_tuple>;
 
     /** Create callback with forced first arguments.
      *
@@ -643,7 +648,7 @@ public:
      * @param args User provided arguments. Should be forwarded by std::forward().
      * @return Pointer to created callback.
      */
-    static typename Callback_type::Ptr
+    static Callback_ptr
     Create(Callable &&callable, Forced_args_tuple &&forced_args_tuple,
            Args &&... args)
     {
@@ -694,15 +699,15 @@ template <class Result, typename... Args>
 class Callback_proxy {
 public:
     /** Base type of the underlying callback object. */
-    typedef Callback_base<Result> Callback_type;
+    using Callback_type = Callback_base<Result>;
     /** Pointer to the underlying callback object. */
-    typedef typename Callback_type::template Ptr<> Callback_ptr;
+    using Callback_ptr = typename Callback_type::template Ptr<>;
 
 private:
     /** Type for tuple which can store references to the first arguments. */
-    typedef std::tuple<typename std::add_lvalue_reference<Args>::type...> Args_ref_tuple;
+    using Args_ref_tuple = std::tuple<typename std::add_lvalue_reference<Args>::type...>;
     /** Type for tuple which can store pointers to the first arguments. */
-    typedef std::tuple<typename std::add_pointer<Args>::type...> Args_ptr_tuple;
+    using Args_ptr_tuple = std::tuple<typename std::add_pointer<Args>::type...> ;
 
 public:
     /** Creates reference type to the argument with index @a arg_idx. */
@@ -829,7 +834,7 @@ public:
 
 private:
     /** Arguments sequence type. */
-    typedef typename callback_internal::Sequence_generator<sizeof...(Args)>::Sequence_type Args_seq;
+    using Args_seq = typename callback_internal::Sequence_generator<sizeof...(Args)>::Sequence_type;
 
     /** Pointer to target callback. */
     mutable Callback_ptr cbk;

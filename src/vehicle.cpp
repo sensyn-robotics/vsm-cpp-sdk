@@ -542,9 +542,7 @@ Vehicle::Command_completed(
         }
         ucs_request->Complete();
     } else {
-        if (ucs_request->response) {
-            VEHICLE_LOG_WRN((*this), "COMMAND FAILED: %s", status_text.c_str());
-        }
+        VEHICLE_LOG_WRN((*this), "COMMAND FAILED: %s", status_text.c_str());
         ucs_request->Complete(ugcs::vsm::proto::STATUS_FAILED, status_text);
     }
 }
@@ -568,9 +566,7 @@ Vehicle::Command_failed(
     proto::Status_code code)
 {
     if (ucs_request && !ucs_request->Is_completed()) {
-        if (ucs_request->response) {
-            VEHICLE_LOG_WRN((*this), "COMMAND FAILED: %s", status_text.c_str());
-        }
+        VEHICLE_LOG_WRN((*this), "COMMAND FAILED: %s", status_text.c_str());
         ucs_request->Complete(code, status_text);
     }
 }

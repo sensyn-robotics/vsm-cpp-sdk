@@ -262,7 +262,7 @@ public:
         Write_impl(Io_buffer::Ptr buffer,
                    Offset offset,
                    Write_handler completion_handler,
-                   Request_completion_context::Ptr comp_ctx);
+                   Request_completion_context::Ptr comp_ctx) override;
 
         /** @see Io_stream::Read_impl */
         Operation_waiter

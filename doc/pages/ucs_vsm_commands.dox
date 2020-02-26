@@ -55,6 +55,7 @@ By registering command from this list VSM notifies the UgCS that vehicle is capa
 |[mission_upload](@ref c_mission_upload) | FC | - | + | Vehicle supports mission flight. Can contain commands marked here as available in mission.
 |[move](@ref c_move)| FC | + | - | Specify next waypoint and start moving towards it|
 |[panorama](@ref c_panorama)| FC | + | - | Do panorama|
+|[payload_command](@ref c_payload_command)| PAYLOAD_CONTROLLER | - | + | Custom payload command |
 |[payload_control](@ref c_payload_control)| Camera | + | - | Camera control (tilt, roll, yaw, zoom) |
 |[repeat_servo](@ref c_repeat_servo) | FC | + | + | Repeat servo movement back an forth
 |[return_to_home](@ref c_return_to_home) | FC | - | + | Return to HOME position is supported
@@ -431,6 +432,18 @@ Parameters
 | photo | PANORAMA_MODE_PHOTO | Take a photo on each step |
 | video | PANORAMA_MODE_VIDEO | Do not stop on each step |
 
+@subsection c_payload_command Send payload command
+
+Mission item ID: "payload_command"
+
+Description: Send to onboard computer a specific payload command encoded as a byte string.
+
+Parameters
+
+|Name|Type|Description|
+|---|---|---|
+|command| FIELD_SEMANTIC_STRING | Specific payload command arguments encoded as a byte string. |
+
 @subsection c_payload_control Set payload attitude
 
 Mission item ID: "payload_control"
@@ -673,7 +686,7 @@ Parameters
 |---|---|---|
 |latitude| FIELD_SEMANTIC_LATITUDE | Geodetic latitude|
 |longitude| FIELD_SEMANTIC_LONGITUDE | Geodetic longitude|
-|altitude_amsl| FIELD_SEMANTIC_ALTITUDE_AMSL | Takeoff target altitude. Vehicle will ascentd to this altitude before proceeding to next WP. |
+|altitude_amsl| FIELD_SEMANTIC_ALTITUDE_AMSL | Takeoff target altitude. Vehicle will ascend to this altitude before proceeding to given latitude and longitude. If vehicle is airborne and is above target altitude it will proceed to given latitude and longitude immediately. |
 |climb_rate| FIELD_SEMANTIC_VERTICAL_SPEED | Climb speed in m/s|
 |ground_elevation| FIELD_SEMANTIC_GROUND_ELEVATION | Ground elevation at takeoff position (optional)|
 |acceptance_radius| FIELD_SEMANTIC_ACCEPTANCE_RADIUS | When the sphere with the radius centered at the target position is hit by the vehicle the target position is considered reached. |

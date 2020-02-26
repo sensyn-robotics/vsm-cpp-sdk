@@ -9,18 +9,23 @@ include("ugcs/common")
 # Set correct compiler for cross compiling for BeagleBoneBlack
 if (BEAGLEBONE)
     # Everything is statically linked for BeagleBoneBlack target for now.
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s -static-libstdc++ -static -pthread -std=c++11 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s -static-libstdc++ -static -pthread -std=c++14 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
     set (CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++")
 endif()
 
 # this removes the -rdynamic link flag which bloats the executable.
 string(REPLACE "-rdynamic" "" CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS}")
 
-if(CMAKE_BUILD_TYPE MATCHES "RELEASE")
-    # strip the executable for release build
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
+if(CMAKE_STRIP AND CMAKE_BUILD_TYPE MATCHES "RELEASE")
+    if (APPLE)
+        unset(STRIP_FLAGS)
+    else()
+        set(STRIP_FLAGS "-s")
+    endif()
 endif()
 
+# Put protobuf in front to avoid eventual clashes with old sdk installs. 
+include_directories(${PROTOBUF_INCLUDE_DIR})
 include_directories("${VSM_SDK_DIR}/include")
 include_directories("${VSM_SDK_DIR}/include/generated")
 
@@ -78,13 +83,17 @@ function(Build_vsm_config)
   endif()
 endfunction()
 
-set(VSM_LIBS ${VSM_LIBRARY_FILE} ${VSM_PLAT_LIBS} ${DLL_IMPORT_LIB_NAMES})
+set(VSM_LIBS ${VSM_LIBRARY_FILE} ${PROTOBUF_LIBRARY} ${VSM_PLAT_LIBS} ${DLL_IMPORT_LIB_NAMES})
 
 # Function for adding standard install target for VSM and and corresponding log directory
 function(Add_install_target)
     if (UGCS_PACKAGING_ENABLED)
         Patch_mac_binary("${VSM_EXECUTABLE_NAME}" "${VSM_EXECUTABLE_NAME}" "libstdc++.6.dylib" "libgcc_s.1.dylib")
-        Install_vsm_launcher()
+        if (UGCS_INSTALL_AS_SERVICE)
+            Install_vsm_as_systemd_service()
+        else()
+            Install_vsm_launcher()
+        endif()
         # propagate variable to caller script.
         set (CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
                 ${CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA}
@@ -198,7 +207,12 @@ function(Build_vsm)
     else()
         # Add the executable
         add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
-        
+        if(CMAKE_STRIP AND CMAKE_BUILD_TYPE MATCHES "RELEASE" AND NOT CROSS_COMPILE)
+            add_custom_command(
+                TARGET ${CMAKE_PROJECT_NAME}
+                POST_BUILD 
+                COMMAND ${CMAKE_STRIP} ${STRIP_FLAGS} $<TARGET_FILE:${CMAKE_PROJECT_NAME}>)
+        endif()
         target_link_libraries(${CMAKE_PROJECT_NAME} ${VSM_LIBS})
 
         Add_install_target()

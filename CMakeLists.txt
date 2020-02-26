@@ -12,94 +12,48 @@ set(UGCS_PACKAGE_SUMMARY "UgCS VSM SDK used to develop vehicle specific modules 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 include("ugcs/common")
-
-# Compile protobuf compiler before including sdk_common.
-# This ensures that protobuf_compiler is built for host platform.
-add_subdirectory(third-party/protobuf/src ${CMAKE_BINARY_DIR}/protobuf)
-
 include("sdk_common")
 
-# Add all source files
-file(GLOB SOURCES "src/*.cpp" "src/*.c")
-file(GLOB HEADERS "include/ugcs/vsm/*.h")
-
-# Setup platform specific sources
-Find_platform_sources(${CMAKE_SOURCE_DIR}
-                      PLATFORM_INCLUDES PLATFORM_SOURCES PLATFORM_HEADERS)
-
-# Setup MavLink compilation
-Build_mavlink(${CMAKE_SOURCE_DIR} MAVLINK_INCLUDES MAVLINK_SOURCES MAVLINK_HEADERS MAVLINK_LUA)
-
-Compile_protobuf_definitions(
-    "ucs_vsm.proto;ucs_vsm_defs.proto"
-    "${CMAKE_SOURCE_DIR}/resources/protobuf"
-    "ucs_vsm_proto.h")
-
-# Platform includes and shared includes
-set (SDK_INCLUDES "${CMAKE_SOURCE_DIR}/include" ${PLATFORM_INCLUDES} ${MAVLINK_INCLUDES})
-
-set (SDK_SOURCES ${SOURCES} ${PLATFORM_SOURCES} ${MAVLINK_SOURCES} ${PROTOBUF_AUTO_SOURCES} ${MAVLINK_LUA})
-
-set (SDK_HEADERS ${HEADERS} ${PLATFORM_HEADERS} ${MAVLINK_HEADERS} ${PROTOBUF_AUTO_HEADERS})
-
-# Process DLL module definitions on Windows
-Process_dll_defs("src/platform/win")
-
-include_directories(${SDK_INCLUDES})
-
-if (ANDROID)
-    # Add protobuf include directories.
-    set (SDK_INCLUDES
-        ${SDK_INCLUDES}
-        "${CMAKE_BINARY_DIR}/protobuf_generated"
-        "${CMAKE_SOURCE_DIR}/third-party/protobuf/src")
+if (CROSS_COMPILE)
+    # When cross compiling for android or beanglebone,
+    # we are building libprotobuf-lite from sources and add it directly into sdk.
+    # Therefore PROTOBUF_SOURCE_ROOT pointing to protobuf sources is required.
+    # The required version is at least 3.6.1.
+    # AND it must be equal to the libprotobuf version used by this SDK.
+    if (NOT PROTOBUF_SOURCE_ROOT)
+        set (PROTOBUF_SOURCE_ROOT "$ENV{PROTOBUF_SOURCE_ROOT}")
+    endif()
+    if (NOT PROTOBUF_SOURCE_ROOT)
+        message (FATAL_ERROR "Please specify protobuf source directory via PROTOBUF_SOURCE_ROOT")
+    endif()
+    # Set dummy version so libprotobuf.cmake script does not fail.
+    set (protobuf_VERSION "1.1.1")
+    # set variable for libprotobuf.cmake script
+    set (protobuf_source_dir "${PROTOBUF_SOURCE_ROOT}")
+    # Use their cmake file to get the library source list.
+    set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${protobuf_source_dir}/cmake")
+    # If you get error about "include not found" here please update your protobuf sources to at least 3.6.1.
+    include ("libprotobuf-lite")
+    # We are not interested in building the lib itself, remove the target form all.
+    set_target_properties(libprotobuf-lite PROPERTIES EXCLUDE_FROM_ALL YES)
 
     # Add protobuf sources to vsm-sdk library
-    set(PROTO_ROOT "${CMAKE_SOURCE_DIR}/third-party/protobuf/src/google/protobuf")    
-    set(SDK_SOURCES ${SDK_SOURCES} ${SDK_HEADERS}
-        ${PROTO_ROOT}/stubs/atomicops_internals_x86_gcc.cc         
-        ${PROTO_ROOT}/stubs/atomicops_internals_x86_msvc.cc        
-        ${PROTO_ROOT}/stubs/common.cc                              
-        ${PROTO_ROOT}/stubs/once.cc                                
-        ${PROTO_ROOT}/stubs/hash.h                                 
-        ${PROTO_ROOT}/stubs/map-util.h                             
-        ${PROTO_ROOT}/stubs/stl_util.h                             
-        ${PROTO_ROOT}/stubs/stringprintf.cc                        
-        ${PROTO_ROOT}/stubs/stringprintf.h                         
-        ${PROTO_ROOT}/extension_set.cc                             
-        ${PROTO_ROOT}/generated_message_util.cc                    
-        ${PROTO_ROOT}/message_lite.cc                              
-        ${PROTO_ROOT}/repeated_field.cc                            
-        ${PROTO_ROOT}/wire_format_lite.cc                          
-        ${PROTO_ROOT}/io/coded_stream.cc                           
-        ${PROTO_ROOT}/io/coded_stream_inl.h                        
-        ${PROTO_ROOT}/io/zero_copy_stream.cc                       
-        ${PROTO_ROOT}/io/zero_copy_stream_impl_lite.cc
-        ${PROTO_ROOT}/stubs/strutil.cc                             
-        ${PROTO_ROOT}/stubs/strutil.h                              
-        ${PROTO_ROOT}/stubs/substitute.cc                          
-        ${PROTO_ROOT}/stubs/substitute.h                           
-        ${PROTO_ROOT}/stubs/structurally_valid.cc                  
-        ${PROTO_ROOT}/descriptor.cc                                
-        ${PROTO_ROOT}/descriptor.pb.cc                             
-        ${PROTO_ROOT}/descriptor_database.cc                       
-        ${PROTO_ROOT}/dynamic_message.cc                           
-        ${PROTO_ROOT}/extension_set_heavy.cc                       
-        ${PROTO_ROOT}/generated_message_reflection.cc              
-        ${PROTO_ROOT}/message.cc                                   
-        ${PROTO_ROOT}/reflection_ops.cc                            
-        ${PROTO_ROOT}/service.cc                                   
-        ${PROTO_ROOT}/text_format.cc                               
-        ${PROTO_ROOT}/unknown_field_set.cc                         
-        ${PROTO_ROOT}/wire_format.cc                               
-        ${PROTO_ROOT}/io/gzip_stream.cc                            
-        ${PROTO_ROOT}/io/printer.cc                                
-        ${PROTO_ROOT}/io/tokenizer.cc                              
-        ${PROTO_ROOT}/io/zero_copy_stream_impl.cc                  
-        ${PROTO_ROOT}/compiler/importer.cc                         
-        ${PROTO_ROOT}/compiler/parser.cc
-    )
+    set (SDK_SOURCES ${SDK_SOURCES} ${libprotobuf_lite_files})
+    # Add protobuf include dirs to vsm-sdk library
+    set (SDK_INCLUDES ${SDK_INCLUDES} ${protobuf_source_dir}/src)
 
+    # Disable some warnings for proto sources.
+    foreach(CC_FILE ${libprotobuf_lite_files})
+        set_source_files_properties(${CC_FILE} PROPERTIES 
+            COMPILE_FLAGS "-Wno-sign-compare -Wno-unused-parameter -Wno-ignored-qualifiers -Wno-old-style-cast")
+    endforeach()
+    # Add protobuf include dir
+    include_directories(${protobuf_source_dir}/src)
+    # Tell the protobuf source we have pthreads.
+    add_definitions(-DHAVE_PTHREAD)
+endif()
+
+if (ANDROID)
     # Add target "android"
     Create_android_build("${ANDROID_ABI_LIST}" "${ANDROID_PLATFORM}" "${SDK_SOURCES}" "${SDK_INCLUDES}")
     add_custom_target(${CMAKE_PROJECT_NAME} ALL)
@@ -108,20 +62,12 @@ else()
     # Build the vsm-sdk static library
     if (BEAGLEBONE)
         # Create protobuf lib for BB.
-        add_subdirectory(third-party/protobuf/src ${CMAKE_BINARY_DIR}/protobuf_bb)
-        add_library(${CMAKE_PROJECT_NAME} STATIC
-            ${SDK_SOURCES} ${SDK_HEADERS} ${DLL_IMPORT_LIBS}
-            $<TARGET_OBJECTS:protobuf_objlib_bb>
-            )
         set (LIBRARY_INSTALL_DIR "${UGCS_INSTALL_DIR}/beaglebone/lib")
     else()
-
-        add_library(${CMAKE_PROJECT_NAME} STATIC
-            ${SDK_SOURCES} ${SDK_HEADERS} ${DLL_IMPORT_LIBS}
-            $<TARGET_OBJECTS:protobuf_objlib>
-            )
         set (LIBRARY_INSTALL_DIR "${UGCS_INSTALL_DIR}/lib")
     endif()
+
+    add_library(${CMAKE_PROJECT_NAME} STATIC ${SDK_SOURCES} ${SDK_HEADERS} ${DLL_IMPORT_LIBS})
 
     # Install vsm-sdk library
     install(TARGETS ${CMAKE_PROJECT_NAME}
@@ -130,13 +76,9 @@ else()
             ARCHIVE DESTINATION "${LIBRARY_INSTALL_DIR}")
 endif()
 
-add_dependencies (${CMAKE_PROJECT_NAME} protobuf_compiler)
-
 Add_cppcheck_target()
 
 set (LINT_SOURCES ${SOURCES} ${PLATFORM_SOURCES} ${HEADERS} ${PLATFORM_HEADERS})
-# Remove deelx.h from lint check. TODO: No need for this once moved to fully compliant c++11 compiler. 
-list(REMOVE_ITEM LINT_SOURCES ${CMAKE_SOURCE_DIR}/include/ugcs/vsm/deelx.h)
 Add_cpplint_target(${LINT_SOURCES})
 
 # Install common includes
@@ -193,11 +135,6 @@ install(FILES   "cmake/ugcs/vsm.cmake"
                 "cmake/ugcs/ut.cmake"
                 "cmake/ugcs/unittestpp.cmake"
         DESTINATION "${UGCS_INSTALL_DIR}/share/cmake/ugcs")
-
-# Install google headers
-install (DIRECTORY third-party/protobuf/src/google
-        DESTINATION "${UGCS_INSTALL_DIR}/include"
-        FILES_MATCHING PATTERN "*.h")
 
 # Install import dlls
 install (FILES ${DLL_IMPORT_LIBS} 

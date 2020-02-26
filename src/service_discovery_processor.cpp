@@ -53,16 +53,22 @@ Service_discovery_processor::On_enable()
         std::initializer_list<Request_container::Ptr>{Shared_from_this()});
     worker->Enable();
 
-    my_timer = Timer_processor::Get_instance()->Create_timer(
+    interface_checker_timer = Timer_processor::Get_instance()->Create_timer(
             std::chrono::seconds(5),
             Make_callback(&Service_discovery_processor::On_timer, Shared_from_this()),
+            worker);
+
+    notify_timer = Timer_processor::Get_instance()->Create_timer(
+            std::chrono::seconds(10),
+            Make_callback(&Service_discovery_processor::On_notify_timer, Shared_from_this()),
             worker);
 }
 
 void
 Service_discovery_processor::On_disable()
 {
-    my_timer->Cancel();
+    notify_timer->Cancel();
+    interface_checker_timer->Cancel();
     Request::Ptr request = Request::Create();
     auto proc_handler = Make_callback(
             &Service_discovery_processor::On_disable_impl,
@@ -239,15 +245,7 @@ Service_discovery_processor::On_sender_bound(Socket_processor::Stream::Ref strea
                 LOG_ERR("No receiver socket!");
             }
             sender->second.second = stream;
-            for (auto &service : my_services) {
-                Send_notify(
-                    stream,
-                    multicast_adress,
-                    std::get<0>(service),
-                    std::get<1>(service),
-                    std::get<2>(service),
-                    true);
-            }
+            Send_notify_all_services(stream, multicast_adress);
             for (auto &service : subscribed_services) {
                 Send_msearch(stream, multicast_adress, service.first);
             }
@@ -257,6 +255,20 @@ Service_discovery_processor::On_sender_bound(Socket_processor::Stream::Ref strea
             sender_sockets.erase(sender);
         }
     }
+}
+
+bool
+Service_discovery_processor::On_notify_timer()
+{
+    for (auto &sender : sender_sockets) {
+        if (sender.second.second) {
+            Send_notify_all_services(sender.second.second, multicast_adress);
+        }
+    }
+    if (sender_loopback.second) {
+        Send_notify_all_services(sender_loopback.second, loopback_broadcast_adress);
+    }
+    return true;
 }
 
 bool
@@ -329,7 +341,24 @@ Service_discovery_processor::On_timer()
             }
         }
     }
+
     return true;
+}
+
+void
+Service_discovery_processor::Send_notify_all_services(
+    Socket_processor::Stream::Ref s,
+    Socket_address::Ptr dest_addr)
+{
+    for (auto &service : my_services) {
+        Send_notify(
+            s,
+            dest_addr,
+            std::get<0>(service),
+            std::get<1>(service),
+            std::get<2>(service),
+            true);
+    }
 }
 
 bool
@@ -403,7 +432,8 @@ Service_discovery_processor::Send_response(
         const std::string& name,
         const std::string& location)
 {
-    auto response = std::string("HTTP/1.1 200 OK\r\nST:");
+    auto response = NOTIFY_METHOD_STRING;
+    response += std::string(" * HTTP/1.1\r\nNTS:ssdp:alive\r\nNT:");
     response += type;
     response += "\r\nUSN:";
     response += name;

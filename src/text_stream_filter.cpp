@@ -59,7 +59,7 @@ Text_stream_filter::Schedule_read()
 }
 
 Text_stream_filter::Entry_handle
-Text_stream_filter::Add_entry(const regex::regex &re, Match_handler handler,
+Text_stream_filter::Add_entry(const std::regex &re, Match_handler handler,
                               std::chrono::milliseconds timeout,
                               size_t ctx_lines_before, size_t ctx_lines_after)
 {
@@ -263,7 +263,7 @@ Text_stream_filter::Match_entry(const std::string &line)
         if (lines_history.size() < e.ctx_lines_before + 1) {
             continue;
         }
-        if (regex::regex_search(line, e.match, e.re)) {
+        if (std::regex_search(line, e.match, e.re)) {
             return &e;
         }
     }

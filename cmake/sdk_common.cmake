@@ -1,10 +1,13 @@
 # Common things for sdk and sdk unittests.
 
+# Set this relative to this file to allow including form other places in dir tree.
+set(SDK_SOURCE_ROOT "${CMAKE_CURRENT_LIST_DIR}/..")
+
 # Set correct compiler for cross compiling for BeagleBoneBlack
 if (BEAGLEBONE)
     set (CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++")
     # Everything is statically linked for BeagleBoneBlack target
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s -static-libstdc++ -static -pthread -std=c++11 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s -static-libstdc++ -static -pthread -std=c++14 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
 endif()
 
 # Find all platform dependent source files in the specified SDK directory.
@@ -141,6 +144,10 @@ function(Build_mavlink SDK_SRC_DIR MAVLINK_INCLUDES_VAR MAVLINK_SOURCES_VAR MAVL
             --schema=${MAV_XSD}
             --merge-extensions
         DEPENDS ${MAV_XML} ${MAV_XSD} ${MAVGEN})
+
+    add_custom_target(mavlink_lua ALL
+        DEPENDS ${MAVLINK_LUA})
+
 endfunction()
 
 # Generate Android static library form given sources and adds it to the package.
@@ -195,7 +202,6 @@ function(Add_cppcheck_target)
             "--enable=all"
             "--std=c++11"
             "-UANDROID"
-            "--suppress=*:*deelx.h"
             "--suppress=noExplicitConstructor"
             "--suppress=missingIncludeSystem"
             "--suppress=unusedFunction")
@@ -235,3 +241,31 @@ function(Add_cpplint_target SOURCE_LIST)
             VERBATIM)
     endif()
 endfunction()
+
+Find_platform_sources("${SDK_SOURCE_ROOT}" PLATFORM_INCLUDES PLATFORM_SOURCES PLATFORM_HEADERS)
+
+Compile_protobuf_definitions(
+    "ucs_vsm.proto;ucs_vsm_defs.proto"
+    "${SDK_SOURCE_ROOT}/resources/protobuf"
+    "ucs_vsm_proto.h")
+
+# Setup MavLink compilation
+Build_mavlink(${SDK_SOURCE_ROOT} MAVLINK_INCLUDES MAVLINK_SOURCES MAVLINK_HEADERS MAVLINK_LUA)
+
+# Add all SDK source files
+file(GLOB SDK_SOURCES "${SDK_SOURCE_ROOT}/src/*.cpp")
+file(GLOB SDK_HEADERS "${SDK_SOURCE_ROOT}/src/include/vsm/*.h")
+
+set (SDK_INCLUDES "${SDK_SOURCE_ROOT}/include" ${PLATFORM_INCLUDES} ${MAVLINK_INCLUDES} ${CMAKE_BINARY_DIR}/protobuf_generated)
+if (NOT ANDROID)
+    set(SDK_INCLUDES ${SDK_INCLUDES} ${PROTOBUF_INCLUDE_DIR})
+endif()
+
+set (SDK_SOURCES ${SDK_SOURCES} ${PLATFORM_SOURCES} ${MAVLINK_SOURCES} ${PROTOBUF_AUTO_SOURCES})
+
+set (SDK_HEADERS ${SDK_HEADERS} ${PLATFORM_HEADERS} ${MAVLINK_HEADERS} ${PROTOBUF_AUTO_HEADERS})
+
+# Process DLL module definitions on Windows
+Process_dll_defs("${SDK_SOURCE_ROOT}/src/platform/win")
+
+include_directories(${SDK_INCLUDES})

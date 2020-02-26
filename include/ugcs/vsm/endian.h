@@ -16,21 +16,41 @@
 
 #include <stdint.h>
 
+// __BIG_ENDIAN__ and __LITTLE_ENDIAN__ are defined in some gcc versions
+// only, probably depending on the architecture. Try to use endian.h if
+// the gcc way fails - endian.h also doesn't seem to be available on all
+// platforms.
+#if defined(__BIG_ENDIAN__) || __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	#define _UGCS_VSM_BIG_ENDIAN_
+#else /* __BIG_ENDIAN__ */
+	#if defined(__LITTLE_ENDIAN__) || __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	#else
+		#ifdef BSD
+			#include <sys/endian.h>
+		#else
+			#include <endian.h>
+		#endif
+		#if __BYTE_ORDER == __BIG_ENDIAN
+			#define _UGCS_VSM_BIG_ENDIAN_
+		#elif __BYTE_ORDER == __LITTLE_ENDIAN
+		#else
+			#error "Failed to determine endianness!"
+		#endif /* __BYTE_ORDER */
+	#endif /* __LITTLE_ENDIAN__ */
+#endif /* __BIG_ENDIAN__ */
+
 namespace ugcs {
 namespace vsm {
-
-namespace internal {
-
-/** Value for testing system endianness. */
-static const uint16_t endianness = 0x0102;
-
-}
 
 /** Check if the system is little-endian. */
 constexpr bool
 Is_system_le()
 {
-    return *reinterpret_cast<const uint8_t *>(&internal::endianness) == 0x02;
+#ifdef _UGCS_VSM_BIG_ENDIAN_
+	return false;
+#else
+	return true;
+#endif
 }
 
 /** Check if the system is big-endian. */

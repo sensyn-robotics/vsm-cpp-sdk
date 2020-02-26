@@ -540,7 +540,7 @@ ugcs::vsm::Run_as_service(const char* service_name, int argc, char *argv[], Prog
 {
     g_start_main = prog_start;
     g_stop_main = prog_stop;
-    strncpy(g_service_name, service_name, MAX_PATH);
+    strncpy(g_service_name, service_name, MAX_PATH - 1);
 
     /*
       Optimisation for Windows 2000:

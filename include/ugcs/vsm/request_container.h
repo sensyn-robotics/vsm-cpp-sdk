@@ -421,6 +421,9 @@ public:
                          std::chrono::milliseconds timeout = std::chrono::milliseconds::zero(),
                          int requests_limit = 0, Predicate predicate = Predicate());
 
+        virtual
+        ~Request_waiter() = default;
+
     private:
         friend class Locker;
 

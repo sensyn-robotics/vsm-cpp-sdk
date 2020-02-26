@@ -39,52 +39,52 @@ Build_message(Payload& pld)
 
 TEST(mavlink_decoder_basic_tests)
 {
-    Mavlink_decoder decoder;
+    Mavlink_decoder decoder1;
 
     mavlink::Uint16 mavlink_cksum = 0;
     mavlink::Pld_heartbeat hb;
     Io_buffer::Ptr message = Build_message(hb);
 
-    decoder.Decode(message);
-    decoder.Decode(message);
+    decoder1.Decode(message);
+    decoder1.Decode(message);
 
-    decoder.Register_handler(
+    decoder1.Register_handler(
             Mavlink_decoder::Make_decoder_handler(
                     &Mavlink_message_handler));
 
     Io_buffer::Ptr msg_tmp = message;
     while (msg_tmp->Get_length()) {
-        size_t size = decoder.Get_next_read_size();
-        decoder.Decode(msg_tmp->Slice(0, size));
+        size_t size = decoder1.Get_next_read_size();
+        decoder1.Decode(msg_tmp->Slice(0, size));
         msg_tmp = msg_tmp->Slice(size);
     }
 
-    CHECK_EQUAL(2ul, decoder.Get_stats(SYSID).no_handler);
-    CHECK_EQUAL(1ul, decoder.Get_stats(SYSID).handled);
-    CHECK_EQUAL(0ul, decoder.Get_common_stats().bad_checksum);
+    CHECK_EQUAL(2ul, decoder1.Get_stats(SYSID).no_handler);
+    CHECK_EQUAL(1ul, decoder1.Get_stats(SYSID).handled);
+    CHECK_EQUAL(0ul, decoder1.Get_common_stats().bad_checksum);
     CHECK_EQUAL(1, received);
     CHECK_EQUAL(1, sys_id);
     CHECK_EQUAL(2, comp_id);
     CHECK(mavlink::MESSAGE_ID::HEARTBEAT == msg_id);
 
-    decoder.Reset();
-    decoder.Decode(message);
-    CHECK_EQUAL(1ul, decoder.Get_stats(SYSID).handled);
+    Mavlink_decoder decoder2;
+    decoder2.Decode(message);
+    CHECK_EQUAL(1ul, decoder2.Get_stats(SYSID).handled);
     CHECK_EQUAL(2, received);
 
     /* Spoil the checksum .*/
     message = message->Slice(0, message->Get_length() - sizeof(uint16_t));
     message = message->Concatenate(Io_buffer::Create(&mavlink_cksum, sizeof(mavlink_cksum)));
-    decoder.Decode(message);
-    CHECK_EQUAL(1ul, decoder.Get_stats(SYSID).handled);
-    CHECK_EQUAL(1ul, decoder.Get_common_stats().bad_checksum);
+    decoder2.Decode(message);
+    CHECK_EQUAL(1ul, decoder2.Get_stats(SYSID).handled);
+    CHECK_EQUAL(1ul, decoder2.Get_common_stats().bad_checksum);
     CHECK_EQUAL(2, received);
 
     /* There is no 0xff message id yet. */
     void * d = const_cast<void*>(message->Get_data());
     *(static_cast<uint8_t*>(d) + 7) = 0xff;
-    decoder.Decode(message);
-    CHECK_EQUAL(1ul, decoder.Get_common_stats().unknown_id);
+    decoder2.Decode(message);
+    CHECK_EQUAL(1ul, decoder2.Get_common_stats().unknown_id);
 }
 
 /* Test for false start signs. Decoder should be able to dig out exactly

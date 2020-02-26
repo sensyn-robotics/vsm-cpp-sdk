@@ -12,8 +12,8 @@
 
 #include <ugcs/vsm/debug.h>
 #include <ugcs/vsm/exception.h>
-#include <ugcs/vsm/regex.h>
 
+#include <regex>
 #include <type_traits>
 #include <memory>
 
@@ -49,16 +49,6 @@
     { \
         return Shared_getter::Get(this); \
     }
-
-namespace std {
-/** Method for creating non sharable objects, until this method is added to
- * C++14. */
-template<typename T, typename ...Args>
-std::unique_ptr<T> make_unique(Args&& ...args)
-{
-    return std::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
-}
-} /* namespace std */
 
 namespace ugcs {
 namespace vsm {
@@ -119,7 +109,7 @@ public:
  * defined as regex::regex_constants::icase on windows  (Ignore case when matching patterns)
  * defined as regex::regex_constants::none on linux (All matching is case sensitive)
  */
-extern regex::regex_constants::syntax_option_type platform_independent_filename_regex_matching_flag;
+extern std::regex_constants::syntax_option_type platform_independent_filename_regex_matching_flag;
 
 /** Return instance id which is randomly generated on the first call.
  */

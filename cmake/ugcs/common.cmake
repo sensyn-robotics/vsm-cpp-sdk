@@ -1,8 +1,10 @@
 # Common things for sdk and all projects depending on this sdk.
 # (vsms, unittests, ...)
 
+#set (CMAKE_VERBOSE_MAKEFILE YES)
+
 set(SDK_VERSION_MAJOR 3)
-set(SDK_VERSION_MINOR 3)
+set(SDK_VERSION_MINOR 4)
 set(SDK_VERSION_BUILD "dev")
 
 # Convert list to space-separated string.
@@ -16,8 +18,12 @@ function(List_to_string LIST STRING_VAR)
     set(${STRING_VAR} "${result}" PARENT_SCOPE)
 endfunction()
 
-# Enable C++11 standard, extended warnings, multithreading.
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmessage-length=0 -std=c++11 -Werror -Wall -Wextra -Wold-style-cast -pthread")
+# Enable C++14 standard, extended warnings, multithreading.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmessage-length=0 -std=c++14 -Werror -Wall -Wextra -Wold-style-cast")
+if (NOT APPLE)
+    # clang does not need this.
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+endif()
 
 # Support DLL import on Windows 6.x
 if (CMAKE_SYSTEM MATCHES "Windows-6\\.[0-9]+")
@@ -55,7 +61,7 @@ if (ANDROID)
         endif()
     endif()
     if (NOT DEFINED ANDROID_ABI_LIST)
-        set(ANDROID_ABI_LIST "armeabi;armeabi-v7a;x86;mips;x86_64")
+        set(ANDROID_ABI_LIST "armeabi-v7a;x86;x86_64")
     endif()
     if (NOT DEFINED ANDROID_PLATFORM)
         set(ANDROID_PLATFORM "android-19")
@@ -67,6 +73,11 @@ if (ANDROID)
     endif()
     
     set(ANDROID_BINARY_DIR "${CMAKE_BINARY_DIR}/android")
+    set (CROSS_COMPILE TRUE)
+endif()
+
+if (BEAGLEBONE)
+    set (CROSS_COMPILE TRUE)
 endif()
 
 # Enable packaging script automatically if vsm is compiled from ugcs source tree.
@@ -119,6 +130,20 @@ if (NOT UGCS_PACKAGING_ENABLED)
     set (UGCS_INSTALLED_LOG_DIR "${CMAKE_INSTALL_PREFIX}/${UGCS_INSTALL_LOG_DIR}")
 endif()
 
+# Bring in the protobuf stuff
+if (NOT PROTOBUF_INSTALL_DIR)
+    set(PROTOBUF_INSTALL_DIR "$ENV{PROTOBUF_INSTALL_DIR}")
+endif()
+if (PROTOBUF_INSTALL_DIR)
+    set(CMAKE_PREFIX_PATH "${PROTOBUF_INSTALL_DIR};${CMAKE_PREFIX_PATH}")
+endif()
+set(Protobuf_USE_STATIC_LIBS ON)
+find_package(Protobuf)
+if (NOT PROTOBUF_LIBRARY)
+    message(FATAL_ERROR "Protobuf not found in default location. Please specify custom location via PROTOBUF_INSTALL_DIR and try again.")
+endif()
+link_directories(${PROTOBUF_LIBRARY_DIRS})
+
 # XXX check other platforms
 set(DOXYGEN doxygen)
 if (NOT DEFINED PLANTUML)
@@ -138,40 +163,38 @@ if (NOT DEFINED DOC_CONFIG_NAME)
     endif()
 endif()
 
-
 # Documentation output directory
 set(DOC_DIR ${CMAKE_BINARY_DIR}/doc-${DOC_CONFIG_NAME})
 
-add_custom_target(doc_dir ${CMAKE_COMMAND} -E make_directory ${DOC_DIR})
-add_custom_target(doc_diagrams_dir ${CMAKE_COMMAND} -E make_directory ${DOC_DIR}/images/diagrams
-                  DEPENDS doc_dir)
-add_custom_target(doc_dirs DEPENDS doc_dir doc_diagrams_dir)
+add_custom_target(doc_dir
+    ${CMAKE_COMMAND} -E make_directory ${DOC_DIR})
 
-add_custom_target(doc_diagrams ${PLANTUML} -o ${DOC_DIR}/images/diagrams diagrams/*.uml
-                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
-                  DEPENDS doc_diagrams_dir)
-    
+add_custom_target(doc_diagrams_dir
+    ${CMAKE_COMMAND} -E make_directory ${DOC_DIR}/images/diagrams
+    DEPENDS doc_dir)
+
+add_custom_target(doc_diagrams 
+    ${PLANTUML} -o ${DOC_DIR}/images/diagrams diagrams/*.uml
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
+    DEPENDS doc_diagrams_dir)
+
+add_custom_target(doc_dirs
+    DEPENDS doc_dir doc_diagrams_dir)
+
+if (VSM_BUILD_DOC)
+    set(INCLUDE_IN_ALL "ALL")
+endif()
+
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
-    if(VSM_BUILD_DOC)
-        add_custom_target(doc ALL set VSM_SDK_DOC_OUTPUT_DIR=${DOC_DIR} && ${DOXYGEN} ${DOC_CONFIG_NAME}.conf
-                          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
-                          DEPENDS doc_dirs doc_diagrams)
-    else()
-        add_custom_target(doc set VSM_SDK_DOC_OUTPUT_DIR=${DOC_DIR} && ${DOXYGEN} ${DOC_CONFIG_NAME}.conf
-                          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
-                          DEPENDS doc_dirs doc_diagrams)
-    endif()
-    
+    add_custom_target(doc ${INCLUDE_IN_ALL}
+        set VSM_SDK_DOC_OUTPUT_DIR=${DOC_DIR} && ${DOXYGEN} ${DOC_CONFIG_NAME}.conf
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
+        DEPENDS doc_dirs doc_diagrams ${CMAKE_SOURCE_DIR}/README.md)
 else()
-    if(VSM_BUILD_DOC)
-        add_custom_target(doc ALL env VSM_SDK_DOC_OUTPUT_DIR=${DOC_DIR} ${DOXYGEN} ${DOC_CONFIG_NAME}.conf
-                          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
-                          DEPENDS doc_dirs doc_diagrams)
-    else()
-        add_custom_target(doc env VSM_SDK_DOC_OUTPUT_DIR=${DOC_DIR} ${DOXYGEN} ${DOC_CONFIG_NAME}.conf
-                          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
-                          DEPENDS doc_dirs doc_diagrams)
-    endif()
+    add_custom_target(doc ${INCLUDE_IN_ALL} 
+        env VSM_SDK_DOC_OUTPUT_DIR=${DOC_DIR} ${DOXYGEN} ${DOC_CONFIG_NAME}.conf
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
+        DEPENDS doc_dirs doc_diagrams doc_diagrams ${CMAKE_SOURCE_DIR}/README.md)
     
     add_custom_target(pdf env UGCS_PACKAGE_VERSION=${UGCS_PACKAGE_VERSION}
                       UGCS_VSM_USER_GUIDE_LATEX_TITLE=${UGCS_VSM_USER_GUIDE_LATEX_TITLE}
@@ -195,26 +218,18 @@ endif()
 # PROTOBUF_AUTO_SOURCES - list of automatically generated source files which needs
 # to be compiled.
 # PROTOBUF_AUTO_HEADERS - list of automatically generated header files
+# Not using built in protobuf_generate_cpp because we want to put all generated files in separate directory.
 function(Compile_protobuf_definitions PROTO_INPUT_FILES PROTO_ROOT PROTO_COMMON_INCLUDE_NAME)
-    
-    # Take protoc binary generated during build process.
-    # If this build did not generate it, assume it is installed in SDK dir.  
-    if (PROTOBUF_PROTOC_BINARY)
-        # Includes used by the generated headers itself
-        include_directories(${CMAKE_SOURCE_DIR}/third-party/protobuf/src)
-    else()
-        set (PROTOBUF_PROTOC_BINARY "${VSM_SDK_DIR}/share/tools/protobuf_compiler")
-    endif()
-    
     # Dedicated directory to generated files for easy install via "install(DIRECTORY...."
     set(PROTO_OUTPUT_DIR "${CMAKE_BINARY_DIR}/protobuf_generated")
     
     # Auto include is generated during configure phase, not build time.
     # Consider it "enough" for now.
-    file(WRITE ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME} "// DO NOT EDIT! Generated automatically\n\n")
-    
+
+    # Disable unused-parameter warning for this file.
+    file(WRITE ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME} "// DO NOT EDIT! Generated automatically\n#pragma GCC diagnostic push\n#pragma GCC diagnostic ignored \"-Wunused-parameter\"\n")
     file (MAKE_DIRECTORY ${PROTO_OUTPUT_DIR})
-    
+
     # A rule for each proto file
     foreach(DEF ${PROTO_INPUT_FILES})
         string(REPLACE .proto .pb.h OUT_H ${DEF})
@@ -226,18 +241,21 @@ function(Compile_protobuf_definitions PROTO_INPUT_FILES PROTO_ROOT PROTO_COMMON_
         file(APPEND ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME} "#include \"${OUT_H}\"\n")
         add_custom_command(
             OUTPUT ${OUT_CC_FULL} ${OUT_H_FULL}
-            COMMAND "${PROTOBUF_PROTOC_BINARY}" --cpp_out=${PROTO_OUTPUT_DIR} ${DEF}
+            COMMAND "${PROTOBUF_PROTOC_EXECUTABLE}" --cpp_out=${PROTO_OUTPUT_DIR} ${DEF}
             DEPENDS ${PROTO_ROOT}/${DEF}
             WORKING_DIRECTORY ${PROTO_ROOT}
-            COMMENT "Protobuf: ${DEF}")
+            COMMENT "Protobuf: ${DEF}"
+            )
+        # Disable unused-parameter warning for this file.
+        set_source_files_properties(${OUT_CC_FULL} PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
     endforeach()
+    file(APPEND ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME} "#pragma GCC diagnostic pop\n")
 
-    set(PROTOBUF_AUTO_HEADERS ${PROTOBUF_AUTO_HEADERS}
-        ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME})
+    set(PROTOBUF_AUTO_HEADERS ${PROTOBUF_AUTO_HEADERS} ${PROTO_OUTPUT_DIR}/${PROTO_COMMON_INCLUDE_NAME})
     
     set(PROTOBUF_AUTO_SOURCES ${PROTOBUF_AUTO_SOURCES} PARENT_SCOPE)
     set(PROTOBUF_AUTO_HEADERS ${PROTOBUF_AUTO_HEADERS} PARENT_SCOPE)
 
     # Includes for the generated headers
-    include_directories(${PROTO_OUTPUT_DIR}) 
+    include_directories(${PROTO_OUTPUT_DIR})
 endfunction()

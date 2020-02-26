@@ -17,7 +17,7 @@ namespace vsm {
 uint32_t
 Get_unique_id();
 
-typedef std::shared_ptr<ugcs::vsm::proto::Vsm_message> Proto_msg_ptr;
+typedef std::shared_ptr<proto::Vsm_message> Proto_msg_ptr;
 
 class Vsm_command: public std::enable_shared_from_this<Vsm_command>
 {
@@ -29,18 +29,18 @@ public:
     Property::Ptr
     Add_parameter(
         std::string,
-        ugcs::vsm::proto::Field_semantic semantic = ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT);
+        proto::Field_semantic semantic = proto::FIELD_SEMANTIC_DEFAULT);
 
     Property::Ptr
     Add_parameter(std::string name, Property::Value_type type);
 
     // Fill registration message
     void
-    Register(ugcs::vsm::proto::Register_command* command);
+    Register(proto::Register_command* command);
 
     // Fill availability message
     void
-    Set_capabilities(ugcs::vsm::proto::Command_availability* msg);
+    Set_capabilities(proto::Command_availability* msg);
 
     void
     Set_enabled(bool is_enabled = true);
@@ -56,7 +56,11 @@ public:
 
     // create a list of command param values from proto message
     Property_list
-    Build_parameter_list(const ugcs::vsm::proto::Device_command &cmd);
+    Build_parameter_list(const proto::Device_command &cmd);
+
+    //Create command message with given arguments
+    void
+    Build_command(proto::Device_command *cmd, Property_list args = Property_list());
 
     std::string
     Get_name()
@@ -111,7 +115,7 @@ public:
     Property::Ptr
     Add_telemetry(
         const std::string& name,
-        ugcs::vsm::proto::Field_semantic sem = ugcs::vsm::proto::FIELD_SEMANTIC_DEFAULT,
+        proto::Field_semantic sem = proto::FIELD_SEMANTIC_DEFAULT,
         uint32_t timeout = 0);   // timeout in seconds. default: do not specify timeout
 
     Property::Ptr
@@ -132,7 +136,7 @@ public:
 
     // Populate subsystem registration message
     void
-    Register(ugcs::vsm::proto::Register_subsystem* msg);
+    Register(proto::Register_subsystem* msg);
 
     proto::Subsystem_type type;
 

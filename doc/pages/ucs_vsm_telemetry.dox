@@ -75,6 +75,8 @@ Registering different semantic for these values will lead to undesired results.
 | motors_ok | FIELD_SEMANTIC_BOOL | FC |  true - ok, false - not ok. |
 | native_flight_mode | FIELD_SEMANTIC_STRING | FC | Autopilot specific flight mode name |
 | pitch | FIELD_SEMANTIC_PITCH | FC | Pitch relative to horizon. Range -Pi..Pi, pitch up is positive |
+| payload_status | FIELD_SEMANTIC_STRING | PAYLOAD_CONTROLLER | Status of an attached payload. |
+| payload_data | FIELD_SEMANTIC_STRING | PAYLOAD_CONTROLLER | Any payload telemetry. |
 | rc_link_quality | FIELD_SEMANTIC_LINK_QUALITY | FC |  |
 | roll | FIELD_SEMANTIC_ROLL | FC | Roll relative to horizon. Range -Pi..Pi, roll right is positive |
 | safety_battery_active | FIELD_SEMANTIC_BOOL |  Winch |  |

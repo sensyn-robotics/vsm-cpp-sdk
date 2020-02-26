@@ -102,9 +102,7 @@ microdrones |Microdrones MD200, MD1000
 mikrokopter |Mikrokopter
 micropilot  |Micropilot
 kestrel     |Kestrel
-emulator    |Built in vehicle emulator
-
-VSM can report other values here. In that case user will need to select the vehicle profile manually.
+emulator    |Reserved for built-in vehicle emulators 
 
 @section frame_list Vehicle frames
 

@@ -122,37 +122,40 @@ public:
 
         while (true) {
             size_t buffer_len = packet_buf->Get_length();
-            stats[mavlink::SYSTEM_ID_ANY].bytes_received += buffer_len;
-            if (state == State::STX) {
-                size_t len_skipped = 0;
-                if (buffer_len < mavlink::MAVLINK_1_MIN_FRAME_LEN) {
-                    // need at least minimum frame length of data.
-                    next_read_len = mavlink::MAVLINK_1_MIN_FRAME_LEN - buffer_len;
-                    break;
-                }
-                // look for signature in received data.
-                data = static_cast<const uint8_t*>(packet_buf->Get_data());
-                for (; len_skipped < buffer_len; len_skipped++, data++) {
-                    if (*data == mavlink::START_SIGN) {
-                        // found preamble. Start receiving payload.
-                        state = State::VER1;
-                        stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
-                        // slice off the preamble.
-                        packet_buf = packet_buf->Slice(1);
+            {   // lock scope
+                std::lock_guard<std::mutex> stats_lock(stats_mutex);
+                stats[mavlink::SYSTEM_ID_ANY].bytes_received += buffer_len;
+                if (state == State::STX) {
+                    size_t len_skipped = 0;
+                    if (buffer_len < mavlink::MAVLINK_1_MIN_FRAME_LEN) {
+                        // need at least minimum frame length of data.
+                        next_read_len = mavlink::MAVLINK_1_MIN_FRAME_LEN - buffer_len;
                         break;
                     }
-                    if (*data == mavlink::START_SIGN2) {
-                        // found preamble. Start receiving payload.
-                        state = State::VER2;
-                        stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
-                        // slice off the preamble.
-                        packet_buf = packet_buf->Slice(1);
-                        break;
+                    // look for signature in received data.
+                    data = static_cast<const uint8_t*>(packet_buf->Get_data());
+                    for (; len_skipped < buffer_len; len_skipped++, data++) {
+                        if (*data == mavlink::START_SIGN) {
+                            // found preamble. Start receiving payload.
+                            state = State::VER1;
+                            stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
+                            // slice off the preamble.
+                            packet_buf = packet_buf->Slice(1);
+                            break;
+                        }
+                        if (*data == mavlink::START_SIGN2) {
+                            // found preamble. Start receiving payload.
+                            state = State::VER2;
+                            stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
+                            // slice off the preamble.
+                            packet_buf = packet_buf->Slice(1);
+                            break;
+                        }
                     }
-                }
-                if (len_skipped) {
-                    // slice off the skipped bytes.
-                    packet_buf = packet_buf->Slice(len_skipped);
+                    if (len_skipped) {
+                        // slice off the skipped bytes.
+                        packet_buf = packet_buf->Slice(len_skipped);
+                    }
                 }
             }
             if (state == State::VER1 || state == State::VER2) {
@@ -187,19 +190,6 @@ public:
         }
     }
 
-    /** Reset decoder to initial state.
-     * @param reset_stats @a true if statistics should also be reset.
-     */
-    void
-    Reset(bool reset_stats = true)
-    {
-        state = State::STX;
-        packet_buf = ugcs::vsm::Io_buffer::Create();
-        if (reset_stats) {
-            stats.clear();
-        }
-    }
-
     /** Get the exact number of bytes which should be read by underlying
      * I/O subsystem and fed to the decoder.
      * @return Exact number of bytes to be read by next read operation.
@@ -215,16 +205,18 @@ public:
      * @param system_id system id to get statistics for. Use mavlink::SYSTEM_ID_ANY to get total for all system_ids.
      * @return Readonly reference to the Stats structure for given system_id.
      * */
-    const Mavlink_decoder::Stats &
+    const Mavlink_decoder::Stats
     Get_stats(int system_id)
     {
+        std::lock_guard<std::mutex> lock(stats_mutex);
         return stats[system_id];
     }
 
     /** Get read-only access to common statistics. */
-    const Mavlink_decoder::Stats &
+    const Mavlink_decoder::Stats
     Get_common_stats()
     {
+        std::lock_guard<std::mutex> lock(stats_mutex);
         return stats[mavlink::SYSTEM_ID_ANY];
     }
 
@@ -264,6 +256,7 @@ private:
         if (    !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::Extension::Get())
             &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::apm::Extension::Get())
             &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::sph::Extension::Get())) {
+            std::lock_guard<std::mutex> stats_lock(stats_mutex);
             stats[mavlink::SYSTEM_ID_ANY].unknown_id++;
             // LOG_DEBUG("Unknown Mavlink message id: %d (%X)", msg_id, msg_id);
             return false;
@@ -279,14 +272,16 @@ private:
         bool cksum_ok = sum_calc == *sum_recv;
         bool length_ok = crc_byte_len_pair.second == payload_len;
 
+        std::unique_lock<std::mutex> stats_lock(stats_mutex);
         if (cksum_ok && (length_ok || state == State::VER2)) {
             /*
              * Fully valid packet received.
              */
             if (handler) {
-                handler(Io_buffer::Create(*buffer, header_len, payload_len), msg_id, system_id, component_id, seq);
                 stats[system_id].handled++;
                 stats[mavlink::SYSTEM_ID_ANY].handled++;
+                stats_lock.unlock();
+                handler(Io_buffer::Create(*buffer, header_len, payload_len), msg_id, system_id, component_id, seq);
             } else {
                 stats[system_id].no_handler++;
                 stats[mavlink::SYSTEM_ID_ANY].no_handler++;
@@ -318,6 +313,7 @@ private:
 
     /** Statistics. */
     std::unordered_map<int, Stats> stats;
+    std::mutex stats_mutex;
 
     /** Packet buffer. */
     ugcs::vsm::Io_buffer::Ptr packet_buf;

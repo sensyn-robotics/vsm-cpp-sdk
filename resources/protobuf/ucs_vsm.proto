@@ -1,3 +1,6 @@
+syntax = "proto2";
+option optimize_for = LITE_RUNTIME;
+
 package ugcs.vsm.proto;
 
 option java_package = "com.ugcs.ucs.vsm.proto";
@@ -206,6 +209,8 @@ message Field_value {
     optional bool bool_value = 6;
 
     optional List_value list_value = 7;
+
+    optional bytes bytes_value = 8;
 }
 
 message List_value {

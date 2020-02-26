@@ -472,7 +472,7 @@ Properties::Load(std::istream &stream)
         }
 
         virtual bool
-        On_token(Token &&token, std::unique_ptr<State> &next_state __UNUSED)
+        On_token(Token &&token, std::unique_ptr<State> &next_state __UNUSED) override
         {
             if (token.type == Token::Type::CHAR) {
                 str += token.v_char;
@@ -517,7 +517,7 @@ Properties::Load(std::istream &stream)
         }
 
         virtual bool
-        On_token(Token &&token, std::unique_ptr<State> &next_state __UNUSED)
+        On_token(Token &&token, std::unique_ptr<State> &next_state __UNUSED) override
         {
             if (token.type == Token::Type::STRING) {
                 if (key.empty()) {

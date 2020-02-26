@@ -24,7 +24,7 @@ public:
         stream->Seek(0);
         filter = Text_stream_filter::Create(stream, worker);
         filter->Add_entry(
-                regex::regex("^(.*)([:digit:])"),
+                std::regex("^(.*)([[:digit:]])"),
                 ugcs::vsm::Text_stream_filter::Make_match_handler(
                         &Tester::Handler, this));
         filter->Enable();
@@ -42,7 +42,7 @@ public:
     }
 
     bool Handler(
-            regex::smatch* match,
+            std::smatch* match,
             Text_stream_filter::Lines_list*,
             Io_result result)
     {

@@ -84,6 +84,10 @@ private:
 
     uint32_t ucs_id_counter;
 
+    // VSM will drop UCS connection if there is no messages from the server this long.
+    // If specified, VSM will send regular pings to server.
+    std::chrono::seconds keep_alive_timeout = std::chrono::seconds(0);
+
     uint32_t
     Get_next_id() { return ucs_id_counter++; }
 
@@ -223,6 +227,9 @@ private:
 
     void
     Close_ucs_stream(size_t stream_id);
+
+    void
+    Notify_device_about_ucs_connections(uint32_t device_id);
 
     /** Cucs processor singleton instance. */
     static Singleton<Cucs_processor> singleton;

@@ -150,6 +150,10 @@ Transport_detector::Add_detector(
                 continue;
             } else if (it[POS_TYPE] == "retry_timeout") {
                 continue;
+            } else if (it[POS_TYPE] == "transport_detector_on_when_diconnected") {
+                continue;
+            } else if (it[POS_TYPE] == "keep_alive_timeout") {
+                continue;
             }
             auto vpref = prefix + tokenizer + it[POS_TYPE] + tokenizer + it[POS_ID];
             if (it[POS_TYPE] == "serial") {
@@ -336,10 +340,10 @@ bool Transport_detector::Port_blacklisted(const std::string& port_name, Connect_
     auto it = port_black_list.find(handler);
     if (it == port_black_list.end())
         return false;
-    regex::smatch match;
+    std::smatch match;
     for (auto &re : it->second)
     {
-        if (regex::regex_match(port_name, match, re))
+        if (std::regex_match(port_name, match, re))
             return true;
     }
     return false;
@@ -427,7 +431,7 @@ Transport_detector::Add_blacklisted_impl(Connect_handler handler,
         const std::string port_regexp, Request::Ptr request)
 {
     if (!port_regexp.empty()) {
-        auto it = port_black_list.emplace(handler, std::list<regex::regex>()).first;
+        auto it = port_black_list.emplace(handler, std::list<std::regex>()).first;
         it->second.emplace_back(port_regexp, platform_independent_filename_regex_matching_flag);
         LOG_INFO("Added blacklisted port='%s'", port_regexp.c_str());
     }
@@ -798,7 +802,7 @@ Transport_detector::Port::Reopen_and_call_next_handler()
     if (current_detector == detectors.end()) {
         // no more detectors specified for this port, restart from the beginning.
         current_detector = detectors.begin();
-        if (type != UDP_IN && type != TCP_IN) {
+        if (type != UDP_IN && type != TCP_IN && type != PROXY) {
             // restart from beginning on next On_timer() call.
             state = NONE;
             return;
@@ -1140,6 +1144,6 @@ Transport_detector::Port::Add_detector(
 bool
 Transport_detector::Port::Match_name(std::string & name)
 {
-    regex::smatch match;
-    return regex::regex_match(name, match, re);
+	std::smatch match;
+    return std::regex_match(name, match, re);
 }

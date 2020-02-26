@@ -10,6 +10,7 @@
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/optional.h>
 #include <ugcs/vsm/subsystem.h>
+#include <ugcs/vsm/socket_processor.h>
 
 #include <memory>
 #include <unordered_map>
@@ -17,8 +18,6 @@
 
 namespace ugcs {
 namespace vsm {
-
-typedef std::shared_ptr<ugcs::vsm::proto::Vsm_message> Proto_msg_ptr;
 
 class Ucs_request :public Request
 {
@@ -40,6 +39,17 @@ public:
 
     ugcs::vsm::proto::Vsm_message request;
 };
+
+// Structure to get info about ucs servers device is registered with.
+// Used in Handle_ucs_info callback.
+typedef struct {
+    uint32_t ucs_id;
+    Socket_address::Ptr address;
+    // This is the primary connection to given ucs. Telemetry/registrations sent only over this connection.
+    bool is_primary;
+    // Last time something was received over this connection.
+    std::chrono::time_point<std::chrono::steady_clock> last_message_time;
+} Ucs_info;
 
 class Device: public std::enable_shared_from_this<Device>
 {
@@ -139,7 +149,7 @@ public:
     void
     Unregister();
 
-    /** Returns true if vehicle is registered with ucs. */
+    /** Returns true if vehicle is registered with cucs_processor. */
     bool
     Is_registered();
 
@@ -149,11 +159,24 @@ public:
     Subsystem::Ptr
     Add_subsystem(proto::Subsystem_type);
 
-protected:
     /** Get default processing context of the vehicle. */
     Request_processor::Ptr
     Get_processing_ctx();
 
+    /**
+     * Called when number of ucs connections change. Called when:
+     * - device registration succeeds via particular connection.
+     * - some ucs connection terminates before vehicle is unregistered.
+     * Device unregistration does not have response thus it can be
+     * considered unregistered as soon as Unregister() is called.
+     *
+     * ucs_data : list of ucs connections on which device is currently registered.
+     */
+    virtual void
+    Handle_ucs_info(std::vector<Ucs_info> /*ucs_data*/)
+    {};
+
+protected:
     /** Device enable event handler. Can be overridden by derived class,
      * if necessary. Always called in Device context.
      */
@@ -174,8 +197,7 @@ protected:
      * should be overridden by user code.
      */
     virtual void
-    Handle_ucs_command(
-        Ucs_request::Ptr request);
+    Handle_ucs_command(Ucs_request::Ptr request);
 
     /** Sends Device_response with status code==STATUS_IN_PROGRESS with optional progress and description.
      * Used to display progress-bar and/or some description.

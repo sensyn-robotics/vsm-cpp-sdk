@@ -778,6 +778,7 @@ Socket_processor::Handle_write_requests(Stream::Ptr stream)
         } else if (request->Is_aborted()) {
             // Do not care about aborted requests.
             stream->write_requests.pop_front();
+            continue;
         } else {
             // Cancelled requests are handled in On_cancel()
             // Let On_cancel handle the possibly cancelled request and then get back here for other pending requests.

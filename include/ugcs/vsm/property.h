@@ -26,7 +26,8 @@ public:
         VALUE_TYPE_BOOL = 5,
         VALUE_TYPE_LIST = 6,
         VALUE_TYPE_ENUM = 7,
-        VALUE_TYPE_NONE = 8,
+        VALUE_TYPE_BINARY = 8,
+        VALUE_TYPE_NONE = 9,
     } Value_type;
 
     typedef enum {

@@ -10,7 +10,7 @@
 
 #include <ugcs/vsm/vsm.h>
 
-#include <ugcs/vsm/regex.h>
+#include <regex>
 
 namespace ugcs {
 namespace vsm {
@@ -33,7 +33,7 @@ public:
      *      Timeout (if any) is restarted when "true" is returned. It is allowed
      *      to return true only for OK and TIMED_OUT result codes.
      */
-    typedef Callback_proxy<bool, regex::smatch *, Lines_list *, Io_result> Match_handler;
+    typedef Callback_proxy<bool, std::smatch *, Lines_list *, Io_result> Match_handler;
     /** Received line handler.
      * @return true if line is captured by the handler and should not be fed
      *      to filter entries.
@@ -44,7 +44,7 @@ public:
 
     /** Builder for match handlers. */
     DEFINE_CALLBACK_BUILDER(Make_match_handler,
-                            (regex::smatch *, Text_stream_filter::Lines_list *,  Io_result),
+                            (std::smatch *, Text_stream_filter::Lines_list *,  Io_result),
                             (nullptr, nullptr, Io_result::OK));
 
     /** Builder for line handler. */
@@ -80,7 +80,7 @@ public:
      * @return Entry handle.
      */
     Entry_handle
-    Add_entry(const regex::regex &re, Match_handler handler,
+    Add_entry(const std::regex &re, Match_handler handler,
               std::chrono::milliseconds timeout = std::chrono::milliseconds::zero(),
               size_t ctx_lines_before = 0, size_t ctx_lines_after = 0);
 
@@ -97,11 +97,11 @@ private:
     public:
         Entry_handle handle;
         /** Regular expression for this entry. */
-        regex::regex re;
+        std::regex re;
         /** User provided handler. */
         Match_handler handler;
         /** Matched data when match found. */
-        regex::smatch match;
+        std::smatch match;
         /** Matched lines. */
         Lines_list lines;
         /** Number of lines to capture before and after matched line. */
@@ -111,7 +111,7 @@ private:
         /** Timeout timer handle if timeout required. */
         Timer_processor::Timer::Ptr timer = nullptr;
 
-        Entry(Entry_handle handle, const regex::regex &re, Match_handler handler,
+        Entry(Entry_handle handle, const std::regex &re, Match_handler handler,
               size_t ctx_lines_before, size_t ctx_lines_after):
             handle(handle), re(re), handler(handler),
             ctx_lines_before(ctx_lines_before), ctx_lines_after(ctx_lines_after)

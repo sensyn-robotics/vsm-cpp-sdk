@@ -502,9 +502,9 @@ def GenerateMessage(f, msg):
     
     f.write('} __PACKED;\n\n')
     
-    f.write('extern mavlink::internal::Field_descriptor pld_desc_%s[];\n\n' % msg.name.lower())
+    f.write('extern mavlink::internal::Field_descriptor pld_desc_%s[%d];\n\n' % (msg.name.lower(), len(msg.fields) + 1))
     
-    f.write('extern const char pld_name_%s[];\n\n' % msg.name.lower())
+    f.write('extern const char pld_name_%s[%d];\n\n' % (msg.name.lower(), len(msg.name) + 1))
     
     f.write('} /* namespace internal */\n\n')
     
@@ -552,8 +552,8 @@ def GenerateMessageImpl(f, msg):
     f.write('{nullptr, NONE, 0}\n')
     f.write('};\n\n')
     
-    f.write('const char mavlink::%sinternal::pld_name_%s[] = "%s";\n\n' %
-            (namespace, msg.name.lower(), msg.name))
+    f.write('const char mavlink::%sinternal::pld_name_%s[%d] = "%s";\n\n' %
+            (namespace, msg.name.lower(), len(msg.name) + 1, msg.name))
     
     f.write('void\nmavlink::%sinternal::Pld_struct_%s::Reset() {\n' %
             (namespace, msg.name.lower()))
@@ -619,6 +619,7 @@ Messages definitions for MAVLink protocol.
 namespace %s {
 class Extension: public mavlink::Extension {
 public:
+    Extension() {}
     static const Extension &
     Get() {
         return instance;

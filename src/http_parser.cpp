@@ -353,7 +353,7 @@ class Read_header: public State {
     }
 
     virtual bool
-    On_token(Token &&token, std::unique_ptr<State> &next_state)
+    On_token(Token &&token, std::unique_ptr<State> &next_state) override
     {
         if (token.type == Token::Type::EOL) {
             // double CRLF. no more headers. exit.

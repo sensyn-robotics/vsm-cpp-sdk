@@ -3,10 +3,12 @@
 APP_ABI := @ANDROID_ABI_LIST@
 APP_PLATFORM := @ANDROID_PLATFORM@
 
-APP_CPPFLAGS += -std=c++11
+APP_CPPFLAGS += -std=c++14
 APP_CPPFLAGS += -frtti
 APP_CPPFLAGS += -fexceptions
 APP_CPPFLAGS += -fpermissive
+# HAVE_PTHREAD required for protobuf compilation.
+APP_CPPFLAGS += -DHAVE_PTHREAD
 
 APP_CFLAGS += -D__STDC_FORMAT_MACROS=1 -D__STDC_LIMIT_MACROS=1
 

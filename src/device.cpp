@@ -249,7 +249,7 @@ Device::Commit_to_ucs(bool log_message)
         ||  report->status_messages_size())
     {
         if (log_message) {
-            LOG("%s", msg->DebugString().c_str());
+            LOG("%s", msg->SerializeAsString().c_str());
         }
         Send_ucs_message(msg);
     }
@@ -359,5 +359,5 @@ Device::Register(ugcs::vsm::proto::Vsm_message& msg)
     for (auto subsystem : subsystems) {
         subsystem->Register(dev->add_subsystems());
     }
-    // LOG("Register msg:%s", msg.DebugString().c_str());
+    // LOG("Register msg:%s", msg.SerializeAsString().c_str());
 }

@@ -95,8 +95,14 @@ Cucs_processor::On_enable()
         Transport_detector::Get_instance()->Activate(false);
     }
 
+    if (Properties::Get_instance()->Exists("ucs.keep_alive_timeout")) {
+        auto t = Properties::Get_instance()->Get_int("ucs.keep_alive_timeout");
+        keep_alive_timeout = std::chrono::seconds(t);
+        LOG_INFO("Setting ucs connection_timeout to %d", t);
+    }
+
     timer = Timer_processor::Get_instance()->Create_timer(
-        REGISTER_PEER_TIMEOUT,
+        std::chrono::seconds(1),
         Make_callback(
             &Cucs_processor::On_timer,
             Shared_from_this()),
@@ -157,23 +163,26 @@ Cucs_processor::On_timer()
 {
     for (auto& iter : ucs_connections) {
         auto now = std::chrono::steady_clock::now();
-        if (iter.second.last_message_time + REGISTER_PEER_TIMEOUT < now) {
-            if (iter.second.ucs_id) {
-                if (iter.second.last_message_time + REGISTER_PEER_TIMEOUT * 2 < now) {
-// TODO: Uncomment this once server responds to pings.
-//                    LOG("server connection timed out");
-//                    iter.second.stream->Close();
+        if (iter.second.ucs_id) {
+            // known ucs.
+            if (keep_alive_timeout.count()) {
+                // timeout specified.
+                if (iter.second.last_message_time + keep_alive_timeout < now) {
+                    LOG("Server connection timed out");
+                    iter.second.stream->Close();
                 } else {
+                    // Still good. Send another ping.
                     ugcs::vsm::proto::Vsm_message ping_msg;
                     ping_msg.set_device_id(0);
                     ping_msg.set_response_required(true); // this will set message_id automatically.
                     Send_ucs_message(iter.first, ping_msg);
                 }
-            } else {
-                LOG("server connection timed out");
+            }
+        } else {
+            if (iter.second.last_message_time + REGISTER_PEER_TIMEOUT < now && !iter.second.ucs_id) {
+                LOG("Server connection timed out");
                 iter.second.stream->Close();
             }
-
         }
     }
     return true;
@@ -269,7 +278,7 @@ Cucs_processor::Read_completed(
             ugcs::vsm::proto::Vsm_message vsm_msg;
             if (vsm_msg.ParseFromArray(buffer->Get_data(), buffer->Get_length())) {
                 // Message parsed ok.
-                // LOG("received msg: %s", vsm_msg.DebugString().c_str());
+                // LOG("received msg: %s", vsm_msg.SerializeAsString().c_str());
                 if (connection.ucs_id) {
                     // knwon ucs
                     connection.last_message_time = std::chrono::steady_clock::now();
@@ -287,6 +296,8 @@ Cucs_processor::Read_completed(
                                 auto it = vehicles.find(conn_it->second);
                                 if (it != vehicles.end()) {
                                     connection.registered_devices.insert(conn_it->second);
+                                    // Signal device about new connection.
+                                    Notify_device_about_ucs_connections(conn_it->second);
                                     // Send cached telemetry data
                                     ugcs::vsm::proto::Vsm_message reg;
                                     reg.set_device_id(it->first);
@@ -442,7 +453,7 @@ Cucs_processor::On_register_vehicle(Request::Ptr request, Device::Ptr vehicle)
 
     vehicle->Register(ctx.registration_message);
 
-    // LOG("Vehicle registered %s",ctx.registration_message.DebugString().c_str());
+    // LOG("Vehicle registered %s",ctx.registration_message.SerializeAsString().c_str());
 
     request->Complete();
 
@@ -602,7 +613,7 @@ Cucs_processor::Send_ucs_message(
         user_data.resize(header_len + payload_len);
         Io_buffer::Ptr buffer = Io_buffer::Create(std::move(user_data));
 
-        // LOG("sending msg: %s", message.DebugString().c_str());
+        // LOG("sending msg: %s", message.SerializeAsString().c_str());
         // LOG("sending msg len: %d", header_len + payload_len);
         ctx.stream->Write(
                 buffer,
@@ -641,6 +652,8 @@ Cucs_processor::Close_ucs_stream(size_t stream_id)
         if (iter->second.ucs_id) {
             ucs_id = *iter->second.ucs_id;
         }
+
+        auto devices = iter->second.registered_devices;
         ucs_connections.erase(iter);
 
         if (primary) {
@@ -672,11 +685,47 @@ Cucs_processor::Close_ucs_stream(size_t stream_id)
             }
         }
 
+        // For all devices registered with the closed connection we gather
+        // all other connections the device is registered to.
+        // And tell that to the device via Handle_ucs_info call.
+        for (auto dev_id : devices) {
+            Notify_device_about_ucs_connections(dev_id);
+        }
+
         if (ucs_connections.size() == 0) {
             if (!transport_detector_on_when_diconnected) {
                 Transport_detector::Get_instance()->Activate(false);
             }
         }
+    }
+}
+
+void
+Cucs_processor::Notify_device_about_ucs_connections(uint32_t dev_id)
+{
+    auto dev = Get_device(dev_id);
+    if (dev) {
+        std::vector<Ucs_info> ucs_data;
+        for (auto& u : ucs_connections) {
+            if (u.second.registered_devices.find(dev_id) != u.second.registered_devices.end()) {
+                ucs_data.emplace_back(Ucs_info{
+                    *u.second.ucs_id,
+                    Socket_address::Create(u.second.address),
+                    u.second.primary,
+                    u.second.last_message_time});
+            }
+        }
+        // Handle_ucs_info call must happen within device context.
+        auto request = Request::Create();
+        request->Set_processing_handler(
+            Make_callback([](Request::Ptr r, Device::Ptr d, std::vector<Ucs_info> data) {
+                d->Handle_ucs_info(data);
+                r->Complete();
+            },
+            request,
+            dev,
+            ucs_data));
+        dev->Get_processing_ctx()->Submit_request(request);
     }
 }
 
@@ -726,7 +775,6 @@ Cucs_processor::On_ucs_message(
             } else {
                 // Respond OK to any request for the peer itself.
                 resp->mutable_device_response()->set_code(ugcs::vsm::proto::STATUS_OK);
-
             }
         }
         // Message not passed to vehicle. Send response.

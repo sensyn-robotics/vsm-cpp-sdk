@@ -25,19 +25,6 @@ else()
     set(EXT_TOOL "")
 endif()
 
-Find_platform_sources("${VSM_SDK_DIR}"
-                      PLATFORM_INCLUDES PLATFORM_SOURCES PLATFORM_HEADERS)
-Build_mavlink(${VSM_SDK_DIR} MAVLINK_INCLUDES MAVLINK_SOURCES MAVLINK_HEADERS MAVLINK_LUA)
-
-Compile_protobuf_definitions(
-    "ucs_vsm.proto;ucs_vsm_defs.proto"
-    "${VSM_SDK_DIR}/resources/protobuf"
-    "ucs_vsm_proto.h")
-
-include_directories(${VSM_SDK_DIR}/include)
-include_directories(${PLATFORM_INCLUDES} ${MAVLINK_INCLUDES})
-include_directories(${VSM_SDK_DIR}/third-party/protobuf/src)
-
 if (DEFINED VSM_MEMORY_SANITIZER OR DEFINED ENV{VSM_MEMORY_SANITIZER})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
     # Valgrind cannot work together with address sanitizer
@@ -49,20 +36,14 @@ if (DEFINED ENV{VSM_THREAD_SANITIZER})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -shared -fPIC")
 endif()
 
-add_definitions(-DDEBUG -DUNITTEST)
+#suppress warnings about throw in destructors
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-terminate")
 
-# Add all SDK source files
-file(GLOB SDK_SRCS "${VSM_SDK_DIR}/src/*.cpp")
-file(GLOB HEADERS "${VSM_SDK_DIR}/src/include/vsm/*.h")
-set(SDK_SRCS ${SDK_SRCS} ${HEADERS} ${PLATFORM_SOURCES} ${PLATFORM_HEADERS})
-set(SDK_SRCS ${SDK_SRCS} ${MAVLINK_SOURCES} ${MAVLINK_HEADERS})
-set(SDK_SRCS ${SDK_SRCS} ${PROTOBUF_AUTO_SOURCES} ${PROTOBUF_AUTO_HEADERS})
-# Process DLL module definitions on Windows
-Process_dll_defs("${VSM_SDK_DIR}/src/platform/win")
+add_definitions(-DDEBUG -DUNITTEST)
 
 # Copy initial configuration and resources
 add_custom_target(initial_config COMMENT "Copying initial configuration")
-set(INITIAL_CONFIG_SRC ${VSM_SDK_DIR}/resources/configuration/vsm.conf)
+set(INITIAL_CONFIG_SRC ${SDK_SOURCE_ROOT}/resources/configuration/vsm.conf)
 set(INITIAL_CONFIG_DST ${CMAKE_BINARY_DIR}/vsm.conf)
 add_custom_command(TARGET initial_config COMMAND 
     ${CMAKE_COMMAND} -E copy ${INITIAL_CONFIG_SRC} ${INITIAL_CONFIG_DST})
@@ -70,14 +51,14 @@ add_custom_command(TARGET initial_config COMMAND
     ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/resources
     ${CMAKE_BINARY_DIR}/resources)
 
-add_library(ut_vsm_sdk STATIC ${SDK_SRCS} $<TARGET_OBJECTS:protobuf_objlib>)
+add_library(ut_vsm_sdk STATIC ${SDK_SOURCES} ${SDK_HEADERS})
 
 add_dependencies(ut_vsm_sdk unittestpp initial_config)
 
-set(EXT_LIB ut_vsm_sdk)
+set(EXT_LIB ut_vsm_sdk ${VSM_PLAT_LIBS} ${PROTOBUF_LIBRARIES})
 
 # Make sure the SDK example can be built
 add_executable(hello_world_vsm ${CMAKE_SOURCE_DIR}/../../doc/examples/Hello_world_VSM/hello_world_vsm.cpp ${DLL_IMPORT_LIBS})
-target_link_libraries(hello_world_vsm ${EXT_LIB} ${VSM_PLAT_LIBS})
+target_link_libraries(hello_world_vsm ${EXT_LIB})
 
 include(ugcs/ut)

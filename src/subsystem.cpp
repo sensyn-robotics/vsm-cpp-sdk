@@ -105,10 +105,38 @@ Vsm_command::Build_parameter_list(const ugcs::vsm::proto::Device_command &cmd)
     return ret;
 }
 
+void
+Vsm_command::Build_command(ugcs::vsm::proto::Device_command *cmd, Property_list args)
+{
+    size_t i = 0;
+    for (auto& arg : args) {
+        for (auto param : parameters) {
+            // Find the command parameter by name.
+            if (param.second->Get_name() == arg.first) {
+                auto p = cmd->add_parameters();
+                arg.second->Write_as_parameter(p);
+                p->set_field_id(param.first);
+                i++;
+                break;
+            }
+        }
+    }
+    if (i == args.size() && args.size() == parameters.size()) {
+        cmd->set_command_id(Get_id());
+    } else {
+        VSM_SYS_EXCEPTION(
+            "Invalid params for command %s (%d)! given=%zu expected=%zu matching=%zu",
+            Get_name().c_str(),
+            Get_id(),
+            args.size(),
+            parameters.size(),
+            i);
+    }
+}
+
 Subsystem::Subsystem(proto::Subsystem_type type):
     type(type)
 {
-
 }
 
 Vsm_command::Ptr

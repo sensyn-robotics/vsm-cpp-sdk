@@ -25,6 +25,7 @@
 	</enums>	
 	<messages>
 		<message id="227" name="PARAM_STR_SET">
+            <description>Set string parameter.</description>
             <field type="uint8_t" name="target_system">System ID</field>
             <field type="uint8_t" name="target_component">Component ID</field>
             <field type="char[16]" name="param_id">Onboard parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string</field>
@@ -56,4 +57,3 @@
 		</message>
 	</messages>
 </mavlink>
-

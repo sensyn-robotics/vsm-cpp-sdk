@@ -19,7 +19,7 @@ Message length | Length of message_size field in bytes
 128..16383 | 2
 16384..2097151 | 3
 
-The format of message_size is defined as "Little Endian Base 128", see https://en.wikipedia.org/wiki/LEB128.
+The format of message_size is defined as "Unsigned Little Endian Base 128", see https://en.wikipedia.org/wiki/LEB128.
 
 The following is taken from https://developers.google.com/protocol-buffers/docs/encoding#varints :
 

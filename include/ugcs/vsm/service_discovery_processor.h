@@ -164,7 +164,10 @@ private:
     std::map<std::string, std::pair<Detection_handler, Request_processor::Ptr>> subscribed_services;
 
     // look for new interfaces each 5 seconds.
-    Timer_processor::Timer::Ptr my_timer;
+    Timer_processor::Timer::Ptr interface_checker_timer;
+
+    // Send notifications each 10 seconds.
+    Timer_processor::Timer::Ptr notify_timer;
 
     void
     On_read(
@@ -175,6 +178,9 @@ private:
 
     bool
     On_timer();
+
+    bool
+    On_notify_timer();
 
     void
     On_sender_bound(Socket_processor::Stream::Ref l, Io_result);
@@ -187,6 +193,12 @@ private:
             const std::string& name,
             const std::string& location,
             bool alive);
+
+    // Sends notifications about all services on given interface
+    void
+    Send_notify_all_services(
+        Socket_processor::Stream::Ref s,
+        Socket_address::Ptr dest_addr);
 
     void
     Send_response(

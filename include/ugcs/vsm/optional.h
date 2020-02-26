@@ -15,7 +15,9 @@ namespace ugcs {
 namespace vsm {
 
 /** Type for null option. Used to disengage optional value. */
-struct Nullopt_t {};
+struct Nullopt_t {
+    constexpr Nullopt_t(){}
+};
 
 /** Null option. Used to disengage optional value. */
 constexpr Nullopt_t nullopt;

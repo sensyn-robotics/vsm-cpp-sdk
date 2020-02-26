@@ -26,9 +26,8 @@ itself without using 3rd party libraries like [Boost](http://www.boost.org),
 <ul>
 <li><b>Efficiency</b>
 
-To achieve that, C++11 programming language is used for SDK implementation and
+To achieve that, C++ programming language (C++14 standard) is used for SDK implementation and
 also is a requirement for VSM application development.
-
 
 <li><b>Universality</b>
 

@@ -138,6 +138,8 @@ Property::Get_type_from_semantic(proto::Field_semantic sem)
         return Property::VALUE_TYPE_INT;
     case proto::FIELD_SEMANTIC_STRING:
         return Property::VALUE_TYPE_STRING;
+    case proto::FIELD_SEMANTIC_BINARY:
+        return Property::VALUE_TYPE_BINARY;
     case proto::FIELD_SEMANTIC_LIST:
         return Property::VALUE_TYPE_LIST;
     case proto::FIELD_SEMANTIC_ANY:
@@ -198,6 +200,9 @@ Property::Property(int id, const std::string& name, Value_type type):
         break;
     case VALUE_TYPE_STRING:
         semantic = proto::FIELD_SEMANTIC_STRING;
+        break;
+    case VALUE_TYPE_BINARY:
+        semantic = proto::FIELD_SEMANTIC_BINARY;
         break;
     case VALUE_TYPE_ENUM:
         semantic = proto::FIELD_SEMANTIC_ENUM;
@@ -283,6 +288,12 @@ Property::Set_value(const proto::Field_value& v)
             return true;
         }
         break;
+    case VALUE_TYPE_BINARY:
+        if (v.has_bytes_value()) {
+            string_value = v.bytes_value();
+            return true;
+        }
+        break;
     case VALUE_TYPE_BOOL:
         if (v.has_bool_value()) {
             bool_value = v.bool_value();
@@ -296,7 +307,7 @@ Property::Set_value(const proto::Field_value& v)
         }
         break;
     case VALUE_TYPE_NONE:
-        // This determines the order of type detection from value: double, int, string, bool, list.
+        // This determines the order of type detection from value: double, int, string, binary, bool, list.
         if (v.has_double_value()) {
             double_value = v.double_value();
             type = VALUE_TYPE_DOUBLE;
@@ -315,6 +326,11 @@ Property::Set_value(const proto::Field_value& v)
         if (v.has_string_value()) {
             string_value = v.string_value();
             type = VALUE_TYPE_STRING;
+            return true;
+        }
+        if (v.has_bytes_value()) {
+            string_value = v.bytes_value();
+            type = VALUE_TYPE_BINARY;
             return true;
         }
         if (v.has_bool_value()) {
@@ -472,7 +488,7 @@ Property::Set_value(const char* v)
         type = VALUE_TYPE_STRING;
     }
     if (v) {
-        if (type == VALUE_TYPE_STRING) {
+        if (type == VALUE_TYPE_STRING || type == VALUE_TYPE_BINARY) {
             if (string_value != std::string(v) || value_spec != VALUE_SPEC_REGULAR) {
                 string_value = std::string(v);
                 is_changed = true;
@@ -493,7 +509,7 @@ Property::Set_value(const std::string& v)
     if (type == VALUE_TYPE_NONE) {
         type = VALUE_TYPE_STRING;
     }
-    if (type == VALUE_TYPE_STRING) {
+    if (type == VALUE_TYPE_STRING || type == VALUE_TYPE_BINARY) {
         if (string_value != v || value_spec != VALUE_SPEC_REGULAR) {
             string_value = v;
             is_changed = true;
@@ -603,7 +619,7 @@ Property::Get_value(double &v)
 bool
 Property::Get_value(std::string& v)
 {
-    if (value_spec == VALUE_SPEC_REGULAR && type == VALUE_TYPE_STRING) {
+    if (value_spec == VALUE_SPEC_REGULAR && (type == VALUE_TYPE_STRING || type == VALUE_TYPE_BINARY)) {
         v = string_value;
         return true;
     } else {
@@ -787,6 +803,9 @@ Property::Write_value(proto::Field_value* field)
         case VALUE_TYPE_STRING:
             field->set_string_value(string_value);
             break;
+        case VALUE_TYPE_BINARY:
+            field->set_bytes_value(string_value);
+            break;
         case VALUE_TYPE_LIST:
             field->set_allocated_list_value(&list_value);
             break;
@@ -819,6 +838,8 @@ Property::Dump_value()
             return name + "(" + std::to_string(field_id) + ")= " + std::to_string(bool_value);
         case VALUE_TYPE_STRING:
             return name + "(" + std::to_string(field_id) + ")= '" + string_value + "'";
+        case VALUE_TYPE_BINARY:
+            return name + "(" + std::to_string(field_id) + ") size=" + std::to_string(string_value.size());
         case VALUE_TYPE_NONE:
             return name + "(" + std::to_string(field_id) + ")= <none>";
         case VALUE_TYPE_LIST:
@@ -911,6 +932,7 @@ Property::Is_equal(const Property& p)
         case VALUE_TYPE_BOOL:
             return bool_value == p.bool_value;
         case VALUE_TYPE_STRING:
+        case VALUE_TYPE_BINARY:
             return string_value == p.string_value;
         case VALUE_TYPE_NONE:
             return true;

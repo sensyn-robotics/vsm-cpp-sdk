@@ -17,6 +17,7 @@
 #include <cstring>
 #include <map>
 #include <cmath>
+#include <type_traits>
 
 namespace ugcs {
 namespace vsm {
@@ -31,7 +32,7 @@ enum {
     START_SIGN = 0xfe,
     /** Starting byte of Mavlink v2 packet. */
     START_SIGN2 = 0xfd,
-    /** @ref System_id value denoting an unknown system, or all systems
+    /** System_id value denoting an unknown system, or all systems
      * depending on context.
      */
     SYSTEM_ID_NONE = 0,
@@ -357,6 +358,8 @@ enum MESSAGE_ID: MESSAGE_ID_TYPE;
 /** This class defines properties of particular protocol extension. */
 class Extension {
 public:
+    Extension() {}
+
     /** Virtual destructor. */
     virtual
     ~Extension() {}
@@ -470,12 +473,17 @@ public:
      */
     Payload(const void *buf, size_t size)
     {
+        // The code below uses memcpy to packed structures to simplify parsing of mavlink messages.
+        // It is not valid if dest class has vtables or other magic.
+        // This assert protects us from overwriting payload instance with invalid data.
+        static_assert(std::is_trivially_copyable<TData>::value, "Payload is not trivially copyable.");
+        void* ptr = &data;
         if (size > sizeof(data)) {
             size = sizeof(data);
         } else if (size < sizeof(data)) {
-            memset(&data, 0, sizeof(data));
+            memset(ptr, 0, sizeof(data));
         }
-        memcpy(&data, buf, size);
+        memcpy(ptr, buf, size);
     }
 
     /**

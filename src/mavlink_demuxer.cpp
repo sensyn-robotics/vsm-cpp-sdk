@@ -21,14 +21,15 @@ std::atomic_int Mavlink_demuxer::Key::generator = ATOMIC_VAR_INIT(1);
 void
 Mavlink_demuxer::Disable()
 {
+    std::lock_guard<std::mutex> lock(mutex);
     default_handler = Default_handler();
-    std::unique_lock<std::mutex> lock(mutex);
     handlers.clear();
 }
 
 void
 Mavlink_demuxer::Register_default_handler(Default_handler handler)
 {
+    std::lock_guard<std::mutex> lock(mutex);
     default_handler = handler;
 }
 
@@ -39,11 +40,13 @@ Mavlink_demuxer::Demux(Io_buffer::Ptr buffer, mavlink::MESSAGE_ID_TYPE message_i
     if (Demux_try(buffer, message_id, system_id, component_id, request_id)) {
         return true;
     }
-    if (!default_handler) {
-        return false;
-    }
-    if (default_handler(buffer, message_id, system_id, component_id, request_id)) {
-        return Demux_try(buffer, message_id, system_id, component_id, request_id);
+    std::unique_lock<std::mutex> lock(mutex);
+    if (default_handler) {
+        auto h = default_handler;
+        lock.unlock();
+        if (h(buffer, message_id, system_id, component_id, request_id)) {
+            return Demux_try(buffer, message_id, system_id, component_id, request_id);
+        }
     }
     return false;
 }
@@ -52,7 +55,7 @@ void
 Mavlink_demuxer::Unregister_handler(Key& key)
 {
     ASSERT(key);
-    std::unique_lock<std::mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(mutex);
     auto range = handlers.equal_range(key);
     for (auto it = range.first; it != range.second; it++) {
         if (it->first.id == key.id) {
@@ -111,7 +114,7 @@ Mavlink_demuxer::Demux_try_one(Io_buffer::Ptr buffer,
 
     Key key(message_id, system_id, component_id);
     {
-        std::unique_lock<std::mutex> lock(mutex);
+        std::lock_guard<std::mutex> lock(mutex);
         auto range = handlers.equal_range(std::move(key));
         for (auto it = range.first; it != range.second; it++) {
             // copy callbacks from handlers
@@ -127,5 +130,3 @@ Mavlink_demuxer::Demux_try_one(Io_buffer::Ptr buffer,
         return true;
     }
 }
-
-

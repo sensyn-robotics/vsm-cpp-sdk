@@ -8,5 +8,7 @@
 
 #include <ugcs/vsm/utils.h>
 
-regex::regex_constants::syntax_option_type
-ugcs::vsm::platform_independent_filename_regex_matching_flag = regex::regex_constants::icase;
+// We want to explicitly say that case insensitive match is required.
+std::regex_constants::syntax_option_type
+ugcs::vsm::platform_independent_filename_regex_matching_flag =
+    std::regex_constants::ECMAScript | std::regex_constants::icase;

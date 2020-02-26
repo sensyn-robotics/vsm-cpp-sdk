@@ -12,8 +12,9 @@
 #include <ugcs/vsm/request_worker.h>
 #include <ugcs/vsm/socket_processor.h>
 #include <ugcs/vsm/properties.h>
-#include <ugcs/vsm/regex.h>
 #include <ugcs/vsm/shared_mutex_file.h>
+
+#include <regex>
 #include <set>
 #include <unordered_set>
 
@@ -291,7 +292,7 @@ public:
         Socket_stream::Ref listener_stream;
 
         /** Regular expression for this entry. */
-        regex::regex re;
+        std::regex re;
 
         /** Context to execute Tcp_connected() */
         Request_worker::Ptr worker;
@@ -381,7 +382,7 @@ private:
 
     /** list of excluded ports per protocol.
      * each protocol maps to a list of regexps defining ports not to be used to detect this protocol*/
-    std::unordered_map<Connect_handler, std::list<regex::regex>, Connect_handler::Hasher> port_black_list;
+    std::unordered_map<Connect_handler, std::list<std::regex>, Connect_handler::Hasher> port_black_list;
 
     bool
     Port_blacklisted(const std::string& port, Connect_handler handler);
