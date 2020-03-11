@@ -289,7 +289,7 @@ private:
             }
             return true;
         } else {
-            LOG_DEBUG("Invalid Mavlink message id: %d system id: %d component id: %d)", msg_id, system_id, component_id);
+            LOG_DEBUG("Invalid Mavlink message id: %d system id: %d component id: %d) [%x:%x]", msg_id, system_id, component_id, sum_calc, *sum_recv);
             if (cksum_ok) {
                 stats[system_id].bad_length++;
                 stats[mavlink::SYSTEM_ID_ANY].bad_length++;
