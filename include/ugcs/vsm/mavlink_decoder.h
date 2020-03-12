@@ -268,11 +268,14 @@ private:
         /* Convert checksum in Mavlink byte order to a host byte order
          * compatible type. */
         auto sum_recv = reinterpret_cast<const mavlink::Uint16*>(data + header_len + payload_len);
+        const uint8_t* crc_ptr = data + header_len + payload_len;
+        const uint16_t crc16 = crc_ptr[1] << 8 | crc_ptr[0];
 
         bool cksum_ok = sum_calc == *sum_recv;
         bool length_ok = crc_byte_len_pair.second == payload_len;
 
         std::unique_lock<std::mutex> stats_lock(stats_mutex);
+        LOG_DEBUG("message id: %d system id: %d component id: %d) [%x:%x:%x]", msg_id, system_id, component_id, crc16, sum_calc, *sum_recv);
         if (cksum_ok && (length_ok || state == State::VER2)) {
             /*
              * Fully valid packet received.
@@ -289,7 +292,7 @@ private:
             }
             return true;
         } else {
-            LOG_DEBUG("Invalid Mavlink message id: %d system id: %d component id: %d) [%x:%x]", msg_id, system_id, component_id, sum_calc, static_cast<mavlink::Uint16>(*sum_recv));
+            LOG_DEBUG("Invalid Mavlink message id: %d system id: %d component id: %d) [%x:%x]", msg_id, system_id, component_id, sum_calc, *sum_recv);
             if (cksum_ok) {
                 stats[system_id].bad_length++;
                 stats[mavlink::SYSTEM_ID_ANY].bad_length++;
