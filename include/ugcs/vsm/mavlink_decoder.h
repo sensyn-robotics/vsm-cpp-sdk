@@ -277,6 +277,10 @@ private:
         std::unique_lock<std::mutex> stats_lock(stats_mutex);
         LOG_DEBUG("message id: %d system id: %d component id: %d) [%x:%x:%x]", msg_id, system_id, component_id, crc16, sum_calc, *sum_recv);
         if (cksum_ok && (length_ok || state == State::VER2)) {
+            if (component_id == 154) {
+                LOG_DEBUG("ignore messages from gimbal.");
+                return true;
+            }
             /*
              * Fully valid packet received.
              */
