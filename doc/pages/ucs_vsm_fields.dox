@@ -141,6 +141,7 @@ There are fields which are recognized by the UgCS system by their name and are u
 | heading | FIELD_SEMANTIC_HEADING |  |
 | rth_altitude_amsl | FIELD_SEMANTIC_ALTITUDE_AMSL | Vehicle will climb to this altitude before going home |
 | altitude_final_amsl | FIELD_SEMANTIC_ALTITUDE_AMSL | Vehicle will descend to given altitude after reaching home |
+| follow_terrain | FIELD_SEMANTIC_BOOL |  |
 
 @section field_enums Built-in enumerations
 
