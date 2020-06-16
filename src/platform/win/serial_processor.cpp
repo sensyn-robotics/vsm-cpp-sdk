@@ -170,7 +170,7 @@ Serial_processor::Open_native_handle(const std::string &port_name, const Stream:
     auto serial_handle = std::make_unique<Serial_file_handle>(handle, mode, port_name);
     serial_handle->Configure();
 
-    return std::move(serial_handle);
+    return serial_handle;
 }
 
 std::list<std::string>
