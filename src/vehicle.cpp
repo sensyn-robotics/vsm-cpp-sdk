@@ -109,6 +109,8 @@ Vehicle::Vehicle(
     c_mission_upload->Add_parameter("safe_altitude", proto::FIELD_SEMANTIC_ALTITUDE_AMSL);
     c_mission_upload->Add_parameter("rth_wait_altitude", proto::FIELD_SEMANTIC_ALTITUDE_AMSL);
 
+    c_mission_clear = flight_controller->Add_command("mission_clear", false); 
+
     // Derived vehicle should set supported enum values for these actions
     // possibly from proto::Failsafe_action
     p_rc_loss_action = c_mission_upload->Add_parameter("rc_loss_action", Property::VALUE_TYPE_ENUM);
