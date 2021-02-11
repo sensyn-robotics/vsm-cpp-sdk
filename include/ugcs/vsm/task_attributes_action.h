@@ -67,6 +67,13 @@ public:
         } else {
             low_battery = DO_NOT_CHANGE;
         }
+        float ao;
+        if (params.at("altitude_origin")->Get_value(ao)) {
+            altitude_origin = ao;
+            altitude_origin_set = true;
+        } else {
+            altitude_origin_set = false;
+        }
     }
 
     /** Safe altitude in meters (MSL). */
@@ -82,6 +89,12 @@ public:
 
     /** Type of action to perform in case of low battery. */
     Emergency_action low_battery;
+
+    /** altitude origin that is sent in mission upload request*/
+    float altitude_origin;
+
+    /** flag that check if altitude origin was sent*/
+    bool altitude_origin_set = false;
 
 private:
     /** Convert Mavlink emergency action value to Emergency_action enum.

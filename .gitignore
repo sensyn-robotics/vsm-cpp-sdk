@@ -1,6 +1,7 @@
 # Ignore build directories
 /build-*
 /**/build-*
-
+/**/cmake-build-*
+/**/html*
 # Ignore eclipse settings file
 .settings

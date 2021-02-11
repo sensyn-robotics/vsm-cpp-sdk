@@ -19,7 +19,7 @@ DEFINE_DEFAULT_VSM_NAME;
 class Custom_vehicle:public ugcs::vsm::Device
 {
     /* To add shared pointer capability to this class. */
-    DEFINE_COMMON_CLASS(Custom_vehicle, ugcs::vsm::Vehicle)
+    DEFINE_COMMON_CLASS(Custom_vehicle, ugcs::vsm::Device)
 /** [custom vehicle] */
 public:
     /* Custom constructor. Vehicle, autopilot and capabilities are fixed,

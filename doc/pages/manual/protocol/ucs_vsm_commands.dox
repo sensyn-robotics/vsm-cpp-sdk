@@ -311,6 +311,8 @@ Parameters
 |ground_elevation| FIELD_SEMANTIC_GROUND_ELEVATION | Ground elevation at landing position (optional)|
 |acceptance_radius| FIELD_SEMANTIC_ACCEPTANCE_RADIUS | When the sphere with the radius centered at the target position is hit by the vehicle the target position is considered reached. |
 |heading| FIELD_SEMANTIC_HEADING | Vehicle heading at the WP |
+|follow_terrain| FIELD_SEMANTIC_BOOL | Vehicle moving to the WP in follow terrain mode. Altitude above terrain is calculated as altitude_amsl minus ground_elevation.  |
+
 
 @subsection c_manual Manual control mode.
 
@@ -324,7 +326,7 @@ There are no parameters for this command.
 
 Command ID: "mission_clear"
 
-Description: Deletes the current route from vehuicle.
+Description: Deletes the current route from vehicle.
 
 There are no parameters for this command.
 
@@ -334,7 +336,12 @@ Command ID: "mission_pause"
 
 Description: Pause mission execution (HOLD). This will put vehicle in either Click&Go or Joystick mode depending on autopilot.
 
-There are no parameters for this command.
+Supported parameters:
+
+|Name|Type|Description|
+|---|---|---|
+|additional_altitude | FIELD_SEMANTIC_NUMERIC | After pause climb in given number of meters. This option is may be used for additional safety when flying near the earth |
+
 
 @subsection c_mission_resume Resume mission flight
 
@@ -401,6 +408,7 @@ Supported parameters:
 |loiter_radius| FIELD_SEMANTIC_LOITER_RADIUS | Radius of the point fly-by orbit in meters. Positive value stands for the CW direction, negative - CCW. Use 0 for no-braking pass through the target point. |
 |wait_time| FIELD_SEMANTIC_NUMERIC | Seconds to wait at WP before preceeding to next WP|
 |heading| FIELD_SEMANTIC_HEADING | Vehicle heading at the WP |
+|follow_terrain| FIELD_SEMANTIC_BOOL | Vehicle moving to the WP in follow terrain mode. Altitude above terrain is calculated as altitude_amsl minus ground_elevation.  |
 
 @subsubsection turn_types Vehicle turn types
 |Name|Value|
