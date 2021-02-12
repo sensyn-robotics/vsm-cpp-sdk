@@ -689,6 +689,10 @@ Property::Set_changed()
 bool
 Property::Is_changed()
 {
+    if (is_changed && type == VALUE_TYPE_STRING) {
+        return true;
+    }
+
     if (is_changed && std::chrono::steady_clock::now() - last_commit_time >= COMMIT_TIMEOUT) {
         return true;
     }

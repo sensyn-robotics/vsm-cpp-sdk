@@ -37,6 +37,7 @@ Registering different semantic for these values will lead to undesired results.
 | adsb_transponder_mode | FIELD_SEMANTIC_ADSB_MODE | ADSB |  |
 | adsb_version | FIELD_SEMANTIC_STRING | ADSB |  |
 | air_speed | FIELD_SEMANTIC_AIR_SPEED  | FC|  |
+| altitude_agl | FIELD_SEMANTIC_ALTITUDE_AGL | FC |  |
 | altitude_amsl | FIELD_SEMANTIC_ALTITUDE_AMSL | FC |  |
 | altitude_origin | FIELD_SEMANTIC_ALTITUDE_AMSL | FC |  |
 | altitude_raw | FIELD_SEMANTIC_ALTITUDE_RAW | FC |  |

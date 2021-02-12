@@ -109,6 +109,8 @@ Vehicle::Vehicle(
     c_mission_upload->Add_parameter("safe_altitude", proto::FIELD_SEMANTIC_ALTITUDE_AMSL);
     c_mission_upload->Add_parameter("rth_wait_altitude", proto::FIELD_SEMANTIC_ALTITUDE_AMSL);
 
+    c_mission_clear = flight_controller->Add_command("mission_clear", false); 
+
     // Derived vehicle should set supported enum values for these actions
     // possibly from proto::Failsafe_action
     p_rc_loss_action = c_mission_upload->Add_parameter("rc_loss_action", Property::VALUE_TYPE_ENUM);
@@ -118,6 +120,7 @@ Vehicle::Vehicle(
     // Additional parameters should be added by derived classes.
 
     c_pause = flight_controller->Add_command("mission_pause", true);
+    c_pause->Add_parameter("additional_altitude", Property::VALUE_TYPE_FLOAT);
 
     c_resume = flight_controller->Add_command("mission_resume", false);
 
@@ -178,6 +181,7 @@ Vehicle::Vehicle(
     c_move->Add_parameter("wait_time", Property::VALUE_TYPE_FLOAT);
     c_move->Add_parameter("heading");
     c_move->Add_parameter("ground_elevation");
+    c_move->Add_parameter("follow_terrain", Property::VALUE_TYPE_BOOL);
 
     c_wait = flight_controller->Add_command("wait", true);
     c_wait->Add_parameter("time", Property::VALUE_TYPE_FLOAT);
@@ -230,6 +234,7 @@ Vehicle::Vehicle(
     c_land_mission->Add_parameter("heading");
     c_land_mission->Add_parameter("descent_rate");
     c_land_mission->Add_parameter("ground_elevation");
+    c_land_mission->Add_parameter("follow_terrain", Property::VALUE_TYPE_BOOL);
 
 // Create primary camera. (Derived vehicles can add other cameras and/or add new commands to this one)
     primary_camera = Add_subsystem(proto::SUBSYSTEM_TYPE_CAMERA);

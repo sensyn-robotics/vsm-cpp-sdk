@@ -4,7 +4,7 @@
 #set (CMAKE_VERBOSE_MAKEFILE YES)
 
 set(SDK_VERSION_MAJOR 3)
-set(SDK_VERSION_MINOR 4)
+set(SDK_VERSION_MINOR 7)
 set(SDK_VERSION_BUILD "dev")
 
 # Convert list to space-separated string.
@@ -117,7 +117,9 @@ if (NOT UGCS_PACKAGING_ENABLED)
         set(UGCS_INSTALL_VAR_DIR "var/${UGCS_INSTALL_DIR}")
         set(UGCS_INSTALL_LOG_DIR "var/${UGCS_INSTALL_DIR}/log")
     elseif(WIN32)
-        set(UGCS_INSTALL_DIR "${CMAKE_PROJECT_NAME}")
+        if (NOT UGCS_INSTALL_DIR) 
+            set(UGCS_INSTALL_DIR "${CMAKE_PROJECT_NAME}")
+        endif()
         set(UGCS_INSTALL_BIN_DIR "${UGCS_INSTALL_DIR}/bin")
         set(UGCS_INSTALL_CFG_DIR "${UGCS_INSTALL_DIR}/config")
         set(UGCS_INSTALL_VAR_DIR "${UGCS_INSTALL_DIR}/var")
