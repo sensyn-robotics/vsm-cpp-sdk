@@ -255,10 +255,11 @@ private:
         // Try all extensions.
         if (    !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::Extension::Get())
             &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::apm::Extension::Get())
-            &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::sph::Extension::Get())) {
+            &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::sph::Extension::Get())
+            &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::sensyn::Extension::Get())) {
             std::lock_guard<std::mutex> stats_lock(stats_mutex);
             stats[mavlink::SYSTEM_ID_ANY].unknown_id++;
-            LOG_DEBUG("Unknown Mavlink message id: %d system id: %d component id: %d)", msg_id, system_id, component_id);
+            // LOG_DEBUG("Unknown Mavlink message id: %d system id: %d component id: %d)", msg_id, system_id, component_id);
             return false;
         }
 
@@ -268,19 +269,19 @@ private:
         /* Convert checksum in Mavlink byte order to a host byte order
          * compatible type. */
         auto sum_recv = reinterpret_cast<const mavlink::Uint16*>(data + header_len + payload_len);
-        const uint8_t* crc_ptr = data + header_len + payload_len;
-        const uint16_t crc16 = crc_ptr[1] << 8 | crc_ptr[0];
+        // const uint8_t* crc_ptr = data + header_len + payload_len;
+        // const uint16_t crc16 = crc_ptr[1] << 8 | crc_ptr[0];
 
         bool cksum_ok = sum_calc == *sum_recv;
         bool length_ok = crc_byte_len_pair.second == payload_len;
 
-        if (component_id == 154) {
-            // LOG_DEBUG("ignore messages from gimbal.");
-            return true;
-        }
+        // if (component_id == 154) {
+        //    // LOG_DEBUG("ignore messages from gimbal.");
+        //    return true;
+        //}
 
         std::unique_lock<std::mutex> stats_lock(stats_mutex);
-        LOG_DEBUG("message id: %d system id: %d component id: %d) [%x:%x:%x]", msg_id, system_id, component_id, crc16, sum_calc, *sum_recv);
+        // LOG_DEBUG("message id: %d system id: %d component id: %d) [%x:%x:%x]", msg_id, system_id, component_id, crc16, sum_calc, *sum_recv);
         if (cksum_ok && (length_ok || state == State::VER2)) {
             /*
              * Fully valid packet received.
@@ -297,7 +298,7 @@ private:
             }
             return true;
         } else {
-            LOG_DEBUG("Invalid Mavlink message id: %d system id: %d component id: %d) [%x:%x]", msg_id, system_id, component_id, sum_calc, *sum_recv);
+            // LOG_DEBUG("Invalid Mavlink message id: %d system id: %d component id: %d) [%x:%x]", msg_id, system_id, component_id, sum_calc, *sum_recv);
             if (cksum_ok) {
                 stats[system_id].bad_length++;
                 stats[mavlink::SYSTEM_ID_ANY].bad_length++;

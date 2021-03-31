@@ -138,7 +138,6 @@ public:
             buffer = encoder.Encode_v1(payload, system_id, component_id);
         }
 
-        LOG_DBG("Send_message: system id: %d component id: %d %s", system_id, component_id, buffer->Get_hex().c_str());
         Operation_waiter waiter = stream->Write(
                 buffer,
                 Make_dummy_callback<void, Io_result>(),

@@ -100,7 +100,8 @@ function(Build_mavlink SDK_SRC_DIR MAVLINK_INCLUDES_VAR MAVLINK_SOURCES_VAR MAVL
     set(MAV_DEF_DIR ${SDK_SRC_DIR}/resources/mavlink)
     set(MAV_XML ${MAV_DEF_DIR}/common.xml
                 ${MAV_DEF_DIR}/ardupilotmega.xml
-                ${MAV_DEF_DIR}/sphengineering.xml)
+                ${MAV_DEF_DIR}/sphengineering.xml
+                ${MAV_DEF_DIR}/sensyn.xml)
     set(MAV_XSD ${SDK_SRC_DIR}/resources/mavlink/mavschema.xsd)
 
     set(MAVLINK_INCLUDES ${CMAKE_BINARY_DIR}/mavlink/include)
