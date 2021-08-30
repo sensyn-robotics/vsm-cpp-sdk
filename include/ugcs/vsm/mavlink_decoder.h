@@ -256,7 +256,8 @@ private:
         if (    !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::Extension::Get())
             &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::apm::Extension::Get())
             &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::sph::Extension::Get())
-            &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::sensyn::Extension::Get())) {
+            &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::sensyn::Extension::Get())
+            &&  !sum.Get_extra_byte_length_pair(msg_id, crc_byte_len_pair, mavlink::acsl::Extension::Get())) {
             std::lock_guard<std::mutex> stats_lock(stats_mutex);
             stats[mavlink::SYSTEM_ID_ANY].unknown_id++;
             // LOG_DEBUG("Unknown Mavlink message id: %d system id: %d component id: %d)", msg_id, system_id, component_id);
