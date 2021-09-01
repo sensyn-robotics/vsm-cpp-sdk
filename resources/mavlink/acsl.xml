@@ -1,39 +1,82 @@
 <?xml version="1.0"?>
 <mavlink>
-  <!-- acsl custom message definitions                               -->
-  <!-- mavlink ID range 59001 - 59099                                -->
   <include>common.xml</include>
-
-  <!-- MAVLink drone specific mavlink2 custom messages-->
+  <!-- Vendors -->
+  <dialect>59</dialect>
+  <enums>
+    <!-- acsl specific MAV_CMD_* commands -->
+    <enum name="MAV_CMD">
+      <!-- 200 to 214 used by common.xml -->
+      <entry value="42425" name="MAV_CMD_DO_ACCEPT_MAG_CAL" hasLocation="false" isDestination="false">
+        <description>Accept a magnetometer calibration.</description>
+        <param index="1" label="Magnetometers Bitmask" minValue="0" maxValue="255" increment="1">Bitmask of magnetometers that calibration is accepted (0 means all).</param>
+        <param index="2">Empty.</param>
+        <param index="3">Empty.</param>
+        <param index="4">Empty.</param>
+        <param index="5">Empty.</param>
+        <param index="6">Empty.</param>
+        <param index="7">Empty.</param>
+      </entry>
+      <entry value="42426" name="MAV_CMD_DO_CANCEL_MAG_CAL" hasLocation="false" isDestination="false">
+        <description>Cancel a running magnetometer calibration.</description>
+        <param index="1" label="Magnetometers Bitmask" minValue="0" maxValue="255" increment="1">Bitmask of magnetometers to cancel a running calibration (0 means all).</param>
+        <param index="2">Empty.</param>
+        <param index="3">Empty.</param>
+        <param index="4">Empty.</param>
+        <param index="5">Empty.</param>
+        <param index="6">Empty.</param>
+        <param index="7">Empty.</param>
+      </entry>
+      <entry value="44001" name="MAV_CMD_DO_FUNCTION_ENABLE" hasLocation="false" isDestination="false">
+        <description>Vision sensor ON/OFF.</description>
+        <param index="1" label="Function ID">1:odometry, 2:obstacle avoidance, 3:Marker track</param>
+        <param index="2" label="Enable">0=disable, 1=enable</param>
+        <param index="3">Empty.</param>
+        <param index="4">Empty.</param>
+        <param index="5">Empty.</param>
+        <param index="6">Empty.</param>
+        <param index="7">Empty.</param>
+      </entry>
+    </enum>
+  </enums>
   <messages>
-    <message id="59002" name="ACSL_DRONE_HEALTH">
-      <description>ACSL Drone Health of vehicle hardware.</description>
-      <field type="uint8_t" name="upper_cpu_usage">Upper task CPU utilization</field>
-      <field type="uint8_t" name="lower_cpu_usage">Lower task CPU utilization</field>
-      <field type="int8_t" name="temperature">Temperature in vehicle</field>
-      <field type="uint8_t" name="imu_comm">IMU communication health. Range 0-15, good is above 10, bad is under 4, warning is 5 to 9. If not applicable, set 255.</field>
-      <field type="uint8_t" name="accel_data">Acceleration data quality. Range 0-15, good is above 10, bad is under 4, warning is 5 to 9. If not applicable, set 255.</field>
+    <message id="59001" name="DISTANCE_CONTROL">
+      <description></description>
+      <field type="uint8_t" name="src">Distance data source for control</field>
+      <field type="uint8_t" name="enable">Distance control enabled</field>
+      <field type="uint8_t" name="active">Distance control is active</field>
+      <field type="uint8_t" name="status">Distance control status</field>
+      <field type="float" name="reference_distance" units="m">Reference distance</field>
+      <field type="float" name="current_distance" units="m">Current distance</field>
+    </message>
+    <message id="59002" name="HEALTH">
+      <description>Health of vehicle hardware.</description>
+      <field type="uint8_t" name="upper_cpu_usage" units="%">Upper task CPU utilization</field>
+      <field type="uint8_t" name="lower_cpu_usage" units="%">Lower task CPU utilization</field>
+      <field type="int8_t" name="temperature" units="degC">Temperature in vehicle</field>
+      <field type="uint8_t" name="imu_comm">IMU communication</field>
+      <field type="uint8_t" name="accel_data">Acceleration data quality</field>
       <field type="uint8_t" name="gyro_data">Gyroscope data quality</field>
-      <field type="uint8_t" name="mag_comm">Magnetometer communication health</field>
+      <field type="uint8_t" name="mag_comm">Magnetometer communication</field>
       <field type="uint8_t" name="mag_data">Magnetometer data quality</field>
-      <field type="uint8_t" name="bar_comm">Barometer communication health</field>
+      <field type="uint8_t" name="bar_comm">Barometer communication</field>
       <field type="uint8_t" name="bar_data">Barometer data quality</field>
-      <field type="uint8_t" name="gps_comm">GPS communication health</field>
+      <field type="uint8_t" name="gps_comm">GPS communication</field>
       <field type="uint8_t" name="gps_data">GPS data quality</field>
-      <field type="uint8_t" name="vision_comm">Vision communication health</field>
+      <field type="uint8_t" name="vision_comm">Vision communication</field>
       <field type="uint8_t" name="vision_data">Vision data quality</field>
-      <field type="uint8_t[6]" name=" rs_comm">Ranging sensor communication health</field>
+      <field type="uint8_t[6]" name="rs_comm">Ranging sensor communication</field>
       <field type="uint8_t[6]" name="rs_data">Ranging sensor data quality</field>
-      <field type="uint8_t" name="pmu_comm">Power management unit communication health</field>
-      <field type="uint8_t" name="pmu_data">Power management unit data quality</field>
-      <field type="uint8_t" name="esc_comm">ESC communication health</field>
-      <field type="uint8_t[8]" name="esc_data">ESC health</field>
-      <field type="uint8_t" name="rc_comm">Radio controller communication health</field>
-      <field type="uint8_t[2]" name="gcs_comm">Ground control system communication health</field>
-      <field type="uint8_t" name="radio">Radio module health</field>
-      <field type="uint8_t" name="upper">Upper task health(lower task detection)</field>
-      <field type="uint8_t" name="lower">Lower task health(upper task detection)</field>
-      <field type="uint8_t[16]" name=" details">Specified devices detail</field>
+      <field type="uint8_t" name="pmu_comm">Power management unit</field>
+      <field type="uint8_t" name="pmu_data">Power management unit</field>
+      <field type="uint8_t[8]" name="esc_comm">ESC</field>
+      <field type="uint8_t[8]" name="esc_data">ESC</field>
+      <field type="uint8_t" name="rc_comm">Radio controller communication</field>
+      <field type="uint8_t[2]" name="gcs_comm">Ground control system communication</field>
+      <field type="uint8_t" name="radio">Radio module</field>
+      <field type="uint8_t" name="upper">Upper task(lower task detection)</field>
+      <field type="uint8_t" name="lower">Lower task(upper task detection)</field>
+      <field type="uint8_t[16]" name="details">specified devices detail</field>
     </message>
   </messages>
 </mavlink>
