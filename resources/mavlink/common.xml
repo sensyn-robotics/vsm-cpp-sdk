@@ -65,6 +65,9 @@
       <entry value="19" name="MAV_AUTOPILOT_AIRRAILS">
         <description>AirRails - http://uaventure.com</description>
       </entry>
+      <entry value="120" name="MAV_AUTOPILOT_DJI_MATRICE300_RTK">
+        <description>DJI Matrice 300 RTK - https://www.dji.com</description>
+      </entry>
     </enum>
     <enum name="MAV_TYPE">
       <description>MAVLINK system type. All components in a system should report this type in their HEARTBEAT.</description>
