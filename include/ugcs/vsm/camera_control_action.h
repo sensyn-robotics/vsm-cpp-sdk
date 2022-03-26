@@ -30,29 +30,33 @@ public:
     Camera_control_action(const Property_list& p) :
         Action(Type::CAMERA_CONTROL)
     {
-        p.at("tilt")->Get_value(tilt);
-        p.at("roll")->Get_value(roll);
-        p.at("yaw")->Get_value(yaw);
-        p.at("zoom_level")->Get_value(zoom);
+        has_tilt = p.at("tilt")->Get_value(tilt);
+        has_roll = p.at("roll")->Get_value(roll);
+        has_yaw  = p.at("yaw")->Get_value(yaw);
+        has_zoom = p.at("zoom_level")->Get_value(zoom);
     }
 
     /** Target camera tilt value in radians: [-Pi/2, Pi/2], where -Pi/2 stands
      * for looking backward, 0 for full down and Pi/2 for looking straight forward.
      */
     double tilt;
+    bool has_tilt;
 
     /** Target camera roll value in radians: [-Pi/2, Pi/2], where -Pi/2 stands
      * for left and Pi/2 for right.
      */
     double roll;
+    bool has_roll;
 
     /** Target camera yaw value in radians: [-Pi/2, Pi/2], where -Pi/2 stands
      * for left and Pi/2 for right.
      */
     double yaw;
+    bool has_yaw;
 
     /** Device specific camera zoom level. */
     double zoom;
+    bool has_zoom;
 };
 
 /** Type mapper for camera control action. */
