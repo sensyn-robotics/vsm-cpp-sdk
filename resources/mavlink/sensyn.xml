@@ -18,6 +18,7 @@
       <field type="int32_t" name="lon" units="degE7">Longitude, expressed</field>
       <field type="int32_t" name="alt" units="mm">Altitude (MSL)</field>
       <field type="int32_t" name="relative_alt" units="mm">Altitude above ground</field>
+      <field type="int32_t" name="target_distance" units="mm">The range to the target object</field>
     </message>
   </messages>
 </mavlink>
