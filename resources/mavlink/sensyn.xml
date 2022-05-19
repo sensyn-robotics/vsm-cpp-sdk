@@ -11,5 +11,14 @@
       <field type="uint8_t" name="type" enum="MAV_TYPE">Type of the system (quadrotor, helicopter, etc.). Components use the same type as their associated system.</field>
       <field type="char[254]" name="serial_number_id">Drone serial number id, terminated by NULL if the length is less than 254 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 254 chars - applications have to provide 254+1 bytes storage if the ID is stored as string</field>
     </message>
+    <message id="13001" name="LASER_RANGING_POSITION_INT">
+      <description>The height and GPS position of the measured object (e.g. DJI H20T Laser Ranging). The position is in GPS-frame (right-handed, Z-up). It
+               is designed as scaled integer message since the resolution of float is not sufficient.</description>
+      <field type="int32_t" name="lat" units="degE7">Latitude, expressed</field>
+      <field type="int32_t" name="lon" units="degE7">Longitude, expressed</field>
+      <field type="int32_t" name="alt" units="mm">Altitude (MSL)</field>
+      <field type="int32_t" name="relative_alt" units="mm">Altitude above ground</field>
+      <field type="int32_t" name="target_distance" units="mm">The range to the target object</field>
+    </message>
   </messages>
 </mavlink>
