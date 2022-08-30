@@ -402,6 +402,7 @@ Vehicle::Handle_ucs_command(
             // Mission route name is modified like: 0-M300RTK-xxxxxxxx\0{\"takeOffAltitude\":500}
             int takeoff_altitude = 0;
             bool was_armed = false;
+            bool need_modify_altitude_origin = false;
             t_is_armed->Get_value(was_armed);
             if (was_armed) {
                 // matched Take-off point altitude will store into match[3]
@@ -409,15 +410,19 @@ Vehicle::Handle_ucs_command(
                 std::smatch match;
                 if (std::regex_search(route_name, match, regex) && match.size() >= 4)
                 {
+                    need_modify_altitude_origin = true;
                     takeoff_altitude = std::stoi(match[3].str());
-                    LOG("takeoff altitude: %d", takeoff_altitude);
+                    LOG("Take-off point altitude: %d", takeoff_altitude);
                 }
              }
 
             float altitude_origin;
             if (params.Get_value("altitude_origin", altitude_origin)) {
-                altitude_origin += takeoff_altitude;
                 LOG("Altitude origin: %f", altitude_origin);
+                if (need_modify_altitude_origin) {
+                    altitude_origin += takeoff_altitude;
+                    LOG("Modified Altitude origin: %f", altitude_origin);
+                }
                 task->payload.Set_takeoff_altitude(altitude_origin);
             } else {
                 VSM_EXCEPTION(Action::Format_exception, "Altitude origin not present in mission");
