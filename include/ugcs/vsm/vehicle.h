@@ -289,6 +289,9 @@ protected:
     void
     Set_altitude_origin(float altitude_amsl);
 
+    static std::optional<double>
+    Get_takeoff_altitude(bool was_armed, const std::string& route_name);
+
     /*
      * Below are methods which are called by VSM SDK in vehicle context and
      * should be overridden by user code.

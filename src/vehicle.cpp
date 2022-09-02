@@ -12,9 +12,11 @@
 #include <ugcs/vsm/actions.h>
 
 #include <iostream>
-#include <regex>
+#include <nlohmann/json.hpp>
+#include <optional>
 
 using namespace ugcs::vsm;
+using json = nlohmann::json;
 
 std::hash<Vehicle*> Vehicle::Hasher::hasher;
 
@@ -349,6 +351,30 @@ Vehicle::Set_altitude_origin(float altitude_amsl)
     t_altitude_origin->Set_changed();   // Force sending even if value has not changed.
 }
 
+std::optional<double>
+Vehicle::Get_takeoff_altitude(bool was_armed, const std::string& route_name)
+{
+  // Fix UGCS server bug
+  // Ugcs can not update Take-off point altitude into altitude_origin when drone is armed
+  // Get Take-off point altitude from mission route name and add into altitude_origin
+  // Mission route name is modified like: 0-M300RTK-xxxxxxxx\0{"takeOffAltitude":500.0}
+  std::optional<double> takeoff_altitude = std::nullopt;
+  const std::string key = "takeOffAltitude";
+  if (was_armed) {
+      const auto null_char = std::strchr(route_name.c_str(), '\0');
+      // found null character in route_name(not last terminating null character)
+      if (null_char != route_name.c_str() + route_name.size()) {
+          const auto json_str = null_char + 1; // parse json str after found null character('\0')
+          LOG("Take-off point altitude json str: %s", json_str);
+          const json j = json::parse(json_str);
+          takeoff_altitude = j[key].get<double>();
+          LOG("Take-off point altitude: %f", takeoff_altitude.value());
+      }
+   }
+  return takeoff_altitude;
+}
+
+
 void
 Vehicle::Handle_ucs_command(
     Ucs_request::Ptr ucs_request)
@@ -399,28 +425,15 @@ Vehicle::Handle_ucs_command(
             // Fix UGCS server bug
             // Ugcs can not update Take-off point altitude into altitude_origin when drone is armed
             // Get Take-off point altitude from mission route name and add into altitude_origin
-            // Mission route name is modified like: 0-M300RTK-xxxxxxxx\0{\"takeOffAltitude\":500}
-            int takeoff_altitude = 0;
             bool was_armed = false;
-            bool need_modify_altitude_origin = false;
             t_is_armed->Get_value(was_armed);
-            if (was_armed) {
-                // matched Take-off point altitude will store into match[3]
-                std::regex regex(R"((takeOffAltitude)(\\":)(\d+))");
-                std::smatch match;
-                if (std::regex_search(route_name, match, regex) && match.size() >= 4)
-                {
-                    need_modify_altitude_origin = true;
-                    takeoff_altitude = std::stoi(match[3].str());
-                    LOG("Take-off point altitude: %d", takeoff_altitude);
-                }
-             }
+            std::optional<double> takeoff_altitude = Get_takeoff_altitude(was_armed, route_name);
 
             float altitude_origin;
             if (params.Get_value("altitude_origin", altitude_origin)) {
                 LOG("Altitude origin: %f", altitude_origin);
-                if (need_modify_altitude_origin) {
-                    altitude_origin += takeoff_altitude;
+                if (takeoff_altitude) {
+                    altitude_origin += takeoff_altitude.value();
                     LOG("Modified Altitude origin: %f", altitude_origin);
                 }
                 task->payload.Set_takeoff_altitude(altitude_origin);
