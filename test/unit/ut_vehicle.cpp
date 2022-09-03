@@ -244,4 +244,11 @@ TEST(get_takeoff_altitude_json_format)
     LOG("Embedded null character route_name: %s", route_name.c_str());
     takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
     CHECK(std::nullopt == takeoff_altitude);
+
+    // Test have no takeOffAltitude json str in route_name
+    was_armed = true;
+    route_name = "0-M300RTK-xxxxxxxx";
+    LOG("Embedded null character route_name: %s", route_name.c_str());
+    takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
+    CHECK(std::nullopt == takeoff_altitude);
 }
