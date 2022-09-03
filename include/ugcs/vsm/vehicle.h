@@ -24,6 +24,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <optional>
 
 namespace ugcs {
 namespace vsm {
@@ -119,6 +120,8 @@ public:
         return vehicle_type == proto::VEHICLE_TYPE_HELICOPTER || vehicle_type == proto::VEHICLE_TYPE_MULTICOPTER;
     }
 
+    static std::optional<double>
+    Get_takeoff_altitude(bool was_armed, const std::string& route_name);
 
     /** Hasher for Vehicle shared pointer. Used when vehicle pointer is
      * stored in some container. */
@@ -288,9 +291,6 @@ protected:
      * has changed. Ardupilot does that on home location change. */
     void
     Set_altitude_origin(float altitude_amsl);
-
-    static std::optional<double>
-    Get_takeoff_altitude(bool was_armed, const std::string& route_name);
 
     /*
      * Below are methods which are called by VSM SDK in vehicle context and

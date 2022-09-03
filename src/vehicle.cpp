@@ -13,7 +13,6 @@
 
 #include <iostream>
 #include <nlohmann/json.hpp>
-#include <optional>
 
 using namespace ugcs::vsm;
 using json = nlohmann::json;
@@ -362,13 +361,19 @@ Vehicle::Get_takeoff_altitude(bool was_armed, const std::string& route_name)
   const std::string key = "takeOffAltitude";
   if (was_armed) {
       const auto null_char = std::strchr(route_name.c_str(), '\0');
-      // found null character in route_name(not last terminating null character)
-      if (null_char != route_name.c_str() + route_name.size()) {
-          const auto json_str = null_char + 1; // parse json str after found null character('\0')
-          LOG("Take-off point altitude json str: %s", json_str);
+      // found embedded null character in route_name(not last terminating null character)
+      if (null_char != route_name.c_str() + route_name.length()) {
+          const auto json_str = null_char + 1; // parse json str after found embedded null character('\0')
+          LOG("Take-off point altitude json: %s", json_str);
           const json j = json::parse(json_str);
-          takeoff_altitude = j[key].get<double>();
-          LOG("Take-off point altitude: %f", takeoff_altitude.value());
+          if (j.find(key) != j.end()) {
+              takeoff_altitude = j[key].get<double>();
+              LOG("Take-off point altitude: %f", takeoff_altitude.value());
+          } else {
+              LOG("Not found json key: %s in route_name", key.c_str());
+          }
+      } else {
+          LOG("Not found embedded null character in route_name: %s", route_name.c_str());
       }
    }
   return takeoff_altitude;

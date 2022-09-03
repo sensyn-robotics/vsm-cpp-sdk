@@ -157,3 +157,74 @@ TEST(basic_usage)
     ugcs::vsm::Terminate();
 }
 
+TEST(get_takeoff_altitude_was_armed)
+{
+    // Test takeOffAltitude is 500.0
+    bool was_armed = true;
+    std::string route_name = "0-M300RTK-xxxxxxxx";
+    route_name += '\0';
+    route_name += "{\"takeOffAltitude\":500.0}";
+    LOG("Embedded null character route_name: %s", route_name.c_str());
+    std::optional<double> takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
+    CHECK_EQUAL(500.0, takeoff_altitude.value());
+
+    // Test takeOffAltitude is 600.5
+    was_armed = true;
+    route_name = "0-M300RTK-xxxxxxxx";
+    route_name += '\0';
+    route_name += "{\"takeOffAltitude\":600.5}";
+    LOG("Embedded null character route_name: %s", route_name.c_str());
+    takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
+    CHECK_EQUAL(600.5, takeoff_altitude.value());
+
+    // Test takeOffAltitude is 0.0
+    was_armed = true;
+    route_name = "0-M300RTK-xxxxxxxx";
+    route_name += '\0';
+    route_name += "{\"takeOffAltitude\":0.0}";
+    LOG("Embedded null character route_name: %s", route_name.c_str());
+    takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
+    CHECK_EQUAL(0.0, takeoff_altitude.value());
+}
+
+TEST(get_takeoff_altitude_not_armed)
+{
+    // Test not armed
+    bool was_armed = false;
+    std::string route_name = "0-M300RTK-xxxxxxxx";
+    route_name += '\0';
+    route_name += "{\"takeOffAltitude\":500.0}";
+    LOG("Embedded null character route_name: %s", route_name.c_str());
+    std::optional<double> takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
+    CHECK(std::nullopt == takeoff_altitude);
+}
+
+TEST(get_takeoff_altitude_json_format)
+{
+    // Test takeOffAltitude json str have blank character
+    bool was_armed = true;
+    std::string route_name = "0-M300RTK-xxxxxxxx";
+    route_name += '\0';
+    route_name += "{\"takeOffAltitude\": 500.0}";
+    LOG("Embedded null character route_name: %s", route_name.c_str());
+    std::optional<double> takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
+    CHECK_EQUAL(500.0, takeoff_altitude.value());
+
+    // Test takeOffAltitude json str have a wrong key
+    was_armed = true;
+    route_name = "0-M300RTK-xxxxxxxx";
+    route_name += '\0';
+    route_name += "{\"takeOff-Altitude\": 500.0}";
+    LOG("Embedded null character route_name: %s", route_name.c_str());
+    takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
+    CHECK(std::nullopt == takeoff_altitude);
+
+    // Test takeOffAltitude json str have a wrong case-sensitive key(lowercase)
+    was_armed = true;
+    route_name = "0-M300RTK-xxxxxxxx";
+    route_name += '\0';
+    route_name += "{\"takeoffaltitude\": 500.0}";
+    LOG("Embedded null character route_name: %s", route_name.c_str());
+    takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
+    CHECK(std::nullopt == takeoff_altitude);
+}
