@@ -210,6 +210,15 @@ TEST(get_takeoff_altitude_json_format)
     std::optional<double> takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
     CHECK_EQUAL(500.0, takeoff_altitude.value());
 
+    // Test takeOffAltitude json str have int value
+    was_armed = true;
+    route_name = "0-M300RTK-xxxxxxxx";
+    route_name += '\0';
+    route_name += "{\"takeOffAltitude\": 500}";
+    LOG("Embedded null character route_name: %s", route_name.c_str());
+    takeoff_altitude = Vehicle::Get_takeoff_altitude(was_armed, route_name);
+    CHECK_EQUAL(500.0, takeoff_altitude.value());
+
     // Test takeOffAltitude json str have a wrong key
     was_armed = true;
     route_name = "0-M300RTK-xxxxxxxx";
