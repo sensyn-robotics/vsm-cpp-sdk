@@ -47,9 +47,6 @@ set(INITIAL_CONFIG_SRC ${SDK_SOURCE_ROOT}/resources/configuration/vsm.conf)
 set(INITIAL_CONFIG_DST ${CMAKE_BINARY_DIR}/vsm.conf)
 add_custom_command(TARGET initial_config COMMAND 
     ${CMAKE_COMMAND} -E copy ${INITIAL_CONFIG_SRC} ${INITIAL_CONFIG_DST})
-add_custom_command(TARGET initial_config COMMAND 
-    ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/resources
-    ${CMAKE_BINARY_DIR}/resources)
 
 add_library(ut_vsm_sdk STATIC ${SDK_SOURCES} ${SDK_HEADERS})
 

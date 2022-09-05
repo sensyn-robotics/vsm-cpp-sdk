@@ -24,6 +24,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <optional>
 
 namespace ugcs {
 namespace vsm {
@@ -119,6 +120,8 @@ public:
         return vehicle_type == proto::VEHICLE_TYPE_HELICOPTER || vehicle_type == proto::VEHICLE_TYPE_MULTICOPTER;
     }
 
+    static std::optional<double>
+    Get_takeoff_altitude(bool was_armed, const std::string& route_name);
 
     /** Hasher for Vehicle shared pointer. Used when vehicle pointer is
      * stored in some container. */

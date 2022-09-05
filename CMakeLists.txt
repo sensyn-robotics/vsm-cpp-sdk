@@ -1,6 +1,10 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.8.2)
 
 project(vsm-sdk)
+
+set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD_REQUIRED ON)
+add_definitions(-Wno-deprecated)
 
 if(NOT DEFINED VSM_BUILD_DOC)
     SET(VSM_BUILD_DOC NO)
