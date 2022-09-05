@@ -68,6 +68,10 @@ TEST(mavlink_decoder_basic_tests)
     CHECK(mavlink::MESSAGE_ID::HEARTBEAT == msg_id);
 
     Mavlink_decoder decoder2;
+    decoder2.Register_handler(
+            Mavlink_decoder::Make_decoder_handler(
+                    &Mavlink_message_handler));
+
     decoder2.Decode(message);
     CHECK_EQUAL(1ul, decoder2.Get_stats(SYSID).handled);
     CHECK_EQUAL(2, received);
