@@ -353,30 +353,31 @@ Vehicle::Set_altitude_origin(float altitude_amsl)
 std::optional<double>
 Vehicle::Get_takeoff_altitude(bool was_armed, const std::string& route_name)
 {
-  // Fix UGCS server bug
-  // Ugcs can not update Take-off point altitude into altitude_origin when drone is armed
-  // Get Take-off point altitude from mission route name and add into altitude_origin
-  // Mission route name is modified like: 0-M300RTK-xxxxxxxx\0{"takeOffAltitude":500.0}
-  std::optional<double> takeoff_altitude = std::nullopt;
-  const std::string key = "takeOffAltitude";
-  if (was_armed) {
-      const auto null_char = std::strchr(route_name.c_str(), '\0');
-      // found embedded null character in route_name(not last terminating null character)
-      if (null_char != route_name.c_str() + route_name.length()) {
-          const auto json_str = null_char + 1; // parse json str after found embedded null character('\0')
-          LOG("Take-off point altitude json: %s", json_str);
-          const json j = json::parse(json_str);
-          if (j.find(key) != j.end()) {
-              takeoff_altitude = j[key].get<double>();
-              LOG("Take-off point altitude: %f", takeoff_altitude.value());
-          } else {
-              LOG("Not found json key: %s in route_name", key.c_str());
-          }
-      } else {
-          LOG("Not found embedded null character in route_name: %s", route_name.c_str());
-      }
-   }
-  return takeoff_altitude;
+    // Fix UGCS server bug
+    // Ugcs can not update Take-off point altitude into altitude_origin when drone is armed
+    // Get Take-off point altitude from mission route name and add into altitude_origin
+    // Mission route name is modified like: 0-M300RTK-xxxxxxxx\0{"takeOffAltitude":500.0}
+    std::optional<double> takeoff_altitude = std::nullopt;
+    const std::string key = "takeOffAltitude";
+    const auto null_char = std::strchr(route_name.c_str(), '\0');
+    // found embedded null character in route_name(not last terminating null character)
+    if (!was_armed || null_char == route_name.c_str() + route_name.length()) {
+        LOG("Is not armed or not found embedded null character in route_name: %s", route_name.c_str());
+        return takeoff_altitude;
+    }
+
+    // parse json str after found embedded null character('\0')
+    const auto json_str = null_char + 1;
+    LOG("Take-off point altitude json: %s", json_str);
+    const json j = json::parse(json_str);
+    if (j.find(key) != j.end()) {
+        takeoff_altitude = j[key].get<double>();
+        LOG("Take-off point altitude: %f", takeoff_altitude.value());
+    } else {
+        LOG("Not found json key: %s in route_name", key.c_str());
+    }
+
+    return takeoff_altitude;
 }
 
 
