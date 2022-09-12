@@ -24,4 +24,8 @@ foreach (TEST ${TESTS})
     if (RES GREATER -1)
         add_test(${TEST}_no_valgrind ./${TEST_BIN})
     endif()
+    # run unit tests as post build step
+    add_custom_command(TARGET ${TEST_BIN}
+        POST_BUILD COMMAND ${TEST_BIN}
+        COMMENT "Running unit tests")
 endforeach()
