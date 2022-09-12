@@ -22,32 +22,11 @@
     </message>
     <message id="13002" name="POWERLINE_TRACKING_PARAM_SET">
       <description>Set powerline detection parameters.</description>
-      <field type="uint8_t" name="target_system">System ID</field>
-      <field type="uint8_t" name="target_component">Component ID</field>
-      <field type="float" name="sensor_height_mm" units="mm">sensor_height_mm (millimeter)</field>
-      <field type="float" name="fy_mm" units="mm">fy_mm (millimeter)</field>
-      <field type="float" name="powerline_diameter_mm" units="mm">powerline_diameter_mm (millimeter)</field>
-      <field type="float" name="powerline_distance_m" units="m">powerline_distance_m (meter)</field>
-      <field type="int32_t" name="gaussian_blur_size">gaussian_blur_size</field>
-      <field type="float" name="low_edge_thre">low_edge_thre</field>
-      <field type="float" name="high_edge_thre">high_edge_thre</field>
-      <field type="int32_t" name="sobel_ksize">sobel_ksize</field>
-      <field type="float" name="min_diffval">min_diffval</field>
-      <field type="float" name="hough_rho_res">hough_rho_res</field>
-      <field type="float" name="hough_theta_res_deg" units="deg">hough_theta_res_deg (degree)</field>
-      <field type="float" name="hough_thre">hough_thre</field>
-      <field type="float" name="hough_searchrange_afterstab_deg" units="deg">hough_searchrange_afterstab_deg (degree)</field>
-      <field type="float" name="hough_parallel_range_deg" units="deg">hough_parallel_range_deg (degree)</field>
-      <field type="uint8_t" name="hough_use_edgeval">hough_use_edgeval boolean flag</field>
-      <field type="int32_t" name="candidateline_reduce_factor">candidateline_reduce_factor</field>
-      <field type="int32_t" name="close_line_remove_range_ratio">close_line_remove_range_ratio</field>
-      <field type="float" name="powerline_width_search_ratio">powerline_width_search_ratio</field>
-      <field type="int32_t" name="num_max_lines">num_max_lines</field>
-      <field type="int32_t" name="resizedimg_h">resizedimg_h</field>
-      <field type="float" name="sigma_obs_rho">sigma_obs_rho</field>
-      <field type="float" name="sigma_obs_theta_deg" units="deg">sigma_obs_theta_deg (degree)</field>
-      <field type="int32_t" name="camera_pitch_step_max_pixel">camera_pitch_step_max_pixel</field>
-      <field type="float" name="camera_roll_step_max_deg" units="deg">camera_roll_step_max_deg (degree)</field>
+      <field type="float" name="sensor_height_mm" units="mm">sensor height (millimeter)</field>
+      <field type="float" name="focal_length_fy_mm" units="mm">focal length fy (millimeter)</field>
+      <field type="float" name="powerline_diameter_mm" units="mm">powerline diameter (millimeter)</field>
+      <field type="float" name="powerline_distance_m" units="m">powerline distance (meter)</field>
+      <field type="int32_t" name="powerline_number">number of powerlines</field>
     </message>
     <message id="13003" name="POWERLINE_TRACKING_PARAM_ACK">
       <description>Response from a POWERLINE_PARAM_SET message.</description>
