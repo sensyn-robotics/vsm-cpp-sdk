@@ -20,7 +20,7 @@
       <field type="int32_t" name="relative_alt" units="mm">Altitude above ground</field>
       <field type="int32_t" name="target_distance" units="mm">The range to the target object</field>
     </message>
-    <message id="13002" name="POWERLINE_PARAM_SET">
+    <message id="13002" name="POWERLINE_TRACKING_PARAM_SET">
       <description>Set powerline detection parameters.</description>
       <field type="float" name="sensor_height_mm" units="mm">sensor height (millimeter)</field>
       <field type="float" name="focal_length_fy_mm" units="mm">focal length fy (millimeter)</field>
@@ -28,7 +28,7 @@
       <field type="float" name="powerline_distance_m" units="m">powerline distance (meter)</field>
       <field type="int32_t" name="powerline_number">number of powerlines</field>
     </message>
-    <message id="13003" name="POWERLINE_PARAM_ACK">
+    <message id="13003" name="POWERLINE_TRACKING_PARAM_ACK">
       <description>Response from a POWERLINE_PARAM_SET message.</description>
       <field type="uint8_t" name="param_result" enum="PARAM_ACK">Result code.</field>
     </message>
