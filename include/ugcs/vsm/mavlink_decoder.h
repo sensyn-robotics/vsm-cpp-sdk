@@ -137,6 +137,7 @@ public:
                     for (; len_skipped < buffer_len; len_skipped++, data++) {
                         if (*data == mavlink::START_SIGN) {
                             // found preamble. Start receiving payload.
+                            is_mavlink2 = false;
                             state = State::VER1;
                             stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
                             // slice off the preamble.
@@ -145,6 +146,7 @@ public:
                         }
                         if (*data == mavlink::START_SIGN2) {
                             // found preamble. Start receiving payload.
+                            is_mavlink2 = true;
                             state = State::VER2;
                             stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
                             // slice off the preamble.
@@ -218,6 +220,12 @@ public:
     {
         std::lock_guard<std::mutex> lock(stats_mutex);
         return stats[mavlink::SYSTEM_ID_ANY];
+    }
+
+    bool
+    Is_mavlink2()
+    {
+        return is_mavlink2;
     }
 
 private:
@@ -304,6 +312,8 @@ private:
 
     /** Current decoder state. */
     State state = State::STX;
+
+    bool is_mavlink2 = false;
 
     /** Handler for decoded messages. */
     Handler handler;
