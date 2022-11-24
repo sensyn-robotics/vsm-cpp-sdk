@@ -301,8 +301,9 @@ private:
                     ss << std::hex << data[i] << " ";
                 }
 
+                uint16_t sum_recv_value = *sum_recv; 
                 LOG_INFO("Bad checksum! calculated=%ud received=%ud data=%s", 
-                    sum_calc, sum_recv.Get(), ss.str().c_str());
+                    sum_calc, sum_recv_value, ss.str().c_str());
 
                 stats[mavlink::SYSTEM_ID_ANY].bad_checksum++;
             }
