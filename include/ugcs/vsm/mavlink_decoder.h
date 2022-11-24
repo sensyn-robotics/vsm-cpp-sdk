@@ -296,11 +296,12 @@ private:
                     payload_len, crc_byte_len_pair.second);
             } else {
                 std::stringstream ss;
-                for (size_t i = 0; i < static_cast<int>(header_len) + static_cast<int>(payload_len) + 2; i++) {
+                size_t packet_length = header_len + payload_len + 2;
+                for (size_t i = 0; i < packet_length; i++) {
                     ss << std::hex << data[i] << " ";
                 }
 
-                LOG_INFO("Bad checksum! calculated=%d received=%d data=%s", 
+                LOG_INFO("Bad checksum! calculated=%ud received=%ud data=%s", 
                     sum_calc, *sum_recv, ss.str().c_str());
 
                 stats[mavlink::SYSTEM_ID_ANY].bad_checksum++;
