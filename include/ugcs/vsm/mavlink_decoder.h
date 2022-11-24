@@ -302,7 +302,7 @@ private:
                 }
 
                 LOG_INFO("Bad checksum! calculated=%ud received=%ud data=%s", 
-                    sum_calc, *sum_recv, ss.str().c_str());
+                    sum_calc, sum_recv.Get(), ss.str().c_str());
 
                 stats[mavlink::SYSTEM_ID_ANY].bad_checksum++;
             }
