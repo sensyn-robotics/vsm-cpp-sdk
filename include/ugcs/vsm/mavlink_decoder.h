@@ -295,6 +295,12 @@ private:
                 LOG_DEBUG("Mavlink payload length mismatch, recv=%d wanted=%d.",
                     payload_len, crc_byte_len_pair.second);
             } else {
+                std::stringstream ss;
+                ss << std::hex << data;
+
+                LOG_INFO("Bad checksum! calculated=%ld received=%ld data=%s", 
+                    sum_calc, sum_recv, ss.str());
+
                 stats[mavlink::SYSTEM_ID_ANY].bad_checksum++;
             }
             return false;
