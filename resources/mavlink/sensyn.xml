@@ -30,6 +30,8 @@
       <field type="float" name="powerline_distance_m" units="m">powerline distance (meter)</field>
       <field type="int32_t" name="powerline_number">number of powerlines</field>
       <field type="int32_t" name="camera_automode_trigger_wp_index">camera automode trigger waypoint index</field>
+      <extensions/>
+      <field type="int32_t" name="auto_focus_ring_value">auto focus ring value</field>
     </message>
     <message id="13003" name="POWERLINE_TRACKING_PARAM_ACK">
       <description>Response from a POWERLINE_PARAM_SET message.</description>
