@@ -74,6 +74,11 @@ public:
         uint64_t stx_syncs = 0;
     };
 
+    enum class MavlinkVersion {
+      V1,
+      V2
+    };
+
 
     /** Default constructor. */
     Mavlink_decoder():
@@ -137,6 +142,7 @@ public:
                     for (; len_skipped < buffer_len; len_skipped++, data++) {
                         if (*data == mavlink::START_SIGN) {
                             // found preamble. Start receiving payload.
+                            mavlink_version = MavlinkVersion::V1;
                             state = State::VER1;
                             stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
                             // slice off the preamble.
@@ -145,6 +151,7 @@ public:
                         }
                         if (*data == mavlink::START_SIGN2) {
                             // found preamble. Start receiving payload.
+                            mavlink_version = MavlinkVersion::V2;
                             state = State::VER2;
                             stats[mavlink::SYSTEM_ID_ANY].stx_syncs++;
                             // slice off the preamble.
@@ -218,6 +225,11 @@ public:
     {
         std::lock_guard<std::mutex> lock(stats_mutex);
         return stats[mavlink::SYSTEM_ID_ANY];
+    }
+
+    MavlinkVersion
+    Get_mavlink_version() const {
+        return mavlink_version;
     }
 
 private:
@@ -315,6 +327,8 @@ private:
 
     /** Current decoder state. */
     State state = State::STX;
+
+    MavlinkVersion mavlink_version = MavlinkVersion::V1;
 
     /** Handler for decoded messages. */
     Handler handler;
