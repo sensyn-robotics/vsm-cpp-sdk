@@ -6,3 +6,5 @@
 /**/html*
 # Ignore eclipse settings file
 .settings
+CMakeLists.txt.user
+

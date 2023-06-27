@@ -648,6 +648,9 @@
       <entry value="19" name="MAV_FRAME_ESTIM_ENU">
         <description>Odometry local coordinate frame of data given by an estimator running onboard the vehicle, Z-up (x: east, y: noth, z: up).</description>
       </entry>
+      <entry value="255" name="MAV_FRAME_GLOBAL_ELLIPSOID_ALT_EGM96">
+        <description>Global (WGS84) coordinate frame + Ellipsoid altitude. First value / x: latitude, second value / y: longitude, third value / z: Ellipsoid altitude against the reference ellipsoid (EGM96).</description>
+      </entry>
     </enum>
     <enum name="MAVLINK_DATA_STREAM_TYPE">
       <entry name="MAVLINK_DATA_STREAM_IMG_JPEG">
