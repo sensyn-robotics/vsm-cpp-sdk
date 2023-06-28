@@ -351,16 +351,12 @@ Vehicle::Set_altitude_origin(float altitude_amsl)
 }
 
 std::optional<double>
-Vehicle::Get_takeoff_altitude(bool was_armed, const std::string& route_name)
+Vehicle::Get_takeoff_altitude(const std::string& route_name)
 {
     // Fix UGCS server bug
     // Ugcs can not update Take-off point altitude into altitude_origin when drone is armed
     // Get Take-off point altitude from mission route name and add into altitude_origin
     // Mission route name is modified like: 0-M300RTK-xxxxxxxx\0{"takeOffAltitude":500.0}
-    if (!was_armed) {
-        LOG("Is not armed, no need to get Take-off point altitude in route_name: %s", route_name.c_str());
-        return std::nullopt;
-    }
 
     // found embedded null character in route_name(not last terminating null character)
     const auto& nul_pos = route_name.find('\0');
@@ -437,12 +433,22 @@ Vehicle::Handle_ucs_command(
             // Get Take-off point altitude from mission route name and add into altitude_origin
             bool was_armed = false;
             t_is_armed->Get_value(was_armed);
-            std::optional<double> takeoff_altitude = Get_takeoff_altitude(was_armed, route_name);
+            std::optional<double> takeoff_altitude = Get_takeoff_altitude(route_name);
+
+            // Take-off point altitude above ground
+            // Sensyn specification
+            // Sensyn pilot will set 500m Take-off point altitude above ground into altitude_amsl for fly over some low altitude
+            // Not really set 500m altitude for fly height
+            if (takeoff_altitude) {
+                task->payload.Set_takeoff_altitude_above_ground(takeoff_altitude.value());
+            } else {
+                task->payload.Set_takeoff_altitude_above_ground(0);
+            }
 
             float altitude_origin;
             if (params.Get_value("altitude_origin", altitude_origin)) {
                 LOG("Altitude origin: %f", altitude_origin);
-                if (takeoff_altitude) {
+                if (was_armed && takeoff_altitude) {
                     altitude_origin += takeoff_altitude.value();
                     LOG("Modified Altitude origin: %f", altitude_origin);
                 }

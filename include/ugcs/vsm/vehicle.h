@@ -121,7 +121,7 @@ public:
     }
 
     static std::optional<double>
-    Get_takeoff_altitude(bool was_armed, const std::string& route_name);
+    Get_takeoff_altitude(const std::string& route_name);
 
     /** Hasher for Vehicle shared pointer. Used when vehicle pointer is
      * stored in some container. */

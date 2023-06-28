@@ -56,6 +56,11 @@ public:
     void
     Set_takeoff_altitude(double altitude);
 
+    double
+    Get_takeoff_altitude_above_ground() const;
+    void
+    Set_takeoff_altitude_above_ground(double altitude);
+
     /** Action list of the task .*/
     std::vector<Action::Ptr> actions;
 
@@ -80,8 +85,14 @@ private:
     std::tuple<Wgs84_position, double>
     Get_home_position_impl() const;
 
-    /** Take-off altitude, should be set before giving the task for user. */
+    /** Take-off altitude above mean sea level, should be set before giving the task for user. */
     Optional<double> takeoff_altitude;
+
+    // Take-off point altitude above ground
+    // Sensyn specification
+    // Sensyn pilot will set 500m Take-off point altitude above ground into altitude_amsl for fly over some low altitude
+    // Not really set 500m altitude for fly height
+    double takeoff_altitude_above_ground = 0;
 };
 
 } /* namespace vsm */

@@ -37,6 +37,18 @@ Task::Set_takeoff_altitude(double altitude)
     takeoff_altitude = altitude;
 }
 
+double
+Task::Get_takeoff_altitude_above_ground() const
+{
+    return takeoff_altitude_above_ground;
+}
+
+void
+Task::Set_takeoff_altitude_above_ground(double altitude)
+{
+    takeoff_altitude_above_ground = altitude;
+}
+
 std::tuple<Wgs84_position, double>
 Task::Get_home_position_impl() const
 {
