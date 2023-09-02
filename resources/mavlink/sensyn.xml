@@ -47,5 +47,13 @@
       <description>Response from a POWERLINE_PARAM_SET message.</description>
       <field type="uint8_t" name="param_result" enum="PARAM_ACK">Result code.</field>
     </message>
+    <message id="13006" name="RTK_USAGE_STATUS">
+      <description>RTK usage status.</description>
+      <field type="uint8_t" name="rtk_usage_status">RTK usage status</field>
+    </message>
+    <message id="13007" name="LIDAR_SENSOR_QUALITY">
+      <description>Lidar sensor quality.</description>
+      <field type="uint8_t" name="lidar_sensor_quality">Lidar sensor quality</field>
+    </message>
   </messages>
 </mavlink>
