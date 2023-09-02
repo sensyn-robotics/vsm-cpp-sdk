@@ -37,5 +37,23 @@
       <description>Response from a POWERLINE_PARAM_SET message.</description>
       <field type="uint8_t" name="param_result" enum="PARAM_ACK">Result code.</field>
     </message>
+    <message id="13004" name="MISSION_SETTINGS_SET">
+      <description>Set powerline detection parameters.</description>
+      <field type="uint32_t" name="drone_type_id">drone_types.code in sensyn pilot</field>
+      <field type="uint32_t" name="camera_type_id">camera_types.camera_id in sensyn pilot</field>
+      <field type="float" name="focal_length_zoom_level">zoom multiple FocalLength (31.0 for for H20T)</field>
+    </message>
+    <message id="13005" name="MISSION_SETTINGS_ACK">
+      <description>Response from a POWERLINE_PARAM_SET message.</description>
+      <field type="uint8_t" name="param_result" enum="PARAM_ACK">Result code.</field>
+    </message>
+    <message id="13006" name="RTK_USAGE_STATUS">
+      <description>RTK usage status.</description>
+      <field type="uint8_t" name="rtk_usage_status">RTK usage status</field>
+    </message>
+    <message id="13007" name="LIDAR_SENSOR_QUALITY">
+      <description>Lidar sensor quality.</description>
+      <field type="uint8_t" name="lidar_sensor_quality">Lidar sensor quality</field>
+    </message>
   </messages>
 </mavlink>
