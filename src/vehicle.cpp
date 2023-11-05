@@ -445,11 +445,18 @@ Vehicle::Handle_ucs_command(
                 task->payload.Set_takeoff_altitude_above_ground(0);
             }
 
+            // Fix UGCS server bug
+            // Ugcs can not update altitude_origin when first upload mission in a new location and drone is armed
+            // (ex. first upload mission in a new location(altitude elevation change greatly) when drone is hovering)
+            // Using current Home Location altitude as altitude origin when drone is armed
             float altitude_origin;
             if (params.Get_value("altitude_origin", altitude_origin)) {
                 LOG("Altitude origin: %f", altitude_origin);
-                if (was_armed && takeoff_altitude) {
-                    altitude_origin += takeoff_altitude.value();
+                if (was_armed) {
+                    float hl = 0;
+                    t_home_altitude_amsl->Get_value(hl);
+                    altitude_origin = hl + task->payload.Get_takeoff_altitude_above_ground();
+                    LOG("Using current Home Location altitude %f m as altitude origin when drone is armed.", hl);
                     LOG("Modified Altitude origin: %f", altitude_origin);
                 }
                 task->payload.Set_takeoff_altitude(altitude_origin);
