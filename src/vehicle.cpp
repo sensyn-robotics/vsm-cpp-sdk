@@ -458,6 +458,8 @@ Vehicle::Handle_ucs_command(
                     altitude_origin = hl + task->payload.Get_takeoff_altitude_above_ground();
                     LOG("Using current Home Location altitude %f m as altitude origin when drone is armed.", hl);
                     LOG("Modified Altitude origin: %f", altitude_origin);
+                } else {
+                    LOG("Using altitude origin %f m from route.", altitude_origin);
                 }
                 task->payload.Set_takeoff_altitude(altitude_origin);
             } else {
