@@ -23,6 +23,22 @@ Task::Get_home_position_altitude() const
 }
 
 double
+Task::Get_gcs_homepoint_elevation() const
+{
+    if (!gcs_homepoint_elevation) {
+        VSM_EXCEPTION(Internal_error_exception, "Gcs homepoint elevation not set in task.");
+    }
+    return *gcs_homepoint_elevation;
+}
+
+void
+Task::Set_gcs_homepoint_elevation(double altitude)
+{
+    gcs_homepoint_elevation = altitude;
+}
+
+
+double
 Task::Get_takeoff_altitude() const
 {
     if (!takeoff_altitude) {
