@@ -56,6 +56,14 @@ public:
     void
     Set_takeoff_altitude(double altitude);
 
+    /** Get GCS home point elevation. */
+    double
+    Get_gcs_homepoint_elevation() const;
+
+    /** Set GCS home point elevation. */
+    void
+    Set_gcs_homepoint_elevation(double altitude);
+
     double
     Get_takeoff_altitude_above_ground() const;
     void
@@ -87,6 +95,9 @@ private:
 
     /** Take-off altitude above mean sea level, should be set before giving the task for user. */
     Optional<double> takeoff_altitude;
+
+    // Gcs home point elevation above mean sea level
+    Optional<double> gcs_homepoint_elevation;
 
     // Take-off point altitude above ground
     // Sensyn specification
