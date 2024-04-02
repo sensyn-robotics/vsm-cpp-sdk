@@ -42,6 +42,9 @@
       <field type="uint32_t" name="drone_type_id">drone_types.code in sensyn pilot</field>
       <field type="uint32_t" name="camera_type_id">camera_types.camera_id in sensyn pilot</field>
       <field type="float" name="focal_length_zoom_level">zoom multiple FocalLength (31.0 for for H20T)</field>
+      <extensions/>
+      <field type="float" name="vertical_sensor_size">camera's vertical sensor size (mm)</field>
+      <field type="float" name="horizontal_sensor_size">camera's horizontal sensor size (mm)</field>
     </message>
     <message id="13005" name="MISSION_SETTINGS_ACK">
       <description>Response from a POWERLINE_PARAM_SET message.</description>
