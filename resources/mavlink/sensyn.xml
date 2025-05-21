@@ -58,5 +58,13 @@
       <description>Lidar sensor quality.</description>
       <field type="uint8_t" name="lidar_sensor_quality">Lidar sensor quality</field>
     </message>
+    <message id="13008" name="RTK_FIX_STATUS">
+      <description>Diagnose RTK Fix Failure Reason.</description>
+      <field type="uint8_t"  name="rtk_source_type">RTKReferenceStationSource (BASE_STATION: 2, CUSTOM_NETWORK_SERVICE: 4)</field>
+      <field type="uint8_t"  name="is_rtk_enabled">rtkState.isRTKEnabled</field>
+      <field type="uint8_t"  name="is_rtk_being_used">rtkState.isRTKBeingUsed</field>
+      <field type="uint32_t" name="rtk_fix_status">RTKPositioningSolution (0~65535)</field>
+      <field type="uint32_t" name="rtk_network_service_status">RTKServiceState (0~65535)</field>
+    </message>
   </messages>
 </mavlink>

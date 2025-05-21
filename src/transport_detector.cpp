@@ -9,6 +9,7 @@
  *      Author: janis
  */
 
+#include <cstring>
 #include <ugcs/vsm/transport_detector.h>
 #include <ugcs/vsm/utils.h>
 
