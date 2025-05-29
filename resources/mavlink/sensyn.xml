@@ -63,6 +63,7 @@
       <field type="uint8_t"  name="is_rtk_enabled">RTKSystemState.getIsRTKEnabled</field>
       <field type="uint8_t"  name="is_rtk_connected">RTKSystemState.getRTKConnected</field>
       <field type="uint8_t"  name="is_rtk_healthy">RTKSystemState.getRTKHealthy</field>
+      <field type="uint32_t" name="rtk_pos_solution">RTKPositioningSolution (NONE:15, SINGLE_POINT:16, FLOAT:34, FIXED_POINT:50, UNKNOWN:65535)</field>
       <field type="uint32_t" name="rtk_source_type">RTKReferenceStationSource (BASE_STATION: 2, CUSTOM_NETWORK_SERVICE: 4)</field>
       <field type="uint32_t" name="gps_satellite_count">GPSSatelliteCount</field>
       <field type="uint32_t" name="rtk_satellite_count">RTKSatelliteCount</field>
