@@ -58,7 +58,7 @@
       <description>Lidar sensor quality.</description>
       <field type="uint8_t" name="lidar_sensor_quality">Lidar sensor quality</field>
     </message>
-    <message id="13008" name="RTK_FIX_STATUS">
+    <message id="13008" name="RTK_STATUS">
       <description>RTK system fix status.</description>
       <field type="uint8_t"  name="is_rtk_enabled">RTKSystemState.getIsRTKEnabled</field>
       <field type="uint8_t"  name="is_rtk_connected">RTKSystemState.getRTKConnected</field>

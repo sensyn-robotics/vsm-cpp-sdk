@@ -12,10 +12,10 @@
 #include <ugcs/vsm/actions.h>
 
 #include <iostream>
-#include "rapidjson/document.h"
+#include <nlohmann/json.hpp>
 
 using namespace ugcs::vsm;
-using namespace rapidjson;
+using json = nlohmann::json;
 
 std::hash<Vehicle*> Vehicle::Hasher::hasher;
 
@@ -368,12 +368,11 @@ Vehicle::Get_takeoff_altitude(const std::string& route_name)
     // parse json str after found embedded null character('\0')
     const auto& json_str = route_name.substr(nul_pos + 1);
     LOG("Take-off point altitude json: %s", json_str.c_str());
-    Document j;
-    j.Parse(json_str.c_str());
+    const json j = json::parse(json_str);
     const std::string key = "takeOffAltitude";
-    if (j.HasMember(key.c_str())) {
-        LOG("Take-off point altitude: %f", j[key.c_str()].GetDouble());
-        return j[key.c_str()].GetDouble();
+    if (j.find(key) != j.end()) {
+        LOG("Take-off point altitude: %f", j[key].get<double>());
+        return j[key].get<double>();
     } else {
         LOG("Not found json key: %s in route_name", key.c_str());
     }
