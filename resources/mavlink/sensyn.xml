@@ -45,6 +45,12 @@
       <extensions/>
       <field type="float" name="vertical_sensor_size">camera's vertical sensor size (mm)</field>
       <field type="float" name="horizontal_sensor_size">camera's horizontal sensor size (mm)</field>
+      <field type="float" name="camera_pitch_speed_pid_p">camera pitch speed PID (P)</field>
+      <field type="float" name="camera_pitch_speed_pid_i">camera pitch speed PID (I)</field>
+      <field type="float" name="camera_pitch_speed_pid_d">camera pitch speed PID (D)</field>
+      <field type="float" name="camera_roll_speed_pid_p">camera roll speed PID (P)</field>
+      <field type="float" name="camera_roll_speed_pid_i">camera roll speed PID (I)</field>
+      <field type="float" name="camera_roll_speed_pid_d">camera roll speed PID (D)</field>
     </message>
     <message id="13005" name="MISSION_SETTINGS_ACK">
       <description>Response from a POWERLINE_PARAM_SET message.</description>
