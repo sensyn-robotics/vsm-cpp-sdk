@@ -152,6 +152,7 @@ protected:
     Property::Ptr t_longitude = nullptr;
     Property::Ptr t_altitude_raw = nullptr;
     Property::Ptr t_altitude_amsl = nullptr;
+    Property::Ptr t_altitude_ellipsoid = nullptr;
     Property::Ptr t_altitude_agl = nullptr;
     Property::Ptr t_ground_speed = nullptr;
     Property::Ptr t_air_speed = nullptr;

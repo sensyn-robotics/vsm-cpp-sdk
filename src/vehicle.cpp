@@ -47,6 +47,7 @@ Vehicle::Vehicle(
     ADD_TS(uplink_present, proto::FIELD_SEMANTIC_BOOL);
     ADD_T(altitude_raw);
     ADD_T(altitude_amsl);
+    ADD_T(altitude_ellipsoid);
     ADD_T(altitude_agl);
     ADD_T(air_speed);
     ADD_T(course);
