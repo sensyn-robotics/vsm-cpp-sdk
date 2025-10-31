@@ -16,6 +16,8 @@ Property::Get_default_semantic(const std::string& name)
         return proto::FIELD_SEMANTIC_LATITUDE;
     } else if (name == "longitude") {
         return proto::FIELD_SEMANTIC_LONGITUDE;
+    } else if (name == "altitude_ellipsoid") {
+        return proto::FIELD_SEMANTIC_NUMERIC;
     } else if (name == "altitude_amsl") {
         return proto::FIELD_SEMANTIC_ALTITUDE_AMSL;
     } else if (name == "altitude_origin") {
