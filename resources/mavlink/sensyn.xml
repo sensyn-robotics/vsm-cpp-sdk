@@ -21,6 +21,7 @@
       <field type="int32_t" name="target_distance" units="mm">The range to the target object</field>
       <extensions/>
       <field type="int32_t" name="error_state">The laser error from the laser sensor</field>
+      <field type="int32_t" name="alt_ellipsoid" units="mm">Altitude (above WGS84, EGM96 ellipsoid). Positive for up.</field>
     </message>
     <message id="13002" name="POWERLINE_TRACKING_PARAM_SET">
       <description>Set powerline detection parameters.</description>
